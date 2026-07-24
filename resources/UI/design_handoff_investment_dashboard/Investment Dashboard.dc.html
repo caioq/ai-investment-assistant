@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: rgba(120,130,155,0.35); border-radius: 8px; }
+    @keyframes slideInPanel { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes riseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  </style>
+</helmet>
+
+<div style="{{ rootStyle }}">
+
+<!-- SIDEBAR -->
+  <aside style="grid-area: sidebar; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items:center; padding: 22px 10px; gap: 4px;">
+    <div style="width:36px; height:36px; border-radius:10px; background: linear-gradient(155deg, var(--navy), var(--blue)); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Fraunces', serif; font-size:16px; font-weight:600; flex-shrink:0; margin-bottom:24px;">P</div>
+
+    <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="5">
+      <div onClick="{{ item.onClick }}" style="{{ item.rowStyle }}" style-hover="{{ item.rowHoverStyle }}" title="{{ item.label }}">
+        <div style="{{ item.iconStyle }}">{{ item.glyph }}</div>
+        <span style="{{ item.labelStyle }}">{{ item.label }}</span>
+      </div>
+    </sc-for>
+
+    <sc-if value="{{ navToast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:fixed; left:74px; bottom:100px; background: var(--bg-card-alt); border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:12px; color: var(--text-secondary); animation: riseIn 0.25s ease; box-shadow: var(--shadow); z-index:5; width:150px;">{{ navToast }}</div>
+    </sc-if>
+
+    <div style="margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:14px;">
+      <div onClick="{{ toggleTheme }}" style="{{ themeToggleTrackStyle }}" title="Toggle dark mode">
+        <div style="{{ themeToggleThumbStyle }}"></div>
+      </div>
+      <div style="width:34px; height:34px; border-radius:50%; background: var(--emerald); display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:700; flex-shrink:0; cursor:pointer;" title="Jordan Mercer &middot; Individual account">JM</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main style="grid-area: main; overflow-y:auto; padding: 32px 40px 64px 40px; display:flex; flex-direction:column; gap:28px;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <div style="font-size:12px; font-weight:600; color:var(--text-tertiary); letter-spacing:0.06em; text-transform:uppercase;">Dashboard</div>
+        <div style="font-family:'Fraunces', serif; font-size:26px; font-weight:600; color:var(--text-primary); margin-top:2px; letter-spacing:-0.01em;">Good afternoon, Jordan</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="font-size:12px; color:var(--text-tertiary); background: var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:6px;">
+          <div style="width:6px; height:6px; border-radius:50%; background: var(--emerald); animation: pulseDot 2s ease-in-out infinite;"></div>
+          Markets open &middot; updated just now
+        </div>
+      </div>
+    </div>
+
+    <!-- HERO: PORTFOLIO SUMMARY -->
+    <section style="background: linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%); border-radius:20px; padding:32px 36px; box-shadow: var(--shadow-lg); position:relative; overflow:visible;">
+      <div style="position:absolute; top:0; right:0; width:280px; height:280px; border-radius:20px; overflow:hidden; pointer-events:none;">
+        <div style="position:absolute; top:-80px; right:-80px; width:280px; height:280px; border-radius:50%; background: radial-gradient(circle, rgba(47,111,237,0.35), transparent 70%);"></div>
+      </div>
+      <div style="position:relative; display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:24px;">
+        <div>
+          <div style="font-size:13px; font-weight:600; color:rgba(255,255,255,0.55); letter-spacing:0.04em; text-transform:uppercase;">Total portfolio value</div>
+          <div style="font-family:'Fraunces', serif; font-size:46px; font-weight:600; color:#fff; letter-spacing:-0.02em; margin-top:6px;">{{ summary.totalValueStr }}</div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+            <span style="{{ summary.dayBadgeStyle }}">{{ summary.dayChangeArrow }} {{ summary.dayChangeStr }} ({{ summary.dayChangePctStr }})</span>
+            <span style="font-size:12.5px; color:rgba(255,255,255,0.5);">today</span>
+          </div>
+        </div>
+        <button onClick="{{ openAIPanel }}" style="display:flex; align-items:center; gap:10px; background: linear-gradient(135deg, var(--emerald), #0BA57A); border:none; color:#fff; padding:14px 22px; border-radius:13px; font-size:14px; font-weight:700; cursor:pointer; box-shadow: 0 8px 24px rgba(16,185,129,0.35); letter-spacing:-0.01em;" style-hover="{{ aiCtaHoverStyle }}">
+          <span style="width:8px; height:8px; border-radius:50%; background:#fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25);"></span>
+          Generate AI Portfolio Review
+        </button>
+      </div>
+
+      <div style="position:relative; display:grid; grid-template-columns: repeat(4, 1fr); gap:1px; background: rgba(255,255,255,0.08); border-radius:14px; margin-top:28px; overflow:visible;">
+        <div style="background: rgba(255,255,255,0.04); padding:16px 20px;">
+          <div style="font-size:11.5px; font-weight:600; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em;">Total return</div>
+          <div style="font-size:19px; font-weight:700; color:#fff; margin-top:6px;">{{ summary.totalReturnStr }}</div>
+          <div style="font-size:12px; font-weight:600; color: var(--emerald-light); margin-top:2px;">{{ summary.totalReturnPctStr }} all-time</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.04); padding:16px 20px;">
+          <div style="font-size:11.5px; font-weight:600; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em;">Total invested</div>
+          <div style="font-size:19px; font-weight:700; color:#fff; margin-top:6px;">{{ summary.totalInvestedStr }}</div>
+          <div style="font-size:12px; color:rgba(255,255,255,0.45); margin-top:2px;">Cost basis</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.04); padding:16px 20px;">
+          <div style="font-size:11.5px; font-weight:600; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em;">Cash available</div>
+          <div style="font-size:19px; font-weight:700; color:#fff; margin-top:6px;">{{ summary.cashAvailableStr }}</div>
+          <div style="font-size:12px; color:rgba(255,255,255,0.45); margin-top:2px;">Ready to deploy</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.04); padding:16px 20px;">
+          <div style="font-size:11.5px; font-weight:600; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em;">Holdings</div>
+          <div style="font-size:19px; font-weight:700; color:#fff; margin-top:6px;">{{ summary.holdingsCountStr }}</div>
+          <div style="font-size:12px; color:rgba(255,255,255,0.45); margin-top:2px;">Across 8 sectors</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALLOCATION + PERFORMANCE ROW -->
+    <div style="display:grid; grid-template-columns: 420px 1fr; gap:24px; align-items:stretch;">
+
+      <!-- ASSET ALLOCATION -->
+      <section style="background: var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:24px; box-shadow: var(--shadow); display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-size:15px; font-weight:700; color:var(--text-primary); letter-spacing:-0.01em;">Asset allocation</div>
+        </div>
+
+        <div style="display:flex; background: var(--bg-card-alt); border-radius:9px; padding:3px; margin-top:14px; gap:2px;">
+          <sc-for list="{{ allocationModes }}" as="m" hint-placeholder-count="3">
+            <button onClick="{{ m.onClick }}" style="{{ m.btnStyle }}">{{ m.label }}</button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ allocationFilterChip }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:center; gap:6px; margin-top:12px; background: var(--bg-card-alt); border:1px solid var(--border); border-radius:8px; padding:6px 10px; width:fit-content;">
+            <span style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">Filtered: {{ allocationFilterChip }}</span>
+            <span onClick="{{ clearAllocationFilter }}" style="cursor:pointer; color:var(--text-tertiary); font-size:13px; font-weight:700; line-height:1;">&times;</span>
+          </div>
+        </sc-if>
+
+        <div style="position:relative; width:230px; height:230px; margin:20px auto 8px auto;">
+          <div style="width:100%; height:100%; border-radius:50%; background: {{ donutGradientCss }}; transition: background 0.5s ease;"></div>
+          <div style="position:absolute; inset:26px; border-radius:50%; background: var(--bg-card); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:8px;">
+            <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.03em;">{{ donutCenterLabel }}</div>
+            <div style="font-size:20px; font-weight:700; color:var(--text-primary); margin-top:3px;">{{ donutCenterValue }}</div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px; margin-top:12px;">
+          <sc-for list="{{ allocationLegend }}" as="row" hint-placeholder-count="6">
+            <div onClick="{{ row.onClick }}" onMouseEnter="{{ row.onEnter }}" onMouseLeave="{{ row.onLeave }}" style="{{ row.rowStyle }}" style-hover="{{ row.rowHoverStyle }}">
+              <div style="{{ row.swatchStyle }}"></div>
+              <span style="flex:1; font-size:12.5px; font-weight:500; color:var(--text-primary); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ row.label }}</span>
+              <span style="font-size:12.5px; font-weight:700; color:var(--text-primary);">{{ row.pctStr }}</span>
+              <span style="font-size:11.5px; color:var(--text-tertiary); width:70px; text-align:right;">{{ row.valueStr }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- PERFORMANCE -->
+      <section style="background: var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:24px; box-shadow: var(--shadow); display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div>
+            <div style="font-size:15px; font-weight:700; color:var(--text-primary); letter-spacing:-0.01em;">Portfolio performance</div>
+            <div style="display:flex; align-items:center; gap:14px; margin-top:8px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="width:10px; height:3px; border-radius:2px; background: var(--blue); display:inline-block;"></span>
+                <span style="font-size:12px; color:var(--text-secondary);">Portfolio</span>
+                <span style="font-size:12.5px; font-weight:700; color:var(--emerald);">{{ performance.portfolioReturnStr }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="width:10px; height:3px; border-radius:2px; background: var(--text-tertiary); display:inline-block;"></span>
+                <span style="font-size:12px; color:var(--text-secondary);">S&amp;P 500</span>
+                <span style="font-size:12.5px; font-weight:700; color:var(--text-secondary);">{{ performance.benchmarkReturnStr }}</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; background: var(--bg-card-alt); border-radius:9px; padding:3px; gap:2px;">
+            <sc-for list="{{ performanceRanges }}" as="r" hint-placeholder-count="7">
+              <button onClick="{{ r.onClick }}" style="{{ r.btnStyle }}">{{ r.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="flex:1; margin-top:20px; min-height:220px; position:relative;">
+          <svg viewBox="0 0 640 220" preserveAspectRatio="none" style="width:100%; height:220px; display:block; overflow:visible;">
+            <sc-for list="{{ performance.gridLines }}" as="gl" hint-placeholder-count="4">
+              <line x1="0" x2="640" y1="{{ gl.y }}" y2="{{ gl.y }}" stroke="var(--border)" stroke-width="1"></line>
+            </sc-for>
+            <path d="{{ performance.benchmarkPath }}" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-dasharray="4 4" style="transition: d 0.4s ease;"></path>
+            <path d="{{ performance.areaPath }}" fill="url(#perfFill)" opacity="0.5" style="transition: d 0.4s ease;"></path>
+            <path d="{{ performance.portfolioPath }}" fill="none" stroke="var(--blue)" stroke-width="2.5" style="transition: d 0.4s ease;"></path>
+            <defs>
+              <linearGradient id="perfFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.35"></stop>
+                <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div style="display:flex; justify-content:space-between; margin-top:6px;">
+            <sc-for list="{{ performance.xLabels }}" as="lbl" hint-placeholder-count="6">
+              <span style="font-size:10.5px; color:var(--text-tertiary);">{{ lbl }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- HOLDINGS TABLE -->
+    <section style="background: var(--bg-card); border:1px solid var(--border); border-radius:18px; box-shadow: var(--shadow); overflow:hidden;">
+      <div style="padding:22px 24px 16px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;">
+        <div>
+          <div style="font-size:15px; font-weight:700; color:var(--text-primary); letter-spacing:-0.01em;">Holdings</div>
+          <div style="font-size:12px; color:var(--text-tertiary); margin-top:2px;">{{ holdingsCountLabel }}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div style="position:relative;">
+            <input value="{{ searchQuery }}" onInput="{{ onSearchInput }}" placeholder="Search ticker or company" style="width:230px; font-size:13px; padding:9px 12px 9px 30px; border-radius:9px; border:1px solid var(--border); background: var(--bg-card-alt); color: var(--text-primary); outline:none;"></input>
+            <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--text-tertiary);">&#8981;</span>
+          </div>
+          <select value="{{ categoryFilterValue }}" onChange="{{ onCategoryFilterChange }}" style="font-size:13px; padding:9px 12px; border-radius:9px; border:1px solid var(--border); background: var(--bg-card-alt); color: var(--text-primary); outline:none; cursor:pointer;">
+            <sc-for list="{{ categoryFilterOptions }}" as="opt" hint-placeholder-count="9">
+              <option value="{{ opt.value }}">{{ opt.label }}</option>
+            </sc-for>
+          </select>
+        </div>
+      </div>
+
+      <div style="max-height:520px; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr style="position:sticky; top:0; background: var(--bg-card); z-index:1;">
+              <sc-for list="{{ tableColumns }}" as="col" hint-placeholder-count="9">
+                <th onClick="{{ col.onClick }}" style="{{ col.thStyle }}">{{ col.label }} {{ col.sortIndicator }}</th>
+              </sc-for>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ tableRows }}" as="h" hint-placeholder-count="10">
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:12px 20px 12px 24px;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="{{ h.avatarStyle }}">{{ h.initials }}</div>
+                    <div>
+                      <div style="font-size:13px; font-weight:700; color:var(--text-primary);">{{ h.ticker }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td style="padding:12px 16px; font-size:13px; color:var(--text-secondary);">{{ h.name }}</td>
+                <td style="padding:12px 16px;">
+                  <span style="{{ h.categoryPillStyle }}">{{ h.category }}</span>
+                </td>
+                <td style="padding:12px 16px; font-size:13px; color:var(--text-primary); text-align:right; font-variant-numeric:tabular-nums;">{{ h.priceStr }}</td>
+                <td style="padding:12px 16px; font-size:13px; color:var(--text-tertiary); text-align:right; font-variant-numeric:tabular-nums;">{{ h.avgPriceStr }}</td>
+                <td style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--text-primary); text-align:right; font-variant-numeric:tabular-nums;">{{ h.marketValueStr }}</td>
+                <td style="padding:12px 16px; text-align:right;">
+                  <div style="{{ h.gainColorStyle }}">{{ h.gainLossStr }}</div>
+                  <div style="font-size:11.5px; {{ h.gainColorStyle }} margin-top:1px;">{{ h.gainLossPctStr }}</div>
+                </td>
+                <td style="padding:12px 16px; text-align:right; font-size:12.5px; color:var(--text-secondary); font-variant-numeric:tabular-nums;">{{ h.weightStr }}</td>
+                <td style="padding:12px 20px 12px 16px;">
+                  <svg viewBox="0 0 100 32" style="width:80px; height:28px; display:block; margin-left:auto;">
+                    <path d="{{ h.sparklinePath }}" fill="none" stroke="{{ h.sparklineColor }}" stroke-width="2"></path>
+                  </svg>
+                </td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:48px 24px; text-align:center; color:var(--text-tertiary); font-size:13px;">No holdings match your filters.</div>
+        </sc-if>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- AI ADVISOR PANEL -->
+  <sc-if value="{{ aiPanelOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAIPanel }}" style="position:fixed; inset:0; background: rgba(8,14,28,0.5); backdrop-filter: blur(2px); z-index:40; animation: fadeIn 0.2s ease;"></div>
+    <aside style="position:fixed; top:0; right:0; height:100%; width:560px; max-width:92vw; background: var(--bg-card); z-index:41; box-shadow: -24px 0 60px rgba(8,14,28,0.25); animation: slideInPanel 0.32s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column;">
+
+      <div style="padding:26px 30px 20px 30px; border-bottom:1px solid var(--border); background: linear-gradient(155deg, var(--navy), var(--navy-2)); position:relative; overflow:hidden;">
+        <div style="position:absolute; top:-60px; right:-40px; width:180px; height:180px; border-radius:50%; background: radial-gradient(circle, rgba(16,185,129,0.3), transparent 70%);"></div>
+        <div style="position:relative; display:flex; align-items:flex-start; justify-content:space-between;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:7px; height:7px; border-radius:50%; background: var(--emerald);"></div>
+              <span style="font-size:11.5px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color: rgba(255,255,255,0.6);">AI Portfolio Advisor</span>
+            </div>
+            <div style="font-family:'Fraunces', serif; font-size:22px; font-weight:600; color:#fff; margin-top:8px; letter-spacing:-0.01em;">Portfolio Review</div>
+            <div style="font-size:12.5px; color:rgba(255,255,255,0.55); margin-top:4px;">Generated {{ aiReport.timestamp }} &middot; based on your holdings &amp; Q3 sector outlook report</div>
+          </div>
+          <button onClick="{{ closeAIPanel }}" style="background:rgba(255,255,255,0.1); border:none; color:#fff; width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:15px; flex-shrink:0;">&times;</button>
+        </div>
+      </div>
+
+      <div style="flex:1; overflow-y:auto; padding:24px 30px 40px 30px;">
+
+        <sc-if value="{{ aiGenerating }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:80px 20px;">
+            <div style="width:44px; height:44px; border-radius:50%; border:3px solid var(--border); border-top-color: var(--emerald); animation: spin 0.9s linear infinite;"></div>
+            <div style="font-size:13px; color:var(--text-secondary); text-align:center;">Analyzing 32 holdings against sector research and diversification models&hellip;</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ aiReportReady }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="display:flex; gap:10px; background: var(--bg-card-alt); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:24px;">
+              <div style="width:26px; height:26px; border-radius:7px; background: var(--blue); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:700;">i</div>
+              <div style="font-size:12.5px; color:var(--text-secondary); line-height:1.5;">This review cross-references your portfolio against the <strong style="color:var(--text-primary);">Meridian Research Q3 Sector Outlook</strong> and your account's diversification model &mdash; not generic AI guesswork.</div>
+            </div>
+
+            <div style="margin-bottom:28px;">
+              <div style="font-size:13px; font-weight:700; color: var(--emerald); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:12px;">Strengths</div>
+              <sc-for list="{{ aiReport.strengths }}" as="s" hint-placeholder-count="4">
+                <div style="display:flex; gap:10px; padding:10px 0;">
+                  <div style="width:20px; height:20px; border-radius:50%; background: rgba(16,185,129,0.14); color:var(--emerald); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; margin-top:1px;">&#10003;</div>
+                  <div style="font-size:13.5px; color:var(--text-primary); line-height:1.5;">{{ s }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="margin-bottom:28px;">
+              <div style="font-size:13px; font-weight:700; color: var(--red); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:12px;">Risks</div>
+              <sc-for list="{{ aiReport.risks }}" as="r" hint-placeholder-count="4">
+                <div style="display:flex; gap:10px; padding:10px 0;">
+                  <div style="width:20px; height:20px; border-radius:50%; background: rgba(224,104,90,0.14); color:var(--red); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; margin-top:1px;">!</div>
+                  <div style="font-size:13.5px; color:var(--text-primary); line-height:1.5;">{{ r }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div>
+              <div style="font-size:13px; font-weight:700; color: var(--blue); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:12px;">Recommendations</div>
+              <sc-for list="{{ aiReport.recommendations }}" as="rec" hint-placeholder-count="5">
+                <div style="border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:10px; background: var(--bg-card-alt);">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+                    <div style="font-size:13.5px; font-weight:600; color:var(--text-primary); line-height:1.4;">{{ rec.title }}</div>
+                    <span style="{{ rec.priorityStyle }}">{{ rec.priority }}</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:16px; margin-top:12px;">
+                    <div style="flex:1;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-size:10.5px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.03em;">Confidence</span>
+                        <span style="font-size:11px; font-weight:700; color:var(--text-primary);">{{ rec.confidence }}%</span>
+                      </div>
+                      <div style="height:5px; border-radius:3px; background: var(--border); overflow:hidden;">
+                        <div style="{{ rec.confidenceBarStyle }}"></div>
+                      </div>
+                    </div>
+                    <div style="text-align:right;">
+                      <div style="font-size:10.5px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.03em;">Impact</div>
+                      <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin-top:3px;">{{ rec.impact }}</div>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </aside>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:1000},&quot;compactHoldingsTable&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behavior&quot;},&quot;defaultAllocationView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;category&quot;,&quot;options&quot;:[&quot;category&quot;,&quot;subcategory&quot;,&quot;asset&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Behavior&quot;}}">
+const CATEGORY_META = {
+  'Technology': { color: '#2F6FED' },
+  'Financials': { color: '#1B2A4A' },
+  'Healthcare': { color: '#10B981' },
+  'Consumer Discretionary': { color: '#D9A441' },
+  'Energy': { color: '#C2703D' },
+  'Utilities': { color: '#0EA5A4' },
+  'Communication Services': { color: '#6366A6' },
+  'Industrials': { color: '#8891A5' },
+};
+
+const HOLDINGS_RAW = [
+  { ticker: 'AAPL', name: 'Apple Inc.', category: 'Technology', subcategory: 'Hardware', qty: 120, avgPrice: 151.20, price: 214.80, dayPct: 0.8 },
+  { ticker: 'MSFT', name: 'Microsoft Corp.', category: 'Technology', subcategory: 'Software', qty: 60, avgPrice: 298.10, price: 441.30, dayPct: 1.2 },
+  { ticker: 'NVDA', name: 'NVIDIA Corp.', category: 'Technology', subcategory: 'Semiconductors', qty: 150, avgPrice: 42.50, price: 126.40, dayPct: 2.4 },
+  { ticker: 'GOOGL', name: 'Alphabet Inc.', category: 'Technology', subcategory: 'Software', qty: 70, avgPrice: 112.30, price: 178.90, dayPct: 0.5 },
+  { ticker: 'AMZN', name: 'Amazon.com Inc.', category: 'Technology', subcategory: 'Software', qty: 55, avgPrice: 129.40, price: 198.20, dayPct: -0.3 },
+  { ticker: 'META', name: 'Meta Platforms', category: 'Technology', subcategory: 'Software', qty: 40, avgPrice: 268.70, price: 512.60, dayPct: 1.7 },
+  { ticker: 'CRM', name: 'Salesforce Inc.', category: 'Technology', subcategory: 'Software', qty: 35, avgPrice: 210.00, price: 298.40, dayPct: -0.6 },
+  { ticker: 'AVGO', name: 'Broadcom Inc.', category: 'Technology', subcategory: 'Semiconductors', qty: 25, avgPrice: 520.00, price: 1685.00, dayPct: 3.1 },
+  { ticker: 'JPM', name: 'JPMorgan Chase', category: 'Financials', subcategory: 'Banks', qty: 80, avgPrice: 142.30, price: 214.60, dayPct: 0.4 },
+  { ticker: 'BAC', name: 'Bank of America', category: 'Financials', subcategory: 'Banks', qty: 200, avgPrice: 31.20, price: 42.80, dayPct: -0.2 },
+  { ticker: 'GS', name: 'Goldman Sachs', category: 'Financials', subcategory: 'Banks', qty: 20, avgPrice: 355.00, price: 512.30, dayPct: 0.9 },
+  { ticker: 'V', name: 'Visa Inc.', category: 'Financials', subcategory: 'Payments', qty: 65, avgPrice: 228.40, price: 312.70, dayPct: 0.3 },
+  { ticker: 'MA', name: 'Mastercard Inc.', category: 'Financials', subcategory: 'Payments', qty: 30, avgPrice: 398.60, price: 512.90, dayPct: 0.6 },
+  { ticker: 'JNJ', name: 'Johnson & Johnson', category: 'Healthcare', subcategory: 'Pharma', qty: 70, avgPrice: 158.20, price: 172.40, dayPct: 0.1 },
+  { ticker: 'PFE', name: 'Pfizer Inc.', category: 'Healthcare', subcategory: 'Pharma', qty: 180, avgPrice: 38.60, price: 29.80, dayPct: -1.1 },
+  { ticker: 'UNH', name: 'UnitedHealth Group', category: 'Healthcare', subcategory: 'MedTech', qty: 25, avgPrice: 492.00, price: 558.70, dayPct: 0.7 },
+  { ticker: 'ABBV', name: 'AbbVie Inc.', category: 'Healthcare', subcategory: 'Biotech', qty: 45, avgPrice: 148.90, price: 189.30, dayPct: 0.4 },
+  { ticker: 'TSLA', name: 'Tesla Inc.', category: 'Consumer Discretionary', subcategory: 'Auto', qty: 50, avgPrice: 212.40, price: 268.90, dayPct: -2.3 },
+  { ticker: 'HD', name: 'Home Depot', category: 'Consumer Discretionary', subcategory: 'Retail', qty: 35, avgPrice: 328.60, price: 398.10, dayPct: 0.5 },
+  { ticker: 'NKE', name: 'Nike Inc.', category: 'Consumer Discretionary', subcategory: 'Retail', qty: 90, avgPrice: 98.40, price: 76.20, dayPct: -0.9 },
+  { ticker: 'MCD', name: "McDonald's Corp.", category: 'Consumer Discretionary', subcategory: 'Retail', qty: 40, avgPrice: 268.30, price: 298.60, dayPct: 0.2 },
+  { ticker: 'DIS', name: 'Walt Disney Co.', category: 'Consumer Discretionary', subcategory: 'Media', qty: 75, avgPrice: 92.10, price: 112.40, dayPct: 0.3 },
+  { ticker: 'XOM', name: 'Exxon Mobil Corp.', category: 'Energy', subcategory: 'Oil & Gas', qty: 110, avgPrice: 98.20, price: 118.60, dayPct: -0.4 },
+  { ticker: 'CVX', name: 'Chevron Corp.', category: 'Energy', subcategory: 'Oil & Gas', qty: 60, avgPrice: 152.40, price: 168.90, dayPct: -0.6 },
+  { ticker: 'DUK', name: 'Duke Energy', category: 'Utilities', subcategory: 'Electricity', qty: 130, avgPrice: 98.60, price: 112.30, dayPct: 0.2 },
+  { ticker: 'SO', name: 'Southern Company', category: 'Utilities', subcategory: 'Electricity', qty: 140, avgPrice: 68.40, price: 82.10, dayPct: 0.1 },
+  { ticker: 'AWK', name: 'American Water Works', category: 'Utilities', subcategory: 'Water', qty: 55, avgPrice: 128.90, price: 142.60, dayPct: 0.3 },
+  { ticker: 'VZ', name: 'Verizon Communications', category: 'Communication Services', subcategory: 'Telecom', qty: 200, avgPrice: 38.20, price: 42.90, dayPct: -0.2 },
+  { ticker: 'T', name: 'AT&T Inc.', category: 'Communication Services', subcategory: 'Telecom', qty: 250, avgPrice: 16.80, price: 21.40, dayPct: 0.1 },
+  { ticker: 'NFLX', name: 'Netflix Inc.', category: 'Communication Services', subcategory: 'Internet', qty: 15, avgPrice: 412.60, price: 698.30, dayPct: 1.4 },
+  { ticker: 'BA', name: 'Boeing Co.', category: 'Industrials', subcategory: 'Aerospace', qty: 40, avgPrice: 198.40, price: 172.60, dayPct: -1.8 },
+  { ticker: 'CAT', name: 'Caterpillar Inc.', category: 'Industrials', subcategory: 'Manufacturing', qty: 30, avgPrice: 268.90, price: 352.40, dayPct: 0.6 },
+];
+
+const CASH_AVAILABLE = 42850;
+
+function money(n, opts) {
+  opts = opts || {};
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  return sign + '$' + abs.toLocaleString('en-US', { minimumFractionDigits: opts.decimals != null ? opts.decimals : 2, maximumFractionDigits: opts.decimals != null ? opts.decimals : 2 });
+}
+function moneyCompact(n) {
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  return sign + '$' + abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function pct(n, decimals) {
+  const d = decimals == null ? 2 : decimals;
+  return (n >= 0 ? '+' : '') + n.toFixed(d) + '%';
+}
+function hashStr(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+function seededRand(seed) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+function initials(name) {
+  const parts = name.replace(/[^a-zA-Z ]/g, '').split(' ').filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+const RANGE_CONFIG = {
+  '1M': { points: 22, portfolioReturn: 3.4, benchmarkReturn: 2.1, xLabels: ['Wk1', 'Wk2', 'Wk3', 'Wk4'] },
+  '3M': { points: 30, portfolioReturn: 7.8, benchmarkReturn: 5.2, xLabels: ['Apr', 'May', 'Jun'] },
+  '6M': { points: 26, portfolioReturn: 12.6, benchmarkReturn: 9.4, xLabels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'] },
+  '1Y': { points: 24, portfolioReturn: 21.3, benchmarkReturn: 14.8, xLabels: ['Aug', 'Oct', 'Dec', 'Feb', 'Apr', 'Jun'] },
+  '3Y': { points: 36, portfolioReturn: 58.4, benchmarkReturn: 39.2, xLabels: ["'23", "'24", "'25", "'26"] },
+  '5Y': { points: 40, portfolioReturn: 94.7, benchmarkReturn: 61.5, xLabels: ["'21", "'22", "'23", "'24", "'25", "'26"] },
+  'All': { points: 44, portfolioReturn: 142.9, benchmarkReturn: 88.3, xLabels: ["'19", "'21", "'23", "'25"] },
+};
+
+class Component extends DCLogic {
+  state = {
+    theme: 'light',
+    allocationMode: 'category',
+    allocationFilterCategory: null,
+    allocationFilterSub: null,
+    allocationFilterAsset: null,
+    hoveredKey: null,
+    performanceRange: '1Y',
+    searchQuery: '',
+    categoryFilter: 'all',
+    sortColumn: 'marketValue',
+    sortDir: 'desc',
+    aiPanelOpen: false,
+    aiGenerating: false,
+    aiReportReady: false,
+    activeNav: 'Dashboard',
+    navToast: null,
+  };
+
+  computeHoldings() {
+    return HOLDINGS_RAW.map(h => {
+      const marketValue = h.qty * h.price;
+      const costBasis = h.qty * h.avgPrice;
+      const gainLoss = marketValue - costBasis;
+      const gainLossPct = (gainLoss / costBasis) * 100;
+      return Object.assign({}, h, { marketValue, costBasis, gainLoss, gainLossPct });
+    });
+  }
+
+  onSearchInput = (e) => this.setState({ searchQuery: e.target.value });
+  onCategoryFilterChange = (e) => this.setState({ categoryFilter: e.target.value });
+  sortBy = (col) => this.setState(s => ({ sortColumn: col, sortDir: s.sortColumn === col && s.sortDir === 'desc' ? 'asc' : 'desc' }));
+
+  setAllocationMode = (mode) => this.setState({ allocationMode: mode, allocationFilterSub: null, allocationFilterAsset: null, allocationFilterCategory: mode === 'category' ? null : this.state.allocationFilterCategory });
+  clearAllocationFilter = () => this.setState({ allocationFilterCategory: null, allocationFilterSub: null, allocationFilterAsset: null, categoryFilter: 'all', searchQuery: '' });
+
+  onSegmentClick = (mode, key, parentCategory) => {
+    if (mode === 'category') {
+      this.setState({ allocationMode: 'subcategory', allocationFilterCategory: key, categoryFilter: key });
+    } else if (mode === 'subcategory') {
+      this.setState({ allocationFilterSub: key, categoryFilter: parentCategory });
+    } else {
+      this.setState({ allocationFilterAsset: key, searchQuery: key });
+    }
+  };
+
+  toggleTheme = () => this.setState(s => ({ theme: s.theme === 'light' ? 'dark' : 'light' }));
+
+  setRange = (r) => this.setState({ performanceRange: r });
+
+  openAIPanel = () => {
+    this.setState({ aiPanelOpen: true, aiGenerating: true, aiReportReady: false });
+    setTimeout(() => this.setState({ aiGenerating: false, aiReportReady: true }), 1100);
+  };
+  closeAIPanel = () => this.setState({ aiPanelOpen: false });
+
+  onNavClick = (name) => {
+    if (name === 'Dashboard') { this.setState({ activeNav: name, navToast: null }); return; }
+    this.setState({ activeNav: this.state.activeNav, navToast: name + ' is coming soon' });
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => this.setState({ navToast: null }), 2200);
+  };
+
+  buildDonut(holdings) {
+    const { allocationMode, allocationFilterCategory, hoveredKey } = this.state;
+    let groups = [];
+    if (allocationMode === 'category') {
+      const byCat = {};
+      holdings.forEach(h => { byCat[h.category] = (byCat[h.category] || 0) + h.marketValue; });
+      groups = Object.keys(byCat).map(cat => ({ key: cat, label: cat, value: byCat[cat], color: CATEGORY_META[cat].color, mode: 'category' }));
+    } else if (allocationMode === 'subcategory') {
+      const scoped = allocationFilterCategory ? holdings.filter(h => h.category === allocationFilterCategory) : holdings;
+      const byKey = {};
+      scoped.forEach(h => {
+        const key = h.category + ' / ' + h.subcategory;
+        if (!byKey[key]) byKey[key] = { value: 0, category: h.category, sub: h.subcategory };
+        byKey[key].value += h.marketValue;
+      });
+      groups = Object.keys(byKey).map(key => ({ key: byKey[key].sub, label: byKey[key].sub, value: byKey[key].value, color: CATEGORY_META[byKey[key].category].color, mode: 'subcategory', parentCategory: byKey[key].category }));
+    } else {
+      groups = holdings.slice().sort((a, b) => b.marketValue - a.marketValue).slice(0, 8).map(h => ({ key: h.ticker, label: h.ticker, value: h.marketValue, color: CATEGORY_META[h.category].color, mode: 'asset' }));
+      const rest = holdings.slice().sort((a, b) => b.marketValue - a.marketValue).slice(8).reduce((s, h) => s + h.marketValue, 0);
+      if (rest > 0) groups.push({ key: 'Other', label: 'Other', value: rest, color: 'var(--text-tertiary)', mode: 'asset', noClick: true });
+    }
+    groups.sort((a, b) => b.value - a.value);
+    const total = groups.reduce((s, g) => s + g.value, 0);
+    let acc = 0;
+    const stops = [];
+    groups.forEach(g => {
+      const startPct = (acc / total) * 100;
+      acc += g.value;
+      const endPct = (acc / total) * 100;
+      g.pct = (g.value / total) * 100;
+      stops.push(g.color + ' ' + startPct.toFixed(3) + '% ' + endPct.toFixed(3) + '%');
+    });
+    const gradientCss = 'conic-gradient(' + stops.join(', ') + ')';
+    return { groups, total, gradientCss };
+  }
+
+  buildPerformanceSeries(range) {
+    const cfg = RANGE_CONFIG[range];
+    const rand = seededRand(hashStr(range) + 7);
+    const n = cfg.points;
+    const W = 640, H = 220, PAD = 8;
+    const portfolioPts = [];
+    const benchmarkPts = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const noise1 = (rand() - 0.5) * 6;
+      const noise2 = (rand() - 0.5) * 4;
+      const pv = t * cfg.portfolioReturn + noise1 + Math.sin(t * 6) * 2.2;
+      const bv = t * cfg.benchmarkReturn + noise2 + Math.sin(t * 5) * 1.6;
+      portfolioPts.push(pv);
+      benchmarkPts.push(bv);
+    }
+    const allVals = portfolioPts.concat(benchmarkPts).concat([0]);
+    const min = Math.min(...allVals);
+    const max = Math.max(...allVals);
+    const range_ = (max - min) || 1;
+    const xScale = (i) => PAD + (i / (n - 1)) * (W - PAD * 2);
+    const yScale = (v) => H - PAD - ((v - min) / range_) * (H - PAD * 2);
+    const toPath = (pts) => pts.map((v, i) => (i === 0 ? 'M' : 'L') + xScale(i).toFixed(1) + ',' + yScale(v).toFixed(1)).join(' ');
+    const portfolioPath = toPath(portfolioPts);
+    const benchmarkPath = toPath(benchmarkPts);
+    const areaPath = portfolioPath + ' L' + xScale(n - 1).toFixed(1) + ',' + (H - PAD) + ' L' + xScale(0).toFixed(1) + ',' + (H - PAD) + ' Z';
+    const gridLines = [0.2, 0.4, 0.6, 0.8].map(f => ({ y: (H * f).toFixed(1) }));
+    return { portfolioPath, benchmarkPath, areaPath, gridLines, xLabels: cfg.xLabels, portfolioReturnStr: pct(cfg.portfolioReturn, 1), benchmarkReturnStr: pct(cfg.benchmarkReturn, 1) };
+  }
+
+  buildSparkline(ticker, isUp) {
+    const rand = seededRand(hashStr(ticker));
+    const n = 12;
+    const pts = [];
+    let v = 16;
+    for (let i = 0; i < n; i++) {
+      v += (rand() - 0.42) * (isUp ? 4 : 4) + (isUp ? 0.6 : -0.6);
+      v = Math.max(2, Math.min(30, v));
+      pts.push(v);
+    }
+    const path = pts.map((v, i) => (i === 0 ? 'M' : 'L') + ((i / (n - 1)) * 100).toFixed(1) + ',' + (32 - v).toFixed(1)).join(' ');
+    return path;
+  }
+
+  renderVals() {
+    const isDark = this.state.theme === 'dark';
+    const C = isDark ? {
+      bgApp: '#0A1628', bgCard: '#101F38', bgCardAlt: '#0D1930', border: '#22314F',
+      textPrimary: '#EEF2F8', textSecondary: '#9AA6BE', textTertiary: '#67728C',
+      navy: '#0D1930', navy2: '#16294A', blue: '#4C87F5', emerald: '#22C08D', emeraldLight: '#5EE0AE', red: '#F0796C',
+      shadow: '0 1px 2px rgba(0,0,0,0.3)', shadowLg: '0 20px 50px rgba(0,0,0,0.45)',
+    } : {
+      bgApp: '#F3F5F9', bgCard: '#FFFFFF', bgCardAlt: '#F7F9FC', border: '#E6E9F1',
+      textPrimary: '#0B1E3D', textSecondary: '#5B6478', textTertiary: '#96A0B6',
+      navy: '#0B1E3D', navy2: '#15305C', blue: '#2F6FED', emerald: '#0EA579', emeraldLight: '#0EA579', red: '#D65C4F',
+      shadow: '0 1px 2px rgba(16,24,40,0.04), 0 2px 8px rgba(16,24,40,0.04)', shadowLg: '0 24px 60px rgba(11,30,61,0.28)',
+    };
+
+    const rootStyle = [
+      '--bg-app:' + C.bgApp, '--bg-card:' + C.bgCard, '--bg-card-alt:' + C.bgCardAlt, '--border:' + C.border,
+      '--text-primary:' + C.textPrimary, '--text-secondary:' + C.textSecondary, '--text-tertiary:' + C.textTertiary,
+      '--navy:' + C.navy, '--navy-2:' + C.navy2, '--blue:' + C.blue, '--emerald:' + C.emerald, '--emerald-light:' + C.emeraldLight, '--red:' + C.red,
+      '--shadow:' + C.shadow, '--shadow-lg:' + C.shadowLg,
+      'display:grid', 'grid-template-columns:80px 1fr', 'grid-template-areas:"sidebar main"',
+      'min-height:100vh', 'background:var(--bg-app)', "font-family:'Inter',sans-serif", 'color:var(--text-primary)',
+    ].join(';');
+
+    const themeToggleTrackStyle = 'width:38px; height:22px; border-radius:11px; background:' + (isDark ? 'var(--emerald)' : 'var(--border)') + '; position:relative; cursor:pointer; transition: background 0.2s ease; flex-shrink:0;';
+    const themeToggleThumbStyle = 'width:16px; height:16px; border-radius:50%; background:#fff; position:absolute; top:3px; left:' + (isDark ? '19px' : '3px') + '; transition: left 0.2s ease; box-shadow:0 1px 3px rgba(0,0,0,0.25);';
+
+    const navList = [
+      { name: 'Dashboard', glyph: 'D' },
+      { name: 'Portfolio', glyph: 'P' },
+      { name: 'Performance', glyph: 'R' },
+      { name: 'AI Advisor', glyph: 'A' },
+      { name: 'Settings', glyph: 'S' },
+    ];
+    const navItems = navList.map(n => {
+      const active = n.name === this.state.activeNav;
+      return {
+        onClick: () => this.onNavClick(n.name),
+        rowStyle: 'display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 4px; border-radius:10px; cursor:pointer; margin-bottom:2px; width:100%;',
+        rowHoverStyle: 'background: var(--bg-card-alt);',
+        iconStyle: 'width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; background:' + (active ? 'var(--blue)' : 'var(--bg-card-alt)') + '; color:' + (active ? '#fff' : 'var(--text-tertiary)') + '; transition: background 0.15s ease;',
+        glyph: n.glyph,
+        labelStyle: 'font-size:9.5px; font-weight:' + (active ? '700' : '500') + '; color:' + (active ? 'var(--text-primary)' : 'var(--text-tertiary)') + '; letter-spacing:0.01em; text-align:center; line-height:1.1;',
+        label: n.name === 'AI Advisor' ? 'AI Advisor' : n.name,
+      };
+    });
+
+    const holdings = this.computeHoldings();
+    const investedTotal = holdings.reduce((s, h) => s + h.marketValue, 0);
+    const totalInvested = holdings.reduce((s, h) => s + h.costBasis, 0);
+    const totalReturn = investedTotal - totalInvested;
+    const totalReturnPct = (totalReturn / totalInvested) * 100;
+    const dayChange = holdings.reduce((s, h) => s + h.marketValue * (h.dayPct / 100), 0);
+    const totalValue = investedTotal + CASH_AVAILABLE;
+    const dayChangePct = (dayChange / (totalValue - dayChange)) * 100;
+    const dayIsPositive = dayChange >= 0;
+
+    const summary = {
+      totalValueStr: money(totalValue),
+      dayChangeArrow: dayIsPositive ? '\u25B2' : '\u25BC',
+      dayChangeStr: money(Math.abs(dayChange)),
+      dayChangePctStr: pct(dayChangePct, 2),
+      dayBadgeStyle: 'display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:700; padding:4px 10px; border-radius:20px; color:#fff; background:' + (dayIsPositive ? 'rgba(16,185,129,0.25)' : 'rgba(224,104,90,0.25)') + '; border:1px solid ' + (dayIsPositive ? 'rgba(16,185,129,0.4)' : 'rgba(224,104,90,0.4)') + ';',
+      totalReturnStr: money(totalReturn),
+      totalReturnPctStr: pct(totalReturnPct, 1),
+      totalInvestedStr: money(totalInvested),
+      cashAvailableStr: money(CASH_AVAILABLE),
+      holdingsCountStr: String(holdings.length),
+    };
+
+    // Allocation
+    const donut = this.buildDonut(holdings);
+    const allocationModes = [
+      { key: 'category', label: 'Category' },
+      { key: 'subcategory', label: 'Subcategory' },
+      { key: 'asset', label: 'Asset' },
+    ].map(m => ({
+      onClick: () => this.setAllocationMode(m.key),
+      label: m.label,
+      btnStyle: 'flex:1; border:none; background:' + (this.state.allocationMode === m.key ? 'var(--bg-card)' : 'transparent') + '; color:' + (this.state.allocationMode === m.key ? 'var(--text-primary)' : 'var(--text-tertiary)') + '; font-size:12px; font-weight:700; padding:8px 4px; border-radius:7px; cursor:pointer; box-shadow:' + (this.state.allocationMode === m.key ? '0 1px 3px rgba(16,24,40,0.1)' : 'none') + ';',
+    }));
+
+    const filterChipParts = [];
+    if (this.state.allocationFilterCategory) filterChipParts.push(this.state.allocationFilterCategory);
+    if (this.state.allocationFilterSub) filterChipParts.push(this.state.allocationFilterSub);
+    if (this.state.allocationFilterAsset) filterChipParts.push(this.state.allocationFilterAsset);
+    const allocationFilterChip = filterChipParts.join(' \u2192 ') || null;
+
+    const hoveredGroup = donut.groups.find(g => g.key === this.state.hoveredKey);
+    const donutCenterLabel = hoveredGroup ? hoveredGroup.label : 'Invested';
+    const donutCenterValue = hoveredGroup ? pct(hoveredGroup.pct, 1).replace('+', '') : money(investedTotal, { decimals: 0 });
+
+    const allocationLegend = donut.groups.slice(0, 8).map(g => ({
+      onClick: g.noClick ? null : (() => this.onSegmentClick(g.mode, g.key, g.parentCategory)),
+      onEnter: () => this.setState({ hoveredKey: g.key }),
+      onLeave: () => this.setState({ hoveredKey: null }),
+      rowStyle: 'display:flex; align-items:center; gap:9px; padding:7px 6px; border-radius:8px; cursor:' + (g.noClick ? 'default' : 'pointer') + '; transition: background 0.15s ease;',
+      rowHoverStyle: g.noClick ? '' : 'background: var(--bg-card-alt);',
+      swatchStyle: 'width:9px; height:9px; border-radius:3px; background:' + g.color + '; flex-shrink:0;',
+      label: g.label,
+      pctStr: g.pct.toFixed(1) + '%',
+      valueStr: money(g.value, { decimals: 0 }),
+    }));
+
+    // Performance
+    const perfSeries = this.buildPerformanceSeries(this.state.performanceRange);
+    const performance = Object.assign({}, perfSeries);
+    const performanceRanges = Object.keys(RANGE_CONFIG).map(r => ({
+      onClick: () => this.setRange(r),
+      label: r,
+      btnStyle: 'border:none; background:' + (this.state.performanceRange === r ? 'var(--bg-card)' : 'transparent') + '; color:' + (this.state.performanceRange === r ? 'var(--text-primary)' : 'var(--text-tertiary)') + '; font-size:11.5px; font-weight:700; padding:7px 10px; border-radius:7px; cursor:pointer; box-shadow:' + (this.state.performanceRange === r ? '0 1px 3px rgba(16,24,40,0.1)' : 'none') + ';',
+    }));
+
+    // Table
+    let filtered = holdings.filter(h => {
+      const q = this.state.searchQuery.trim().toLowerCase();
+      const matchesQuery = !q || h.ticker.toLowerCase().includes(q) || h.name.toLowerCase().includes(q);
+      const matchesCategory = this.state.categoryFilter === 'all' || h.category === this.state.categoryFilter;
+      const matchesSub = !this.state.allocationFilterSub || h.subcategory === this.state.allocationFilterSub;
+      return matchesQuery && matchesCategory && matchesSub;
+    });
+    const sortCol = this.state.sortColumn, sortDir = this.state.sortDir;
+    filtered = filtered.slice().sort((a, b) => {
+      let av, bv;
+      if (sortCol === 'ticker') { av = a.ticker; bv = b.ticker; }
+      else if (sortCol === 'name') { av = a.name; bv = b.name; }
+      else if (sortCol === 'category') { av = a.category; bv = b.category; }
+      else if (sortCol === 'price') { av = a.price; bv = b.price; }
+      else if (sortCol === 'avgPrice') { av = a.avgPrice; bv = b.avgPrice; }
+      else if (sortCol === 'gainLoss') { av = a.gainLossPct; bv = b.gainLossPct; }
+      else if (sortCol === 'weight') { av = a.marketValue; bv = b.marketValue; }
+      else { av = a.marketValue; bv = b.marketValue; }
+      if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sortDir === 'asc' ? av - bv : bv - av;
+    });
+
+    const columns = [
+      { key: 'ticker', label: 'Logo / Ticker' },
+      { key: 'name', label: 'Company' },
+      { key: 'category', label: 'Category' },
+      { key: 'price', label: 'Price' },
+      { key: 'avgPrice', label: 'Avg Price' },
+      { key: 'marketValue', label: 'Market Value' },
+      { key: 'gainLoss', label: 'Gain/Loss' },
+      { key: 'weight', label: 'Weight' },
+      { key: 'perf', label: 'Performance' },
+    ];
+    const tableColumns = columns.map(c => ({
+      onClick: c.key === 'perf' ? null : () => this.sortBy(c.key),
+      label: c.label,
+      sortIndicator: sortCol === c.key ? (sortDir === 'asc' ? '\u2191' : '\u2193') : '',
+      thStyle: 'padding:10px 16px; text-align:' + (['ticker', 'name', 'category'].includes(c.key) ? 'left' : 'right') + '; font-size:10.5px; font-weight:700; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.04em; cursor:' + (c.key === 'perf' ? 'default' : 'pointer') + '; white-space:nowrap;' + (c.key === 'ticker' ? ' padding-left:24px;' : '') + (c.key === 'perf' ? ' padding-right:20px;' : ''),
+    }));
+
+    const tableRows = filtered.map(h => {
+      const isUp = h.gainLossPct >= 0;
+      return {
+        ticker: h.ticker,
+        name: h.name,
+        category: h.category,
+        initials: initials(h.name),
+        avatarStyle: 'width:32px; height:32px; border-radius:9px; background:' + CATEGORY_META[h.category].color + '; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;',
+        categoryPillStyle: 'font-size:11px; font-weight:600; padding:3px 9px; border-radius:6px; background: color-mix(in srgb, ' + CATEGORY_META[h.category].color + ' 14%, transparent); color:' + CATEGORY_META[h.category].color + ';',
+        priceStr: money(h.price),
+        avgPriceStr: money(h.avgPrice),
+        marketValueStr: money(h.marketValue, { decimals: 0 }),
+        gainLossStr: (isUp ? '+' : '-') + money(Math.abs(h.gainLoss), { decimals: 0 }).slice(1),
+        gainLossPctStr: pct(h.gainLossPct, 1),
+        gainColorStyle: 'font-size:12.5px; font-weight:700; color:' + (isUp ? 'var(--emerald)' : 'var(--red)') + ';',
+        weightStr: ((h.marketValue / investedTotal) * 100).toFixed(1) + '%',
+        sparklinePath: this.buildSparkline(h.ticker, isUp),
+        sparklineColor: isUp ? 'var(--emerald)' : 'var(--red)',
+      };
+    });
+
+    const categoryFilterOptions = [{ value: 'all', label: 'All categories' }].concat(Object.keys(CATEGORY_META).map(c => ({ value: c, label: c })));
+
+    // AI report
+    const aiReport = {
+      timestamp: 'Jul 14, 2026, 2:41 PM',
+      strengths: [
+        'Good diversification across 8 sectors with no single position exceeding 12% of invested assets.',
+        'Strong dividend exposure from Financials and Utilities holdings supports steady income.',
+        'Healthy cash allocation of ' + money(CASH_AVAILABLE, { decimals: 0 }) + ' provides flexibility for rebalancing.',
+        'Solid balance between growth (Technology) and defensive (Utilities, Healthcare) sectors.',
+      ],
+      risks: [
+        'Overexposure to Technology at roughly ' + ((holdings.filter(h => h.category === 'Technology').reduce((s, h) => s + h.marketValue, 0) / investedTotal) * 100).toFixed(0) + '% of invested assets, above the recommended 30% ceiling.',
+        'NVDA and AVGO together represent a concentrated semiconductor bet sensitive to cyclical demand.',
+        'No exposure to Fixed Income or international assets, leaving the portfolio fully correlated to U.S. equities.',
+        'Energy allocation is thin relative to Meridian\u2019s recommended inflation hedge weighting.',
+      ],
+      recommendations: [
+        { title: 'Trim concentrated Semiconductor exposure (NVDA + AVGO)', confidence: 88, impact: 'Reduces volatility', priority: 'High' },
+        { title: 'Add Fixed Income allocation to diversify against equity drawdowns', confidence: 81, impact: 'Lowers risk', priority: 'High' },
+        { title: 'Increase international diversification beyond U.S. large-cap', confidence: 74, impact: 'Broadens exposure', priority: 'Medium' },
+        { title: 'Review Energy allocation relative to inflation-hedge target', confidence: 69, impact: 'Improves resilience', priority: 'Medium' },
+        { title: 'Consider adding REIT exposure for income diversification', confidence: 62, impact: 'Adds income stream', priority: 'Low' },
+      ].map(r => ({
+        title: r.title, confidence: r.confidence, impact: r.impact, priority: r.priority,
+        priorityStyle: 'font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:6px; white-space:nowrap; background:' + (r.priority === 'High' ? 'rgba(224,104,90,0.15)' : r.priority === 'Medium' ? 'rgba(217,164,65,0.18)' : 'rgba(148,163,184,0.18)') + '; color:' + (r.priority === 'High' ? 'var(--red)' : r.priority === 'Medium' ? '#B8862F' : 'var(--text-tertiary)') + ';',
+        confidenceBarStyle: 'height:100%; width:' + r.confidence + '%; border-radius:3px; background: var(--blue);',
+      })),
+    };
+
+    return {
+      rootStyle, themeToggleTrackStyle, themeToggleThumbStyle, toggleTheme: this.toggleTheme,
+      navItems, navToast: this.state.navToast,
+      summary,
+      allocationModes, allocationFilterChip, clearAllocationFilter: this.clearAllocationFilter,
+      donutGradientCss: donut.gradientCss, donutCenterLabel, donutCenterValue, allocationLegend,
+      performance, performanceRanges,
+      searchQuery: this.state.searchQuery, onSearchInput: this.onSearchInput,
+      categoryFilterValue: this.state.categoryFilter, onCategoryFilterChange: this.onCategoryFilterChange, categoryFilterOptions,
+      tableColumns, tableRows, noResults: tableRows.length === 0,
+      holdingsCountLabel: tableRows.length + ' of ' + holdings.length + ' positions',
+      aiPanelOpen: this.state.aiPanelOpen, openAIPanel: this.openAIPanel, closeAIPanel: this.closeAIPanel,
+      aiGenerating: this.state.aiGenerating, aiReportReady: this.state.aiReportReady, aiReport,
+      aiCtaHoverStyle: 'box-shadow: 0 10px 28px rgba(16,185,129,0.45); transform: translateY(-1px);',
+    };
+  }
+}
+
+</script>
+</body>
+</html>
