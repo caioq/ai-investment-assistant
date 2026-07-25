@@ -36,6 +36,12 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 ### Auth
 - Every protected controller uses a shared `AuthGuard` (`apps/api/src/auth/auth.guard.ts`) that resolves `req.user.id` from the `access_token` httpOnly cookie. No endpoint outside `AuthModule` accepts a `userId`/`portfolioId` from the client — it always comes from `req.user.id`.
 
+### GitHub issue / project sync
+- Repo: `caioq/ai-investment-assistant`. Board: [GitHub Project #2](https://github.com/users/caioq/projects/2) (user-owned, not org). Status field options include **In Review** — confirm the exact option label against the project the first time you touch it, since it's user-managed and can be renamed.
+- `/user-stories` (via the `spec-to-stories` skill) creates one GitHub issue per task file (never per story) through the `github` MCP server, and records the issue number in that task's `**GitHub Issue:**` field. Task files remain the source of truth for `/implement` — the issue is a mirror for board visibility, not a second source of status.
+- `spec-implementer` moves the linked issue's Project status: to **In Progress** when it sets the task's own `Status: In Progress`, and to **In Review** when it sets `Status: Done` (tests green). It never closes the issue — closing happens naturally when the PR that references it (`Closes #<issue>`) merges to `main`, which is a manual step the user does after reviewing the diff, consistent with `/implement` never pushing or merging on its own.
+- GitHub MCP tool names aren't hardcoded here since the server's toolset can change — discover the current ones with `ToolSearch` (e.g. `"github issue"`, `"github project"`) before calling them.
+
 ### Naming
 - NestJS files: kebab-case (`market-data.service.ts`), matching Nest CLI defaults.
 - React components: PascalCase file and export name (`AllocationDonut.tsx`).

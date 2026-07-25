@@ -12,6 +12,19 @@ Left unguided, an AI coding assistant tends to drift: it invents scope you didn'
 
 If code and the spec/stories/tasks disagree, that's a bug in one of them — never a judgment call made silently mid-implementation.
 
+## Prerequisites
+
+- **GitHub MCP server** — `/user-stories` and `/implement` mirror each task as a GitHub issue on [GitHub Project #2](https://github.com/users/caioq/projects/2) (details in `CONVENTIONS.md` → "GitHub issue / project sync"). Connect it once, outside of any Claude Code chat (so the token never lands in conversation history):
+  1. Create a Personal Access Token at [github.com/settings/tokens](https://github.com/settings/tokens) scoped to `caioq/ai-investment-assistant`. Fine-grained: "Issues" read-write and "Projects" read-write. Classic: `repo` + `project`.
+  2. In your terminal:
+     ```
+     claude mcp add --transport http github https://api.githubcopilot.com/mcp/ -H "Authorization: Bearer <your-token>"
+     ```
+  3. Restart Claude Code (or start a new session) if one was already running — MCP servers load at session start, so a server added mid-session won't show up until the next one.
+  4. Verify with `claude mcp list` — should show `github` as `Connected`.
+
+  If this isn't set up, `/user-stories` still produces the spec/task files — it just skips issue creation with a warning, and `/implement` skips the board-sync step. Nothing blocks on it.
+
 ## The three stages
 
 ```

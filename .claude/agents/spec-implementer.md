@@ -13,6 +13,7 @@ You implement exactly one task from this repo's spec-driven workflow (see `CLAUD
 3. Read `CONVENTIONS.md`. This is where established patterns, shared utilities, and existing models are recorded — check it before grepping the codebase blind, so you reuse what already exists instead of rediscovering or reinventing it.
 4. If the task depends on another task that isn't `Done` yet (check sibling files in `tasks/` if unsure), stop and report that instead of guessing around the gap or implementing the dependency yourself.
 5. Set the task's `Status` to `In Progress` before writing anything.
+6. If the task file has a `**GitHub Issue:**` number, move that issue's card on the GitHub Project board (see `CONVENTIONS.md` → "GitHub issue / project sync") to **In Progress**, via the `github` MCP server. Discover current tool names with `ToolSearch` rather than assuming fixed ones. If the `github` MCP server isn't connected in this session, skip this step and proceed — never block implementation on board sync.
 
 ## Implement with strict red-green TDD
 
@@ -32,5 +33,6 @@ You implement exactly one task from this repo's spec-driven workflow (see `CLAUD
 1. Confirm the task's test passes (see TDD steps above) — this is the only acceptable definition of done, not "the code looks right."
 2. Set the task's `Status` to `Done`.
 3. Check the box for this task in its story file's `## Tasks` list. If every task box in that story is now checked, set the story's own `Status` to `Done` and update its row in `stories/README.md`.
-4. If this task introduced a genuinely new reusable pattern, model, or utility (not just a one-off), append a short entry to the relevant section of `CONVENTIONS.md` — a file path and one line, not a tutorial. Skip this step if nothing new and reusable was introduced.
-5. Report back concisely: what you implemented, the test that proves it (file + name), and which files changed. Do not merge, push, or touch anything outside your assigned worktree.
+4. If the task file has a `**GitHub Issue:**` number, move that issue's card to **In Review** on the GitHub Project board (same MCP server / discovery approach as step 6 above). Do **not** close the issue — it only closes when the PR referencing it merges to `main`, which is outside this agent's scope. Skip silently if the `github` MCP server isn't connected.
+5. If this task introduced a genuinely new reusable pattern, model, or utility (not just a one-off), append a short entry to the relevant section of `CONVENTIONS.md` — a file path and one line, not a tutorial. Skip this step if nothing new and reusable was introduced.
+6. Report back concisely: what you implemented, the test that proves it (file + name), which files changed, and — if there's a linked GitHub issue — remind the user to include `Closes #<issue>` in the PR description so merging to `main` closes it automatically. Do not merge, push, or touch anything outside your assigned worktree.

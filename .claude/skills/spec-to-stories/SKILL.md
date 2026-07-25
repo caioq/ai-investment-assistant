@@ -58,3 +58,17 @@ One file per task, instead of a checklist inside a story file, is deliberate: it
 
 - Cross-check: does every Acceptance Criterion in the spec map to at least one task file somewhere (under a story or under `SHARED`)? If not, either add the task or flag the gap to the user — a spec AC with no corresponding task is a silent scope drop.
 - Set each story's `Status` to `Ready` once its task breakdown looks implementable as-is; leave it `Draft` and say why if something in the spec was too vague to break down cleanly (that's a sign the spec needs another pass, not that you should guess).
+
+## Creating GitHub issues for tasks
+
+This repo tracks tasks on a GitHub Project board (see `CONVENTIONS.md` → "GitHub issue / project sync" for the repo and project reference) in addition to the task files. Every task file — never story files — gets a mirrored GitHub issue:
+
+1. Confirm the `github` MCP server is connected. If it isn't available in this session, tell the user and skip this section rather than failing the whole run — the story/task files are still valid output on their own; issue creation can be done as a follow-up pass once MCP is reachable.
+2. Discover the current GitHub MCP tool names via `ToolSearch` (queries like `"github issue"`, `"github project"`) — don't assume fixed names, the server's toolset can change between versions.
+3. For each newly-created task file with no existing `**GitHub Issue:**` number:
+   - Create an issue in the repo named in `CONVENTIONS.md`. Title: `[T-<T>] <task short title> (US-<N>)` (or `(SHARED)` for cross-cutting tasks). Body: the task's one/two-sentence description, its `**Test:**` and `**Done when:**` fields verbatim, and a relative link back to the task file so anyone opening the issue can find the full context.
+   - Label it with the module name (e.g. `module:portfolio`) and `task`; create the label first if it doesn't already exist in the repo.
+   - Write the returned issue number back into that task file's `**GitHub Issue:**` field.
+   - Leave the issue's Project status at its default column (To Do / Backlog) — `/implement` is what moves it to In Progress / In Review later.
+4. For a re-run over tasks that already have a `**GitHub Issue:**` number: update the existing issue's title/body if the task file changed, don't create a duplicate.
+5. If issue creation fails partway (rate limit, missing label permission, etc.), report exactly which task files got an issue and which didn't — don't silently leave some task files pointing at issues and others not, since that's confusing for whoever looks at the board next.
