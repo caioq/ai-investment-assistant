@@ -1,7 +1,7 @@
 # AI Portfolio Advisor
 
 **Status:** Approved
-**Depends on:** [portfolio](../portfolio/spec.md), [market-data](../market-data/spec.md), [recommended-portfolios](../recommended-portfolios/spec.md)
+**Depends on:** [project-setup](../project-setup/spec.md), [portfolio](../portfolio/spec.md), [market-data](../market-data/spec.md), [recommended-portfolios](../recommended-portfolios/spec.md)
 
 ## Problem
 

@@ -22,12 +22,13 @@ Current modules:
 
 | Spec | Depends on |
 |---|---|
-| [auth](specs/auth/spec.md) | — |
-| [market-data](specs/market-data/spec.md) | — |
-| [portfolio](specs/portfolio/spec.md) | auth, market-data |
-| [recommended-portfolios](specs/recommended-portfolios/spec.md) | market-data |
-| [advisor](specs/advisor/spec.md) | portfolio, market-data, recommended-portfolios |
-| [dashboard-ui](specs/dashboard-ui/spec.md) | auth, portfolio, advisor |
+| [project-setup](specs/project-setup/spec.md) | — |
+| [auth](specs/auth/spec.md) | project-setup |
+| [market-data](specs/market-data/spec.md) | project-setup |
+| [portfolio](specs/portfolio/spec.md) | project-setup, auth, market-data |
+| [recommended-portfolios](specs/recommended-portfolios/spec.md) | project-setup, market-data |
+| [advisor](specs/advisor/spec.md) | project-setup, portfolio, market-data, recommended-portfolios |
+| [dashboard-ui](specs/dashboard-ui/spec.md) | project-setup, auth, portfolio, advisor |
 
 Project-level conventions and setup notes live in [`CLAUDE.md`](CLAUDE.md) and [`CONVENTIONS.md`](CONVENTIONS.md).
 

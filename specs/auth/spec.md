@@ -1,7 +1,7 @@
 # Auth
 
 **Status:** Approved
-**Depends on:** none
+**Depends on:** [project-setup](../project-setup/spec.md)
 
 ## Problem
 

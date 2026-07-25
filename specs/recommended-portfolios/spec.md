@@ -1,7 +1,7 @@
 # Recommended Portfolios
 
 **Status:** Approved
-**Depends on:** [market-data](../market-data/spec.md)
+**Depends on:** [project-setup](../project-setup/spec.md), [market-data](../market-data/spec.md)
 
 ## Problem
 

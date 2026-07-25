@@ -1,7 +1,7 @@
 # Portfolio
 
 **Status:** Approved
-**Depends on:** [auth](../auth/spec.md), [market-data](../market-data/spec.md)
+**Depends on:** [project-setup](../project-setup/spec.md), [auth](../auth/spec.md), [market-data](../market-data/spec.md)
 
 ## Problem
 

@@ -1,7 +1,7 @@
 # Dashboard UI
 
 **Status:** Approved
-**Depends on:** [auth](../auth/spec.md), [portfolio](../portfolio/spec.md), [advisor](../advisor/spec.md)
+**Depends on:** [project-setup](../project-setup/spec.md), [auth](../auth/spec.md), [portfolio](../portfolio/spec.md), [advisor](../advisor/spec.md)
 
 ## Problem
 
