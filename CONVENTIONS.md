@@ -16,6 +16,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 ### Testing
 - Jest (NestJS default), spec files colocated next to the code they test (`*.spec.ts`).
 - Unit tests mock `PrismaService`. Integration/e2e tests run against a real test Postgres (separate `docker-compose` service, migrated before the suite runs) through `supertest` against an actual Nest application instance — not mocked at the HTTP layer.
+- e2e specs live in `apps/api/test/*.e2e-spec.ts`, run via `pnpm --filter api test:e2e` (Jest config at `apps/api/test/jest-e2e.json`, `ts-jest` transform). Build a real app with `Test.createTestingModule({ imports: [AppModule] }).compile()` then `.createNestApplication()` + `.init()` — see `apps/api/test/health.e2e-spec.ts` for the pattern. Endpoints with no DB dependency (like `/health`) need no Postgres/`docker-compose` setup to run this way.
 
 ## Frontend (`apps/web`)
 
