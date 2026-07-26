@@ -13,6 +13,8 @@ node_modules/
 # Next.js
 apps/web/.next/
 apps/web/out/
+apps/web/next-env.d.ts
+*.tsbuildinfo
 
 # NestJS build output
 apps/api/dist/

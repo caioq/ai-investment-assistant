@@ -7,7 +7,7 @@ As a `developer`, I want a Next.js (App Router) app skeleton at `apps/web` with 
 
 ## Tasks
 
-- [ ] [T-1: Scaffold Next.js app at apps/web](../tasks/US-3_T-1-scaffold-next-web.md)
+- [x] [T-1: Scaffold Next.js app at apps/web](../tasks/US-3_T-1-scaffold-next-web.md)
 - [ ] [T-2: Placeholder home page](../tasks/US-3_T-2-placeholder-page.md)
 
 ## Notes
