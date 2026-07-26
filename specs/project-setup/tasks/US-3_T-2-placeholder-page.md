@@ -1,8 +1,9 @@
-# T-2 (US-3): Placeholder home page
+# US-3_T-2: Placeholder home page
 
 **Story:** [../stories/US-3-frontend-placeholder-skeleton.md](../stories/US-3-frontend-placeholder-skeleton.md)
 **Status:** Not Started
 **GitHub Issue:** #7 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
+**Depends on:** US-3_T-1
 
 Add a placeholder home page at `apps/web/app/page.tsx` rendering the text "AI Investment Assistant — under construction" (Server Component, no client interactivity), per the spec's API Contract note: a single placeholder page at `/`, no other routes yet.
 

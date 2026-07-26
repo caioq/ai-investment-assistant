@@ -7,9 +7,9 @@ As a `developer`, I want a pnpm workspace scaffolded with the `apps/web`, `apps/
 
 ## Tasks
 
-- [ ] [T-1: Initialize pnpm workspace and root scripts](../tasks/T-1_US-1-init-pnpm-workspace.md)
-- [ ] [T-2: Shared TypeScript/ESLint/Prettier config](../tasks/T-2_US-1-shared-lint-config.md)
-- [ ] [T-3: `.env.example` documenting all env vars](../tasks/T-3_US-1-env-example.md)
+- [ ] [T-1: Initialize pnpm workspace and root scripts](../tasks/US-1_T-1-init-pnpm-workspace.md)
+- [ ] [T-2: Shared TypeScript/ESLint/Prettier config](../tasks/US-1_T-2-shared-lint-config.md)
+- [ ] [T-3: `.env.example` documenting all env vars](../tasks/US-1_T-3-env-example.md)
 
 ## Notes
 

@@ -1,8 +1,9 @@
-# T-2 (US-1): Shared TypeScript/ESLint/Prettier config
+# US-1_T-2: Shared TypeScript/ESLint/Prettier config
 
 **Story:** [../stories/US-1-monorepo-workspace-scaffold.md](../stories/US-1-monorepo-workspace-scaffold.md)
 **Status:** Not Started
 **GitHub Issue:** #2 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
+**Depends on:** US-1_T-1
 
 Add a shared `tsconfig.base.json`, root ESLint config, and root Prettier config, extended/referenced by `apps/web`, `apps/api`, and `packages/shared` rather than each package declaring its own independent rules.
 

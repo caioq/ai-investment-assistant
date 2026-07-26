@@ -12,7 +12,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 
 ## Cross-cutting tasks
 
-Work shared by more than one story (schema/migration shared by several stories, shared test fixtures, etc.) lives in `../tasks/T-<T>_SHARED-<short-task-title>.md`, referenced by every story it serves — never duplicated per story.
+Work shared by more than one story (schema/migration shared by several stories, shared test fixtures, etc.) lives in `../tasks/SHARED_T-<T>-<short-task-title>.md`, referenced by every story it serves — never duplicated per story.
 
 ## Out of scope for this pass
 

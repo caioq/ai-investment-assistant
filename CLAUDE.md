@@ -21,7 +21,7 @@ This project is built spec-first, in three stages per module: **spec → user st
 
 - `specs/<module>/spec.md` — the PRD: problem, goals, non-goals, data model, API contract, behavior notes, acceptance criteria. Written against [`specs/_templates/spec.md`](specs/_templates/spec.md). Source of truth for _what_ a module should do.
 - `specs/<module>/stories/` — one file per user story (`US-<N>-<title>.md`), plus a `README.md` index. Each story traces to a spec Goal/Acceptance Criterion and links to its own task files.
-- `specs/<module>/tasks/` — one file per individual task (`T-<T>_US-<N>-<title>.md`, or `T-<T>_SHARED-<title>.md` for cross-cutting work), each with its own `Status` and a concrete, verifiable "done when" condition. Each task is mirrored as a GitHub issue tracked on [GitHub Project #2](https://github.com/users/caioq/projects/2) — the task file's `Status` remains the source of truth for `/implement`; the issue is a board-visibility mirror (see `CONVENTIONS.md` → "GitHub issue / project sync").
+- `specs/<module>/tasks/` — one file per individual task (`US-<N>_T-<T>-<title>.md`, or `SHARED_T-<T>-<title>.md` for cross-cutting work), each with its own `Status` and a concrete, verifiable "done when" condition. Each task is mirrored as a GitHub issue tracked on [GitHub Project #2](https://github.com/users/caioq/projects/2) — the task file's `Status` remains the source of truth for `/implement`; the issue is a board-visibility mirror (see `CONVENTIONS.md` → "GitHub issue / project sync").
 
 Stories and tasks are deliberately one-per-file rather than bundled checklists — it keeps `/implement`'s context small when working at single-task granularity, and lets independent tasks be picked up (or parallelized) without a shared file becoming a bottleneck.
 
@@ -45,7 +45,7 @@ Implementation order should generally follow the dependency column above (a modu
 
 - `/spec <module-name>` — scaffold or update `specs/<module>/spec.md`. PRD-level only, no stories/tasks/code.
 - `/user-stories <module-name>` — once a spec is `Approved`, break it into `specs/<module>/stories/` and `specs/<module>/tasks/`.
-- `/implement <task-id-or-file>` — implement exactly **one** task, via the `spec-implementer` agent in an isolated git worktree, using strict red-green TDD. Never a whole story or module in one call — that's what makes running several `/implement` calls in parallel (different tasks, different worktrees) safe. Never skips ahead of `/spec` and `/user-stories`.
+- `/implement <task-id-or-file>` — implement exactly **one** task, via the `spec-implementer` agent in an isolated git worktree, using strict red-green TDD. Never a whole story or module in one call — that's what makes running several `/implement` calls in parallel (different tasks, different worktrees) safe. Never skips ahead of `/spec` and `/user-stories`. Once the task's test is green, the agent pushes its branch and opens a PR itself — stacking on a dependency's still-open PR if that dependency isn't merged yet (see `CONVENTIONS.md` → "GitHub issue / project sync") — but it never merges; that stays a manual, reviewed step.
 - Update `Status` in the story/task files themselves as work is verified — a task not marked `Done` means "not actually done yet," regardless of what the code looks like.
 
 ## Conventions

@@ -14,15 +14,15 @@ specs/<module>/
     US-1-<short-us-title>.md
     US-2-<short-us-title>.md
   tasks/
-    T-1_US-1-<short-task-title>.md
-    T-2_US-1-<short-task-title>.md
-    T-1_US-2-<short-task-title>.md
-    T-1_SHARED-<short-task-title>.md          # cross-cutting, not owned by one story
+    US-1_T-1-<short-task-title>.md
+    US-1_T-2-<short-task-title>.md
+    US-2_T-1-<short-task-title>.md
+    SHARED_T-1-<short-task-title>.md          # cross-cutting, not owned by one story
 ```
 
 Templates: `specs/_templates/stories-readme.md`, `specs/_templates/story.md`, `specs/_templates/task.md`.
 
-Task numbering (`T-<T>`) restarts within each story (and within the `SHARED` group) — it is not global across the module.
+Task numbering (`T-<T>`) restarts within each story (and within the `SHARED` group) — it is not global across the module. The story/group comes first in the id (`US-<N>_T-<T>`, `SHARED_T-<T>`) precisely because of that: sorted alphabetically, a directory listing groups every task by its real parent (story or `SHARED`) in build order, rather than clustering same-numbered-but-unrelated tasks from different stories together.
 
 One file per task, instead of a checklist inside a story file, is deliberate: it keeps what `/implement` has to load down to exactly one task's context when working at that granularity, and lets independent tasks (even across different stories) be picked up or parallelized without one shared file becoming a bottleneck or merge conflict.
 
@@ -47,7 +47,7 @@ One file per task, instead of a checklist inside a story file, is deliberate: it
 
 ## Writing tasks
 
-- One file per task: `tasks/T-<T>_US-<N>-<short-kebab-title>.md`, or `tasks/T-<T>_SHARED-<short-kebab-title>.md` for work shared by more than one story (referenced from every story it serves, never duplicated).
+- One file per task: `tasks/US-<N>_T-<T>-<short-kebab-title>.md`, or `tasks/SHARED_T-<T>-<short-kebab-title>.md` for work shared by more than one story (referenced from every story it serves, never duplicated).
 - Each task should be small enough to implement and verify in one sitting. Every task is TDD-scoped: its `**Test:**` field names the specific test (file + what it asserts) that defines "done," and `**Done when:**` is always that test passing via red-green (write it, confirm it fails for the right reason, then implement) — never a vague "implemented correctly."
   - Follow the testing conventions already recorded in `CONVENTIONS.md` for that area of the codebase (fixture location, unit vs. integration setup). If nothing is recorded yet — likely for the first few tasks ever written — propose a file path consistent with the stack (Jest specs under `apps/api`, Vitest/RTL under `apps/web`) and the spec's own Testing/Acceptance Criteria language.
   - A task's test should be concrete enough that two different people would write the same test from reading it — not "add tests for the endpoint."
@@ -66,7 +66,7 @@ This repo tracks tasks on a GitHub Project board (see `CONVENTIONS.md` → "GitH
 1. Confirm the `github` MCP server is connected. If it isn't available in this session, tell the user and skip this section rather than failing the whole run — the story/task files are still valid output on their own; issue creation can be done as a follow-up pass once MCP is reachable.
 2. Discover the current GitHub MCP tool names via `ToolSearch` (queries like `"github issue"`, `"github project"`) — don't assume fixed names, the server's toolset can change between versions.
 3. For each newly-created task file with no existing `**GitHub Issue:**` number:
-   - Create an issue in the repo named in `CONVENTIONS.md`. Title: `[T-<T>] <task short title> (US-<N>)` (or `(SHARED)` for cross-cutting tasks). Body: the task's one/two-sentence description, its `**Test:**` and `**Done when:**` fields verbatim, and a relative link back to the task file so anyone opening the issue can find the full context.
+   - Create an issue in the repo named in `CONVENTIONS.md`. Title: `[US-<N>_T-<T>] <task short title>` (or `[SHARED_T-<T>] <task short title>` for cross-cutting tasks). Body: the task's one/two-sentence description, its `**Test:**` and `**Done when:**` fields verbatim, and a relative link back to the task file so anyone opening the issue can find the full context.
    - Label it with the module name (e.g. `module:portfolio`) and `task`; create the label first if it doesn't already exist in the repo.
    - Write the returned issue number back into that task file's `**GitHub Issue:**` field.
    - Leave the issue's Project status at its default column (To Do / Backlog) — `/implement` is what moves it to In Progress / In Review later.

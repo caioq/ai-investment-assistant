@@ -1,8 +1,9 @@
-# T-1 (US-1): Initialize pnpm workspace and root scripts
+# US-1_T-1: Initialize pnpm workspace and root scripts
 
 **Story:** [../stories/US-1-monorepo-workspace-scaffold.md](../stories/US-1-monorepo-workspace-scaffold.md)
 **Status:** Not Started
 **GitHub Issue:** #1 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
+**Depends on:** none
 
 Create `pnpm-workspace.yaml` at repo root declaring `apps/*` and `packages/*` as workspace packages, and a root `package.json` with `dev`, `build`, `lint`, `typecheck`, and `db:migrate` scripts that proxy to the relevant workspace package(s) via `pnpm --filter` (e.g. `db:migrate` targets `--filter api`, `dev`/`build`/`lint`/`typecheck` fan out across all workspace packages via `-r`).
 

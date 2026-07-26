@@ -7,8 +7,8 @@ As a `<role>`, I want `<goal>`, so that `<benefit>`.
 
 ## Tasks
 
-- [ ] [T-1: <short task title>](../tasks/T-1_US-<N>-<short-task-title>.md)
-- [ ] [T-2: <short task title>](../tasks/T-2_US-<N>-<short-task-title>.md)
+- [ ] [T-1: <short task title>](../tasks/US-<N>_T-1-<short-task-title>.md)
+- [ ] [T-2: <short task title>](../tasks/US-<N>_T-2-<short-task-title>.md)
 
 <!-- One line per task file this story owns, in build order. Check the box when that task file's Status is Done — this list is the story's own progress view, the task file is where the detail lives. -->
 

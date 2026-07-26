@@ -7,8 +7,8 @@ As a `developer`, I want a GitHub Actions workflow that runs install, lint, type
 
 ## Tasks
 
-- [ ] [T-1: GitHub Actions CI workflow](../tasks/T-1_US-6-ci-workflow.md)
+- [ ] [T-1: GitHub Actions CI workflow](../tasks/US-6_T-1-ci-workflow.md)
 
 ## Notes
 
-Depends on [US-1](./US-1-monorepo-workspace-scaffold.md) through [US-5](./US-5-shared-package-integration.md) — there's nothing meaningful to lint/typecheck/build until those exist. Per `CLAUDE.md`/`WORKFLOW.md`, `spec-implementer` never pushes a branch, so this task's `Done when` is scoped to what's verifiable locally (workflow file present and correct, and the same commands it runs succeeding locally) — actually observing a green run on GitHub happens once the user pushes and reviews the PR, same as every other task.
+Depends on [US-1](./US-1-monorepo-workspace-scaffold.md) through [US-5](./US-5-shared-package-integration.md) — there's nothing meaningful to lint/typecheck/build until those exist. Since `spec-implementer` pushes its own branch and opens its own PR once this task is green (per `CONVENTIONS.md` → "Branching, pushing, and PRs per task"), this task's `Done when` includes actually watching the resulting GitHub Actions run go green — not just the local composite command.

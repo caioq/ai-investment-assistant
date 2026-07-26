@@ -7,8 +7,8 @@ As a `developer`, I want a NestJS app skeleton at `apps/api` with a working `GET
 
 ## Tasks
 
-- [ ] [T-1: Scaffold NestJS app at apps/api](../tasks/T-1_US-2-scaffold-nest-api.md)
-- [ ] [T-2: GET /health endpoint](../tasks/T-2_US-2-health-endpoint.md)
+- [ ] [T-1: Scaffold NestJS app at apps/api](../tasks/US-2_T-1-scaffold-nest-api.md)
+- [ ] [T-2: GET /health endpoint](../tasks/US-2_T-2-health-endpoint.md)
 
 ## Notes
 

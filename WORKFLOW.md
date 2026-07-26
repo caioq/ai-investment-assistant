@@ -25,6 +25,8 @@ If code and the spec/stories/tasks disagree, that's a bug in one of them — nev
 
   If this isn't set up, `/user-stories` still produces the spec/task files — it just skips issue creation with a warning, and `/implement` skips the board-sync step. Nothing blocks on it.
 
+- **`gh` CLI, authenticated** (`gh auth status`) — `spec-implementer` uses it to push each task's branch and open its PR (see `CONVENTIONS.md` → "Branching, pushing, and PRs per task"). If it isn't authenticated, the agent still completes the task and sets `Status: Done`, but reports that it couldn't push/open the PR so you can do that step by hand.
+
 ## The three stages
 
 ```
@@ -51,9 +53,9 @@ specs/
       US-1-<title>.md      # one story: role/goal/benefit, traces to a spec Goal/AC, links its tasks
       US-2-<title>.md
     tasks/
-      T-1_US-1-<title>.md   # one task: what to do, which test proves it, current Status
-      T-2_US-1-<title>.md
-      T-1_SHARED-<title>.md  # cross-cutting task, shared by more than one story
+      US-1_T-1-<title>.md   # one task: what to do, which test proves it, current Status
+      US-1_T-2-<title>.md
+      SHARED_T-1-<title>.md  # cross-cutting task, shared by more than one story
 CONVENTIONS.md            # living map of established patterns — read before implementing, updated after
 CLAUDE.md                 # short project overview + pointer to all of the above
 ```
@@ -85,10 +87,10 @@ Breaks an `Approved` spec into `specs/<module>/stories/` and `specs/<module>/tas
 
 Implements **exactly one task** — never a whole story or module — via the `spec-implementer` agent, isolated in a git worktree.
 
-- Resolves a task id (`T-2_US-1`), a story (`US-1`), or a bare module name to a specific `Not Started` task.
-- Checks the task's dependencies and its story's `Status` before launching anything.
+- Resolves a task id (`US-1_T-2`), a story (`US-1`), or a bare module name to a specific `Not Started` task.
+- Checks the task's `**Depends on:**` field and its story's `Status` before launching anything.
 - Runs the agent in the background by default so several `/implement` calls (independent tasks) can proceed concurrently.
-- Reports back what changed, the test that proves it, and the worktree branch — **it never merges, pushes, or touches your main working tree automatically.** Reviewing and merging is on you.
+- Once the task's test is green, the agent pushes its branch and opens a PR itself — stacking on a dependency's still-open PR if that dependency isn't merged yet, branching off `main` otherwise (see `CONVENTIONS.md` → "Branching, pushing, and PRs per task"). Reports back what changed, the test that proves it, and the PR it opened. **It never merges.** Reviewing and merging is on you.
 
 **Use it:** once a story's tasks are `Ready`, one task at a time (or several in parallel, if they don't depend on each other).
 
@@ -99,7 +101,7 @@ A skill is where the *judgment-heavy* methodology lives — more than a command'
 - How to word a story so it traces to a real spec Goal/Acceptance Criterion (and how to catch scope creep that doesn't).
 - How to size a task (one sitting, one observable outcome) and phrase its TDD `Test:`/`Done when:` fields concretely.
 - How to handle a re-run without clobbering completed work.
-- The exact file/naming structure (`US-<N>-<title>.md`, `T-<T>_US-<N>-<title>.md`, `SHARED` tasks).
+- The exact file/naming structure (`US-<N>-<title>.md`, `US-<N>_T-<T>-<title>.md`, `SHARED` tasks).
 
 Splitting this out from the command means the same methodology could be invoked another way later (e.g. "break this down into stories" in plain conversation) without duplicating the instructions.
 
@@ -110,13 +112,13 @@ An agent gets its own context window, a restricted toolset, and — critically h
 Its loop, per task:
 
 1. Read the task, its story, the module spec, and `CONVENTIONS.md` (so it reuses existing patterns instead of rediscovering the codebase from scratch every time).
-2. Confirm dependencies are `Done`; refuse to guess around a gap.
+2. Resolve the task's `**Depends on:**` field: branch off `main` if every dependency is `Done` and merged, branch off a dependency's own branch if it's `Done` but its PR is still open (a stacked PR), or refuse and report blocked if a dependency isn't `Done` yet — never guess around a gap.
 3. **Strict red-green TDD:** write the test named in the task first, run it, confirm it fails for the right reason, only then implement until it passes.
 4. Mark the task (and, if it was the last one, the story) `Done`.
 5. If it introduced something genuinely new and reusable, append a short entry to `CONVENTIONS.md`.
-6. Report back — never merges or pushes.
+6. Commit, push its branch, and open a PR (`Closes #<issue>` in the body when there's a linked issue). Report back — it never merges.
 
-Tool access is scoped to `Read, Edit, Write, Bash, Grep, Glob` — no `Agent` (it can't spawn further agents) and no direct merge/push authority.
+Tool access is scoped to `Read, Edit, Write, Bash, Grep, Glob` — no `Agent` (it can't spawn further agents) and no merge authority. It pushes its own branch and opens its own PR via `gh` (through `Bash`), but merging stays outside its scope entirely.
 
 ## How the pieces actually fit together
 
@@ -132,10 +134,10 @@ The spec/stories/tasks files themselves are the actual contract between all of t
 ## Walkthrough: implementing the `auth` module
 
 1. `specs/auth/spec.md` already exists and is `Approved` (no dependencies — good first module).
-2. Run `/user-stories auth`. The `spec-to-stories` skill reads the spec and produces `specs/auth/stories/README.md`, story files (e.g. `US-1-register-and-login.md`, `US-2-session-guard.md`), and their task files (e.g. `T-1_US-1-add-user-prisma-model.md`, `T-2_US-1-hash-password-on-register.md`, ...), each with a concrete `Test:` field.
-3. Run `/implement T-1_US-1-add-user-prisma-model`. The `spec-implementer` agent spins up in a worktree, writes a migration test, watches it fail, adds the Prisma model, watches it pass, marks the task `Done`, and reports the worktree branch.
-4. Review that diff, merge it.
-5. Run `/implement T-2_US-1-...` next — and, since it doesn't depend on unrelated work elsewhere, you could also kick off a task from `US-2` in parallel in a separate worktree at the same time.
+2. Run `/user-stories auth`. The `spec-to-stories` skill reads the spec and produces `specs/auth/stories/README.md`, story files (e.g. `US-1-register-and-login.md`, `US-2-session-guard.md`), and their task files (e.g. `US-1_T-1-add-user-prisma-model.md`, `US-1_T-2-hash-password-on-register.md`, ...), each with a concrete `Test:` field.
+3. Run `/implement US-1_T-1-add-user-prisma-model`. The `spec-implementer` agent spins up in a worktree, writes a migration test, watches it fail, adds the Prisma model, watches it pass, marks the task `Done`, pushes its branch, opens a PR, and reports the PR link.
+4. Review that PR, merge it.
+5. Run `/implement US-1_T-2-...` next — and, since it doesn't depend on unrelated work elsewhere, you could also kick off a task from `US-2` in parallel in a separate worktree at the same time. If a next task's `**Depends on:**` names US-1_T-1 and you haven't merged its PR yet, the agent stacks that task's branch on US-1_T-1's still-open PR automatically instead of blocking — you just have two PRs to merge in order instead of one.
 6. Once every task under a story is `Done`, its `README.md` row and the story's own `Status` flip to `Done` automatically as part of the last task's completion.
 
 ## Best practices
@@ -145,6 +147,7 @@ The spec/stories/tasks files themselves are the actual contract between all of t
 - **Fix the spec, don't route around it.** If a task or story turns out to be wrong or incomplete mid-implementation, stop and update the spec (or flag it) — don't silently implement something else because it seemed reasonable.
 - **Trust the `Status` fields, not the code's appearance.** A task isn't `Done` until its test passes red-green — "the code looks right" isn't the bar.
 - **Let `CONVENTIONS.md` do its job.** Read it before implementing instead of grepping the repo cold; update it after introducing something genuinely reusable so the next task benefits. Don't let it go stale by skipping that step.
-- **Always review before merging.** No command or agent here merges or pushes automatically, by design — treat every worktree branch as a PR-sized diff to actually read.
+- **Always review before merging.** `spec-implementer` pushes its branch and opens its PR for you, but no command or agent here ever merges, by design — treat every PR it opens as a diff to actually read before you merge it.
+- **Merge promptly; don't let stacks grow deep.** A stacked PR (branched off a dependency that's `Done` but not yet merged) is a fallback for keeping parallel `/implement` runs moving, not the default habit. Merge each task's PR soon after reviewing it so the next task branches off a current `main` — GitHub doesn't auto-rebase a stacked PR once its base gets squash-merged, so the longer a stack sits, the more manual rebasing you'll owe yourself later.
 - **Keep tasks small.** If a task can't be described with one concrete test, it's too big — split it in `/user-stories` rather than letting the implementer improvise scope.
-- **Parallelize along the dependency graph, not against it.** Two tasks in different stories are usually safe to run at once; two tasks in the same story rarely are — check what each depends on before firing off several `/implement` calls together.
+- **Parallelize along the dependency graph, not against it.** Two tasks in different stories are usually safe to run at once; two tasks in the same story rarely are — check each task's `**Depends on:**` field before firing off several `/implement` calls together.
