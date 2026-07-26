@@ -33,6 +33,9 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ## Cross-cutting
 
+### Local Postgres (docker-compose)
+- Root `docker-compose.yml` (`caioq/ai-investment-assistant`) defines two Postgres 16 services: `db` (dev, host port `5432`, db name `investment_assistant`) and `db-test` (test, host port `5433`, db name `investment_assistant_test`) — separate host ports so `db-test` never collides with `db` and integration tests never touch dev data. Both use `postgres`/`postgres` credentials and a `pg_isready` healthcheck. `pnpm db:migrate` (and any future `apps/api` `DATABASE_URL`) targets `db`; the test suite's `DATABASE_URL` targets `db-test`.
+
 ### Auth
 - Every protected controller uses a shared `AuthGuard` (`apps/api/src/auth/auth.guard.ts`) that resolves `req.user.id` from the `access_token` httpOnly cookie. No endpoint outside `AuthModule` accepts a `userId`/`portfolioId` from the client — it always comes from `req.user.id`.
 
