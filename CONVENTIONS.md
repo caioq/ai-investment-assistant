@@ -33,6 +33,12 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ## Cross-cutting
 
+### Shared TypeScript/ESLint/Prettier config
+- `tsconfig.base.json` (repo root) holds shared strict compiler options with no `module`/`moduleResolution`/`include` opinion — each package's own `tsconfig.json` does `"extends": "../../tsconfig.base.json"` and sets its own `module`/`moduleResolution`/`include`/`outDir` (Nest needs `commonjs`+`node`, Next needs `esnext`+`bundler`).
+- `eslint.config.mjs` (repo root, flat config) is the shared ESLint base (`@eslint/js` recommended + `typescript-eslint` recommended + `eslint-config-prettier` to defer style to Prettier). Each package imports and spreads it rather than declaring its own rules: `import rootConfig from '../../eslint.config.mjs'; export default [...rootConfig, /* package overrides */];`
+- `.prettierrc.json` / `.prettierignore` (repo root) is the one Prettier config for the whole repo — packages don't declare their own.
+- Root `package.json`'s `lint` script runs `eslint .` (self-lints the shared config plus anything at repo root) before delegating to `pnpm -r run lint`, so a broken root config fails fast instead of hiding behind "no projects matched".
+
 ### Auth
 - Every protected controller uses a shared `AuthGuard` (`apps/api/src/auth/auth.guard.ts`) that resolves `req.user.id` from the `access_token` httpOnly cookie. No endpoint outside `AuthModule` accepts a `userId`/`portfolioId` from the client — it always comes from `req.user.id`.
 
