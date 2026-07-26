@@ -1,7 +1,7 @@
 # US-4_T-1: docker-compose Postgres services
 
 **Story:** [../stories/US-4-database-setup.md](../stories/US-4-database-setup.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #8 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 
