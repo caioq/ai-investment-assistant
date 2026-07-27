@@ -33,6 +33,12 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ## Cross-cutting
 
+### Shared TypeScript/ESLint/Prettier config
+- `tsconfig.base.json` (repo root) holds shared strict compiler options with no `module`/`moduleResolution`/`include` opinion — each package's own `tsconfig.json` does `"extends": "../../tsconfig.base.json"` and sets its own `module`/`moduleResolution`/`include`/`outDir` (Nest needs `commonjs`+`node`, Next needs `esnext`+`bundler`).
+- `eslint.config.mjs` (repo root, flat config) is the shared ESLint base (`@eslint/js` recommended + `typescript-eslint` recommended + `eslint-config-prettier` to defer style to Prettier). Each package imports and spreads it rather than declaring its own rules: `import rootConfig from '../../eslint.config.mjs'; export default [...rootConfig, /* package overrides */];`
+- `.prettierrc.json` / `.prettierignore` (repo root) is the one Prettier config for the whole repo — packages don't declare their own.
+- Root `package.json`'s `lint` script runs `eslint .` (self-lints the shared config plus anything at repo root) before delegating to `pnpm -r run lint`, so a broken root config fails fast instead of hiding behind "no projects matched".
+
 ### Auth
 - Every protected controller uses a shared `AuthGuard` (`apps/api/src/auth/auth.guard.ts`) that resolves `req.user.id` from the `access_token` httpOnly cookie. No endpoint outside `AuthModule` accepts a `userId`/`portfolioId` from the client — it always comes from `req.user.id`.
 
@@ -44,7 +50,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Branching, pushing, and PRs per task
 - Branch naming: `task/US-<N>_T-<T>-<short-title>` (or `task/SHARED_T-<T>-<short-title>`) — matches the task file's own basename minus `.md`. This is what makes a task's branch/PR discoverable by name alone, which the dependency-branching rule below relies on.
-- Once a task's test is green and its `Status` is set to `Done`, `spec-implementer` commits, pushes its branch, and opens the PR itself (`gh pr create`, body includes `Closes #<issue>` when the task has a linked issue). It never merges — merging is always a manual, reviewed step the user does.
+- Once a task's test is green and its `Status` is set to `Done`, `spec-implementer` commits, pushes its branch, and opens the PR itself via the `github` MCP server (`mcp__github__create_pull_request`, body includes `Closes #<issue>` when the task has a linked issue) — not the `gh` CLI, which isn't installed in this environment. It never merges — merging is always a manual, reviewed step the user does. If the MCP server isn't reachable from the worktree sandbox, the branch still gets pushed and the parent `/implement` session opens the PR afterward instead.
 - Every task file has a `**Depends on:**` field (`none`, or a comma-separated list of task ids) — this is what `spec-implementer` resolves before picking what to branch off, rather than inferring order from task numbering or story prose:
   - Every listed dependency `Done` and merged (no open PR left on its branch) → branch off `main`. This is the common case and should stay the common case.
   - A listed dependency `Done` but its PR still open → branch off that dependency's branch instead (a stacked PR), so the new task builds on real code rather than a stale `main`.
