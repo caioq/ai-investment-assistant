@@ -6,7 +6,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 
 | Story | Title | Status | Tasks |
 |---|---|---|---|
-| [US-1](./US-1-monorepo-workspace-scaffold.md) | Monorepo workspace scaffold | Ready | T-1..T-3 in `../tasks/` |
+| [US-1](./US-1-monorepo-workspace-scaffold.md) | Monorepo workspace scaffold | Done | T-1..T-3 in `../tasks/` |
 | [US-2](./US-2-backend-health-check-skeleton.md) | Backend health-check skeleton | Ready | T-1..T-2 in `../tasks/` |
 | [US-3](./US-3-frontend-placeholder-skeleton.md) | Frontend placeholder skeleton | Ready | T-1..T-2 in `../tasks/` |
 | [US-4](./US-4-database-setup.md) | Database setup (docker-compose + Prisma init) | Ready | T-1..T-2 in `../tasks/` |
