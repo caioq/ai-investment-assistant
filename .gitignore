@@ -19,6 +19,9 @@ apps/web/next-env.d.ts
 # NestJS build output
 apps/api/dist/
 
+# packages/* build output
+packages/*/dist/
+
 # Test / coverage
 coverage/
 
