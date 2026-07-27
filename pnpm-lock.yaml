@@ -29,6 +29,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@ai-investment-assistant/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)

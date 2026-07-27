@@ -11,7 +11,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 - `PrismaService` lives in a global `PrismaModule` (`apps/api/src/prisma/`), injected via constructor DI wherever a service needs DB access. Nothing instantiates `PrismaClient` directly.
 
 ### Shared utilities / models
-<Not established yet — the first entry here will be the CAGR/volatility/drawdown calculations, expected at `packages/shared/src/metrics.ts` once the `portfolio` module's performance tasks land.>
+- `apps/api` depends on `@ai-investment-assistant/shared` (`workspace:*`) — see `apps/api/package.json` and its use in `apps/api/src/health/shared-info.service.ts`. Node resolves the package's `main`/`types` fields to `packages/shared/dist`, so `pnpm --filter @ai-investment-assistant/shared build` must run before the package's exports are usable from `apps/api` (at runtime or type-check) — `pnpm build` at the repo root does this for the whole workspace. A future utility (e.g. the CAGR/volatility/drawdown calculations expected at `packages/shared/src/metrics.ts` once the `portfolio` module's performance tasks land) is consumed the same way.
 
 ### Testing
 - Jest (NestJS default), spec files colocated next to the code they test (`*.spec.ts`).
