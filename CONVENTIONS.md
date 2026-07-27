@@ -9,6 +9,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 - Controllers stay thin: request/response shaping and calling into services only. Business logic (allocation math, prompt building, price aggregation, etc.) lives in services — or in `packages/shared` if it's pure logic the frontend also needs.
 - All controller inputs are validated with `class-validator` DTOs behind a single global `ValidationPipe` (`whitelist: true, forbidNonWhitelisted: true`) registered once in `main.ts` — no ad hoc manual validation inside individual controllers.
 - `PrismaService` lives in a global `PrismaModule` (`apps/api/src/prisma/`), injected via constructor DI wherever a service needs DB access. Nothing instantiates `PrismaClient` directly.
+- Prisma schema at `apps/api/prisma/schema.prisma` (datasource/generator only until a module adds models); `apps/api/prisma.config.ts` (Prisma 7) reads `DATABASE_URL` from `apps/api/.env` (gitignored, not committed — matches the `db` service in root `docker-compose.yml`: `postgresql://postgres:postgres@localhost:5432/investment_assistant?schema=public`). Root `pnpm db:migrate` proxies to `apps/api`'s own `db:migrate` script (`prisma migrate dev`), which needs `db` (from `docker-compose.yml`) up first.
 
 ### Shared utilities / models
 <Not established yet — the first entry here will be the CAGR/volatility/drawdown calculations, expected at `packages/shared/src/metrics.ts` once the `portfolio` module's performance tasks land.>
