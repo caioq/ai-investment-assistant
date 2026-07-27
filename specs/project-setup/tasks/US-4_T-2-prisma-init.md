@@ -1,7 +1,7 @@
 # US-4_T-2: Prisma init and db:migrate wiring
 
 **Story:** [../stories/US-4-database-setup.md](../stories/US-4-database-setup.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #9 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** US-2_T-1, US-4_T-1
 
