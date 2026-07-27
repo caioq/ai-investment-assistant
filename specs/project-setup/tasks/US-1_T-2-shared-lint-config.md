@@ -1,7 +1,7 @@
 # US-1_T-2: Shared TypeScript/ESLint/Prettier config
 
 **Story:** [../stories/US-1-monorepo-workspace-scaffold.md](../stories/US-1-monorepo-workspace-scaffold.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #2 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** US-1_T-1
 
