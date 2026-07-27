@@ -1,13 +1,13 @@
 # US-6: CI pipeline
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Basic CI (GitHub Actions): install, lint, typecheck, build on every push/PR" / AC "A pushed branch triggers the GitHub Actions workflow, and it passes (lint, typecheck, build) on this skeleton with no feature code yet" (in `../spec.md`)
 
 As a `developer`, I want a GitHub Actions workflow that runs install, lint, typecheck, and build on every push/PR, so that regressions are caught automatically before merge, starting from this skeleton.
 
 ## Tasks
 
-- [ ] [T-1: GitHub Actions CI workflow](../tasks/US-6_T-1-ci-workflow.md)
+- [x] [T-1: GitHub Actions CI workflow](../tasks/US-6_T-1-ci-workflow.md)
 
 ## Notes
 

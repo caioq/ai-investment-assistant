@@ -12,7 +12,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 - Prisma schema at `apps/api/prisma/schema.prisma` (datasource/generator only until a module adds models); `apps/api/prisma.config.ts` (Prisma 7) reads `DATABASE_URL` from `apps/api/.env` (gitignored, not committed — matches the `db` service in root `docker-compose.yml`: `postgresql://postgres:postgres@localhost:5432/investment_assistant?schema=public`). Root `pnpm db:migrate` proxies to `apps/api`'s own `db:migrate` script (`prisma migrate dev`), which needs `db` (from `docker-compose.yml`) up first.
 
 ### Shared utilities / models
-- `apps/api` depends on `@ai-investment-assistant/shared` (`workspace:*`) — see `apps/api/package.json` and its use in `apps/api/src/health/shared-info.service.ts`. Node resolves the package's `main`/`types` fields to `packages/shared/dist`, so `pnpm --filter @ai-investment-assistant/shared build` must run before the package's exports are usable from `apps/api` (at runtime or type-check) — `pnpm build` at the repo root does this for the whole workspace. A future utility (e.g. the CAGR/volatility/drawdown calculations expected at `packages/shared/src/metrics.ts` once the `portfolio` module's performance tasks land) is consumed the same way.
+- `apps/api` depends on `@ai-investment-assistant/shared` (`workspace:*`) — see `apps/api/package.json` and its use in `apps/api/src/health/shared-info.service.ts`. Node resolves the package's `main`/`types` fields to `packages/shared/dist`, so `pnpm --filter @ai-investment-assistant/shared build` must run before the package's exports are usable from `apps/api` (at runtime or type-check). `apps/api/package.json` has a `prebuild` script (`pnpm --filter @ai-investment-assistant/shared build`) so a plain `pnpm --filter api build` — the exact step CI runs — builds `shared` first automatically, without needing the root `pnpm build`. A future utility (e.g. the CAGR/volatility/drawdown calculations expected at `packages/shared/src/metrics.ts` once the `portfolio` module's performance tasks land) is consumed the same way.
 
 ### Testing
 - Jest (NestJS default), spec files colocated next to the code they test (`*.spec.ts`).
@@ -28,7 +28,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Shared utilities
 - `apps/web/lib/types.ts` re-exports types from `packages/shared` rather than redefining them — the frontend never declares its own copy of a shape `packages/shared` already owns.
-- `apps/web` depends on `@ai-investment-assistant/shared` (`workspace:*`) — see `apps/web/package.json` and its use in `apps/web/app/page.tsx`. Same build-before-consume caveat as `apps/api` (see above): `pnpm --filter @ai-investment-assistant/shared build` must run before the package's exports resolve from `apps/web` (dev server, `next build`, or Vitest) since Node resolves `packages/shared/dist`.
+- `apps/web` depends on `@ai-investment-assistant/shared` (`workspace:*`) — see `apps/web/package.json` and its use in `apps/web/app/page.tsx`. Same build-before-consume caveat as `apps/api` (see above): `pnpm --filter @ai-investment-assistant/shared build` must run before the package's exports resolve from `apps/web` (dev server, `next build`, or Vitest) since Node resolves `packages/shared/dist`. Same `prebuild` fix as `apps/api`: `apps/web/package.json`'s `prebuild` script builds `shared` first so `pnpm --filter web build` alone (the CI step) works from a clean checkout.
 
 ### Testing
 - Vitest + React Testing Library for component tests, colocated `*.test.tsx` next to the component.
@@ -45,6 +45,9 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Local Postgres (docker-compose)
 - Root `docker-compose.yml` (`caioq/ai-investment-assistant`) defines two Postgres 16 services: `db` (dev, host port `5432`, db name `investment_assistant`) and `db-test` (test, host port `5433`, db name `investment_assistant_test`) — separate host ports so `db-test` never collides with `db` and integration tests never touch dev data. Both use `postgres`/`postgres` credentials and a `pg_isready` healthcheck. `pnpm db:migrate` (and any future `apps/api` `DATABASE_URL`) targets `db`; the test suite's `DATABASE_URL` targets `db-test`.
+
+### CI (GitHub Actions)
+- `.github/workflows/ci.yml` runs on every `push`/`pull_request`: `pnpm install`, `pnpm lint`, `pnpm typecheck`, `pnpm --filter api build`, `pnpm --filter web build` — no test step yet (added once the first feature module lands its own tests). Relies on `apps/api` and `apps/web` each having a `prebuild` script that builds `packages/shared` first (see "Shared utilities / models" above), since CI runs `pnpm --filter <app> build` directly rather than the topologically-sorted root `pnpm build`.
 
 ### Auth
 - Every protected controller uses a shared `AuthGuard` (`apps/api/src/auth/auth.guard.ts`) that resolves `req.user.id` from the `access_token` httpOnly cookie. No endpoint outside `AuthModule` accepts a `userId`/`portfolioId` from the client — it always comes from `req.user.id`.

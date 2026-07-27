@@ -1,7 +1,7 @@
 # US-6_T-1: GitHub Actions CI workflow
 
 **Story:** [../stories/US-6-ci-pipeline.md](../stories/US-6-ci-pipeline.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #13 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** US-1_T-2, US-1_T-3, US-2_T-1, US-2_T-2, US-3_T-1, US-3_T-2, US-4_T-1, US-4_T-2, US-5_T-1, US-5_T-2, US-5_T-3 (needs a full, real workspace to install/lint/typecheck/build)
 

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prebuild": "pnpm --filter @ai-investment-assistant/shared build",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
