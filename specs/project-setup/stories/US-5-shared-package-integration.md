@@ -7,7 +7,7 @@ As a `developer`, I want `packages/shared` scaffolded as a real workspace packag
 
 ## Tasks
 
-- [ ] [T-1: Scaffold packages/shared](../tasks/US-5_T-1-scaffold-shared-package.md)
+- [x] [T-1: Scaffold packages/shared](../tasks/US-5_T-1-scaffold-shared-package.md)
 - [ ] [T-2: Import from apps/api](../tasks/US-5_T-2-import-from-api.md)
 - [ ] [T-3: Import from apps/web](../tasks/US-5_T-3-import-from-web.md)
 

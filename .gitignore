@@ -17,6 +17,9 @@ apps/web/out/
 # NestJS build output
 apps/api/dist/
 
+# packages/* build output
+packages/*/dist/
+
 # Test / coverage
 coverage/
 
