@@ -31,7 +31,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 300"
+          claude_args: "--max-turns 300 --dangerously-skip-permissions"
           prompt: |
             You are running as an automated GitHub Actions job for this repository
             (already checked out in the working directory, full git history available).
