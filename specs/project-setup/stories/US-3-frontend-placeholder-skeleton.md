@@ -1,6 +1,6 @@
 # US-3: Frontend placeholder skeleton
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Next.js skeleton with a placeholder home page" / AC "`pnpm --filter web dev` serves the placeholder page at `http://localhost:3000`" (in `../spec.md`)
 
 As a `developer`, I want a Next.js (App Router) app skeleton at `apps/web` with Tailwind configured and a placeholder home page, so that later modules have a running frontend to add real routes and components to.
@@ -8,7 +8,7 @@ As a `developer`, I want a Next.js (App Router) app skeleton at `apps/web` with 
 ## Tasks
 
 - [x] [T-1: Scaffold Next.js app at apps/web](../tasks/US-3_T-1-scaffold-next-web.md)
-- [ ] [T-2: Placeholder home page](../tasks/US-3_T-2-placeholder-page.md)
+- [x] [T-2: Placeholder home page](../tasks/US-3_T-2-placeholder-page.md)
 
 ## Notes
 
