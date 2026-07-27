@@ -1,6 +1,6 @@
 # US-1: Monorepo workspace scaffold
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "pnpm workspace monorepo: `apps/web` (Next.js), `apps/api` (NestJS), `packages/shared`" / Goal "Shared TypeScript/ESLint/Prettier config used consistently by both apps and `packages/shared`" / Goal "`.env.example` documenting every environment variable later specs will need" / AC "`pnpm install` completes cleanly from a fresh clone" (in `../spec.md`)
 
 As a `developer`, I want a pnpm workspace scaffolded with the `apps/web`, `apps/api`, and `packages/shared` layout, root-level scripts, shared lint/format/typecheck config, and a documented `.env.example`, so that every other module has one consistent place to add code and one set of commands to run, lint, and typecheck it.
@@ -8,8 +8,8 @@ As a `developer`, I want a pnpm workspace scaffolded with the `apps/web`, `apps/
 ## Tasks
 
 - [x] [T-1: Initialize pnpm workspace and root scripts](../tasks/US-1_T-1-init-pnpm-workspace.md)
-- [ ] [T-2: Shared TypeScript/ESLint/Prettier config](../tasks/US-1_T-2-shared-lint-config.md)
-- [ ] [T-3: `.env.example` documenting all env vars](../tasks/US-1_T-3-env-example.md)
+- [x] [T-2: Shared TypeScript/ESLint/Prettier config](../tasks/US-1_T-2-shared-lint-config.md)
+- [x] [T-3: `.env.example` documenting all env vars](../tasks/US-1_T-3-env-example.md)
 
 ## Notes
 
