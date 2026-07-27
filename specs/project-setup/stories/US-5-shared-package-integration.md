@@ -1,6 +1,6 @@
 # US-5: Shared package scaffold and cross-app import
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "pnpm workspace monorepo: ... `packages/shared`" / AC "`packages/shared` is importable from both `apps/web` and `apps/api` (a trivial exported constant resolves correctly from each)" (in `../spec.md`)
 
 As a `developer`, I want `packages/shared` scaffolded as a real workspace package and proven importable from both `apps/api` and `apps/web`, so that the `portfolio` module (the first to add real shared logic, per `CONVENTIONS.md`) can rely on the wiring already working.
@@ -8,8 +8,8 @@ As a `developer`, I want `packages/shared` scaffolded as a real workspace packag
 ## Tasks
 
 - [x] [T-1: Scaffold packages/shared](../tasks/US-5_T-1-scaffold-shared-package.md)
-- [ ] [T-2: Import from apps/api](../tasks/US-5_T-2-import-from-api.md)
-- [ ] [T-3: Import from apps/web](../tasks/US-5_T-3-import-from-web.md)
+- [x] [T-2: Import from apps/api](../tasks/US-5_T-2-import-from-api.md)
+- [x] [T-3: Import from apps/web](../tasks/US-5_T-3-import-from-web.md)
 
 ## Notes
 
