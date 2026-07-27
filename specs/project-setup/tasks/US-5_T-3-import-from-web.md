@@ -1,7 +1,7 @@
 # US-5_T-3: Import from apps/web
 
 **Story:** [../stories/US-5-shared-package-integration.md](../stories/US-5-shared-package-integration.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #12 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** US-5_T-1, US-3_T-2
 
