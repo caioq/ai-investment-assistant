@@ -20,6 +20,7 @@ concurrency:
 jobs:
   auto-implement:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,8 +30,8 @@ jobs:
       - name: Run Claude Code to implement the next unimplemented issue
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_args: "--max-turns 150"
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--max-turns 300"
           prompt: |
             You are running as an automated GitHub Actions job for this repository
             (already checked out in the working directory, full git history available).
@@ -79,39 +80,54 @@ jobs:
                  succeeds). If it does, exclude the candidate too, even if no PR is open
                  yet — work may already be underway or mid-flight.
 
-            5. If no candidates remain after step 4: end the run. Report "No
-               unimplemented, not-yet-started issues found" plus the unmanaged list
-               from step 2(b) (informational only — never comment on, label, or close
-               those issues).
+            5. Also check for orphaned/stuck work: any task file whose **Status:** is
+               "In Progress" but which has NEITHER an open PR NOR an existing remote
+               branch matching task/<basename> likely means a previous automated run
+               was interrupted before it could push anything (e.g. it hit a turn/time
+               limit mid-TDD). Note these in your final report as "possibly stuck —
+               needs human follow-up." Do not attempt to resume, reset, or otherwise
+               act on them yourself.
 
-            6. Otherwise, pick the remaining eligible task whose linked GitHub issue
-               number is the LOWEST (the oldest open issue). Run this repo's
-               /implement <path-to-that-task-file> workflow on it exactly as defined in
-               .claude/commands/implement.md (it will launch the spec-implementer agent
-               in an isolated git worktree and run red-green TDD). Let it report
-               whatever outcome it reports, including if it declines due to an unmet
-               dependency or a draft story.
+            6. If no candidates remain after step 4: end the run. Report "No
+               unimplemented, not-yet-started issues found" plus the unmanaged list
+               from step 2(b) and any stuck tasks from step 5 (informational only —
+               never comment on, label, or close those issues).
+
+            7. Otherwise, pick the remaining eligible task whose linked GitHub issue
+               number is the LOWEST (the oldest open issue). This repo has a custom
+               /implement <task-file> command (.claude/commands/implement.md) and a
+               spec-implementer agent (.claude/agents/spec-implementer.md) that
+               together implement exactly one task via strict red-green TDD, then push
+               a branch and open a PR — never merging. Read both of those files in
+               full now, then carry out that exact procedure yourself for this task
+               file — spawn spec-implementer as a subagent via your Task/Agent tool if
+               it's available in this environment; if it isn't, perform its documented
+               steps directly, in this same session, exactly as written. Do not assume
+               "/implement" will be parsed as a working slash command here — treat the
+               command/agent files as the literal instructions to follow, not as a
+               command to invoke by name. Let the outcome be whatever it is, including
+               declining because of an unmet dependency or a draft story.
 
                IMPORTANT — PR fallback: `spec-implementer`'s own instructions
-               (.claude/agents/spec-implementer.md) now try to open the PR via the
+               (.claude/agents/spec-implementer.md) try to open the PR via the
                `github` MCP server, and explicitly fall back to "push the branch but
                skip the PR" if that MCP server isn't reachable — which it will not be
-               in this environment (no MCP server is configured for this workflow).
-               So: after /implement finishes, if its report says the task is `Done`
-               and the branch was pushed but no PR was opened, open the PR yourself
-               right now using `gh pr create` (gh CLI IS available in this GitHub
-               Actions runner, unlike the local worktree sandbox spec-implementer was
-               written for) — base it against `main` (or the dependency branch it
-               reports stacking on), title `[<task-id>] <short title>`, body containing
-               the task's **Test:** and **Done when:** fields verbatim, a link to the
-               task file, and `Closes #<issue>` if the task has a linked GitHub Issue
-               number. Never merge it.
+               in this environment (no MCP server is configured for this workflow). So:
+               once the task is `Done` and the branch is pushed, if no PR was opened,
+               open the PR yourself right now using `gh pr create` (gh CLI IS available
+               in this GitHub Actions runner, unlike the local worktree sandbox
+               spec-implementer was written for) — base it against `main` (or the
+               dependency branch it reports stacking on), title `[<task-id>] <short
+               title>`, body containing the task's **Test:** and **Done when:** fields
+               verbatim, a link to the task file, and `Closes #<issue>` if the task has
+               a linked GitHub Issue number. Never merge it.
 
-            7. Final report: (a) which issue/task was picked and the outcome (PR URL —
-               whether opened by spec-implementer or by your step-6 fallback — or the
+            8. Final report: (a) which issue/task was picked and the outcome (PR URL —
+               whether opened by spec-implementer or by your step-7 fallback — or the
                specific reason it was blocked/failed), (b) any candidates excluded in
-               step 4 because a PR or branch already existed for them, and (c) the
-               unmanaged open-issue list from step 2(b) for human awareness.
+               step 4 because a PR or branch already existed for them, (c) any stuck
+               tasks found in step 5, and (d) the unmanaged open-issue list from step
+               2(b) for human awareness.
 
             Hard rules: attempt at most ONE task per run. Never modify, comment on,
             label, or close any GitHub issue that has no matching task file. Never
