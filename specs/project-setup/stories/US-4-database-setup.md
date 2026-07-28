@@ -7,7 +7,7 @@ As a `developer`, I want two Postgres instances (`db`, `db-test`) run via `docke
 
 ## Tasks
 
-- [ ] [T-1: docker-compose Postgres services](../tasks/US-4_T-1-docker-compose-postgres.md)
+- [x] [T-1: docker-compose Postgres services](../tasks/US-4_T-1-docker-compose-postgres.md)
 - [ ] [T-2: Prisma init and db:migrate wiring](../tasks/US-4_T-2-prisma-init.md)
 
 ## Notes
