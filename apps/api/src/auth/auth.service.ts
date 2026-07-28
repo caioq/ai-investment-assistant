@@ -28,7 +28,7 @@ export class AuthService {
    * Shared by the register endpoint and (per AUTH_US-2_T-2) the login endpoint,
    * so the sign+set-cookie logic isn't duplicated between them.
    */
-  issueSession(res: Response, user: User): void {
+  issueSession(res: Response, user: Pick<User, 'id' | 'email'>): void {
     const token = this.jwtService.sign({ sub: user.id, email: user.email });
 
     res.cookie(ACCESS_TOKEN_COOKIE, token, {
