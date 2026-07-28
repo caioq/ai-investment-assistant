@@ -1,10 +1,11 @@
-# US-<N>_T-<T>: <short task title>
+# <MODULE>_US-<N>_T-<T>: <short task title>
+<!-- <MODULE> is the module directory name, uppercased with hyphens as underscores (market-data -> MARKET_DATA) — see CONVENTIONS.md -> "Naming". File name matches: <MODULE>_US-<N>_T-<T>-<short-kebab-title>.md -->
 
 **Story:** [../stories/US-<N>-<short-us-title>.md](../stories/US-<N>-<short-us-title>.md)
 <!-- For a cross-cutting task instead of a single story, replace the line above with: **Shared by:** US-1, US-2 -->
 **Status:** Not Started | In Progress | Done
 **GitHub Issue:** #<issue-number> (<repo owner/name> — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
-**Depends on:** US-<N>_T-<T> (or a comma-separated list, or `none`) — used by `spec-implementer` to decide what to branch off (see `CONVENTIONS.md` → "Branching, pushing, and PRs per task")
+**Depends on:** <MODULE>_US-<N>_T-<T> (or a comma-separated list, or `none`) — used by `spec-implementer` to decide what to branch off (see `CONVENTIONS.md` → "Branching, pushing, and PRs per task")
 
 <One or two sentences describing exactly what to do. Reference concrete names from the spec — model fields, endpoint paths, component names — instead of paraphrasing them.>
 
