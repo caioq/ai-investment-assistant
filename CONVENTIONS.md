@@ -16,6 +16,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 ### Testing
 - Jest (NestJS default), spec files colocated next to the code they test (`*.spec.ts`).
 - Unit tests mock `PrismaService`. Integration/e2e tests run against a real test Postgres (separate `docker-compose` service, migrated before the suite runs) through `supertest` against an actual Nest application instance — not mocked at the HTTP layer.
+- e2e specs live in `apps/api/test/*.e2e-spec.ts`, run via `pnpm --filter api test:e2e` (Jest config at `apps/api/test/jest-e2e.json`, `ts-jest` transform). Build a real app with `Test.createTestingModule({ imports: [AppModule] }).compile()` then `.createNestApplication()` + `.init()` — see `apps/api/test/health.e2e-spec.ts` for the pattern. Endpoints with no DB dependency (like `/health`) need no Postgres/`docker-compose` setup to run this way.
 
 ## Frontend (`apps/web`)
 
@@ -32,6 +33,12 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 - Playwright specs live under `apps/web/e2e/`, one spec per critical user flow (not one per page).
 
 ## Cross-cutting
+
+### Shared TypeScript/ESLint/Prettier config
+- `tsconfig.base.json` (repo root) holds shared strict compiler options with no `module`/`moduleResolution`/`include` opinion — each package's own `tsconfig.json` does `"extends": "../../tsconfig.base.json"` and sets its own `module`/`moduleResolution`/`include`/`outDir` (Nest needs `commonjs`+`node`, Next needs `esnext`+`bundler`).
+- `eslint.config.mjs` (repo root, flat config) is the shared ESLint base (`@eslint/js` recommended + `typescript-eslint` recommended + `eslint-config-prettier` to defer style to Prettier). Each package imports and spreads it rather than declaring its own rules: `import rootConfig from '../../eslint.config.mjs'; export default [...rootConfig, /* package overrides */];`
+- `.prettierrc.json` / `.prettierignore` (repo root) is the one Prettier config for the whole repo — packages don't declare their own.
+- Root `package.json`'s `lint` script runs `eslint .` (self-lints the shared config plus anything at repo root) before delegating to `pnpm -r run lint`, so a broken root config fails fast instead of hiding behind "no projects matched".
 
 ### Auth
 - Every protected controller uses a shared `AuthGuard` (`apps/api/src/auth/auth.guard.ts`) that resolves `req.user.id` from the `access_token` httpOnly cookie. No endpoint outside `AuthModule` accepts a `userId`/`portfolioId` from the client — it always comes from `req.user.id`.

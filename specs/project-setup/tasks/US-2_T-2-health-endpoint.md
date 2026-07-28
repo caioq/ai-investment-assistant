@@ -1,7 +1,7 @@
 # US-2_T-2: GET /health endpoint
 
 **Story:** [../stories/US-2-backend-health-check-skeleton.md](../stories/US-2-backend-health-check-skeleton.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #5 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** US-2_T-1
 
