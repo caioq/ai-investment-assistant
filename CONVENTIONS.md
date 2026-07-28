@@ -27,10 +27,11 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Shared utilities
 - `apps/web/lib/types.ts` re-exports types from `packages/shared` rather than redefining them — the frontend never declares its own copy of a shape `packages/shared` already owns.
+- `apps/web` depends on `@ai-investment-assistant/shared` (`workspace:*`) — see `apps/web/package.json` and its use in `apps/web/app/page.tsx`. Same build-before-consume caveat as `apps/api` (see above): `pnpm --filter @ai-investment-assistant/shared build` must run before the package's exports resolve from `apps/web` (dev server, `next build`, or Vitest) since Node resolves `packages/shared/dist`.
 
 ### Testing
 - Vitest + React Testing Library for component tests, colocated `*.test.tsx` next to the component.
-- Vitest is configured at `apps/web/vitest.config.ts` (jsdom environment, `@vitejs/plugin-react`) with `apps/web/vitest.setup.ts` loading `@testing-library/jest-dom/vitest` for the `toBeInTheDocument()`-style matchers. Run via `pnpm --filter web test` (`vitest run`).
+- Vitest is configured at `apps/web/vitest.config.ts` (jsdom environment, `@vitejs/plugin-react`) with `apps/web/vitest.setup.ts` loading `@testing-library/jest-dom/vitest` for the `toBeInTheDocument()`-style matchers, and registering `afterEach(() => cleanup())` (from `@testing-library/react`) so multiple `render()` calls across tests in one file don't leak DOM nodes into later assertions (`globals` isn't enabled in the Vitest config, so RTL's auto-cleanup doesn't kick in on its own). Run via `pnpm --filter web test` (`vitest run`).
 - Playwright specs live under `apps/web/e2e/`, one spec per critical user flow (not one per page).
 
 ## Cross-cutting
