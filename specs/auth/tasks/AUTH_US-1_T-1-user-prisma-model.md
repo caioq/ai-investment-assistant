@@ -1,7 +1,7 @@
 # AUTH_US-1_T-1: User Prisma model + migration
 
 **Story:** [../stories/US-1-registration.md](../stories/US-1-registration.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #36 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 
