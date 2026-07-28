@@ -1,7 +1,7 @@
 # US-2_T-1: Scaffold NestJS app at apps/api
 
 **Story:** [../stories/US-2-backend-health-check-skeleton.md](../stories/US-2-backend-health-check-skeleton.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #4 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** US-1_T-1
 
