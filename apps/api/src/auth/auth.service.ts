@@ -1,7 +1,10 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Prisma, User } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+/** `User` without `passwordHash` — never return the hash in an API response. */
+type SafeUser = Omit<User, 'passwordHash'>;
 
 const BCRYPT_SALT_ROUNDS = 10;
 
@@ -29,5 +32,18 @@ export class AuthService {
 
       throw error;
     }
+  }
+
+  async validateUser(email: string, password: string): Promise<SafeUser> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    // Same error whether the email isn't found or the password doesn't
+    // match, so callers can't use response differences to enumerate emails.
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+    return safeUser;
   }
 }
