@@ -11,11 +11,12 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 - `PrismaService` lives in a global `PrismaModule` (`apps/api/src/prisma/`), injected via constructor DI wherever a service needs DB access. Nothing instantiates `PrismaClient` directly.
 
 ### Shared utilities / models
-<Not established yet — the first entry here will be the CAGR/volatility/drawdown calculations, expected at `packages/shared/src/metrics.ts` once the `portfolio` module's performance tasks land.>
+- `apps/api` depends on `@ai-investment-assistant/shared` (`workspace:*`) — see `apps/api/package.json` and its use in `apps/api/src/health/shared-info.service.ts`. Node resolves the package's `main`/`types` fields to `packages/shared/dist`, so `pnpm --filter @ai-investment-assistant/shared build` must run before the package's exports are usable from `apps/api` (at runtime or type-check) — `pnpm build` at the repo root does this for the whole workspace. A future utility (e.g. the CAGR/volatility/drawdown calculations expected at `packages/shared/src/metrics.ts` once the `portfolio` module's performance tasks land) is consumed the same way.
 
 ### Testing
 - Jest (NestJS default), spec files colocated next to the code they test (`*.spec.ts`).
 - Unit tests mock `PrismaService`. Integration/e2e tests run against a real test Postgres (separate `docker-compose` service, migrated before the suite runs) through `supertest` against an actual Nest application instance — not mocked at the HTTP layer.
+- e2e specs live in `apps/api/test/*.e2e-spec.ts`, run via `pnpm --filter api test:e2e` (Jest config at `apps/api/test/jest-e2e.json`, `ts-jest` transform). Build a real app with `Test.createTestingModule({ imports: [AppModule] }).compile()` then `.createNestApplication()` + `.init()` — see `apps/api/test/health.e2e-spec.ts` for the pattern. Endpoints with no DB dependency (like `/health`) need no Postgres/`docker-compose` setup to run this way.
 
 ## Frontend (`apps/web`)
 
@@ -34,6 +35,9 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 - Playwright specs live under `apps/web/e2e/`, one spec per critical user flow (not one per page).
 
 ## Cross-cutting
+
+### Local Postgres (docker-compose)
+- Root `docker-compose.yml` (`caioq/ai-investment-assistant`) defines two Postgres 16 services: `db` (dev, host port `5432`, db name `investment_assistant`) and `db-test` (test, host port `5433`, db name `investment_assistant_test`) — separate host ports so `db-test` never collides with `db` and integration tests never touch dev data. Both use `postgres`/`postgres` credentials and a `pg_isready` healthcheck. `pnpm db:migrate` (and any future `apps/api` `DATABASE_URL`) targets `db`; the test suite's `DATABASE_URL` targets `db-test`.
 
 ### Shared TypeScript/ESLint/Prettier config
 - `tsconfig.base.json` (repo root) holds shared strict compiler options with no `module`/`moduleResolution`/`include` opinion — each package's own `tsconfig.json` does `"extends": "../../tsconfig.base.json"` and sets its own `module`/`moduleResolution`/`include`/`outDir` (Nest needs `commonjs`+`node`, Next needs `esnext`+`bundler`).
