@@ -53,6 +53,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Auth
 - Every protected controller uses a shared `AuthGuard` (`apps/api/src/auth/auth.guard.ts`) that resolves `req.user.id` from the `access_token` httpOnly cookie. No endpoint outside `AuthModule` accepts a `userId`/`portfolioId` from the client — it always comes from `req.user.id`.
+- Signing the JWT and setting the `access_token` cookie is centralized in `AuthService.issueSession(res, user)` (`apps/api/src/auth/auth.service.ts`), configured via `JwtModule.register({ secret: process.env.JWT_SECRET })` in `auth.module.ts`. Both `POST /auth/register` and `POST /auth/login` call this instead of duplicating the sign+`res.cookie(...)` logic (flags: `httpOnly: true, sameSite: 'lax', secure: isProd`, per spec Behavior Notes).
 
 ### GitHub issue / project sync
 - Repo: `caioq/ai-investment-assistant`. Board: [GitHub Project #2](https://github.com/users/caioq/projects/2) (user-owned, not org). Status field options include **In Review** — confirm the exact option label against the project the first time you touch it, since it's user-managed and can be renamed.
