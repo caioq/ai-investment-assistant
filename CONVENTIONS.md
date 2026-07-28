@@ -30,9 +30,13 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Testing
 - Vitest + React Testing Library for component tests, colocated `*.test.tsx` next to the component.
+- Vitest is configured at `apps/web/vitest.config.ts` (jsdom environment, `@vitejs/plugin-react`) with `apps/web/vitest.setup.ts` loading `@testing-library/jest-dom/vitest` for the `toBeInTheDocument()`-style matchers. Run via `pnpm --filter web test` (`vitest run`).
 - Playwright specs live under `apps/web/e2e/`, one spec per critical user flow (not one per page).
 
 ## Cross-cutting
+
+### Local Postgres (docker-compose)
+- Root `docker-compose.yml` (`caioq/ai-investment-assistant`) defines two Postgres 16 services: `db` (dev, host port `5432`, db name `investment_assistant`) and `db-test` (test, host port `5433`, db name `investment_assistant_test`) — separate host ports so `db-test` never collides with `db` and integration tests never touch dev data. Both use `postgres`/`postgres` credentials and a `pg_isready` healthcheck. `pnpm db:migrate` (and any future `apps/api` `DATABASE_URL`) targets `db`; the test suite's `DATABASE_URL` targets `db-test`.
 
 ### Shared TypeScript/ESLint/Prettier config
 - `tsconfig.base.json` (repo root) holds shared strict compiler options with no `module`/`moduleResolution`/`include` opinion — each package's own `tsconfig.json` does `"extends": "../../tsconfig.base.json"` and sets its own `module`/`moduleResolution`/`include`/`outDir` (Nest needs `commonjs`+`node`, Next needs `esnext`+`bundler`).
@@ -51,7 +55,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Branching, pushing, and PRs per task
 - Branch naming: `task/US-<N>_T-<T>-<short-title>` (or `task/SHARED_T-<T>-<short-title>`) — matches the task file's own basename minus `.md`. This is what makes a task's branch/PR discoverable by name alone, which the dependency-branching rule below relies on.
-- Once a task's test is green and its `Status` is set to `Done`, `spec-implementer` commits, pushes its branch, and opens the PR itself (`gh pr create`, body includes `Closes #<issue>` when the task has a linked issue). It never merges — merging is always a manual, reviewed step the user does.
+- Once a task's test is green and its `Status` is set to `Done`, `spec-implementer` commits, pushes its branch, and opens the PR itself via the `github` MCP server (`mcp__github__create_pull_request`, body includes `Closes #<issue>` when the task has a linked issue) — not the `gh` CLI, which isn't installed in this environment. It never merges — merging is always a manual, reviewed step the user does. If the MCP server isn't reachable from the worktree sandbox, the branch still gets pushed and the parent `/implement` session opens the PR afterward instead.
 - Every task file has a `**Depends on:**` field (`none`, or a comma-separated list of task ids) — this is what `spec-implementer` resolves before picking what to branch off, rather than inferring order from task numbering or story prose:
   - Every listed dependency `Done` and merged (no open PR left on its branch) → branch off `main`. This is the common case and should stay the common case.
   - A listed dependency `Done` but its PR still open → branch off that dependency's branch instead (a stacked PR), so the new task builds on real code rather than a stale `main`.
