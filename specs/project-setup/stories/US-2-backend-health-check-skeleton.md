@@ -1,14 +1,14 @@
 # US-2: Backend health-check skeleton
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "NestJS skeleton with a health-check endpoint" / AC "`pnpm --filter api start:dev` serves `GET /health` returning `200 { status: "ok" }`" (in `../spec.md`)
 
 As a `developer`, I want a NestJS app skeleton at `apps/api` with a working `GET /health` endpoint, so that later modules have a running backend to add real endpoints to, and CI/local tooling has something concrete to build against.
 
 ## Tasks
 
-- [ ] [T-1: Scaffold NestJS app at apps/api](../tasks/US-2_T-1-scaffold-nest-api.md)
-- [ ] [T-2: GET /health endpoint](../tasks/US-2_T-2-health-endpoint.md)
+- [x] [T-1: Scaffold NestJS app at apps/api](../tasks/US-2_T-1-scaffold-nest-api.md)
+- [x] [T-2: GET /health endpoint](../tasks/US-2_T-2-health-endpoint.md)
 
 ## Notes
 
