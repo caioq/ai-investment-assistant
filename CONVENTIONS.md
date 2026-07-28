@@ -30,6 +30,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Testing
 - Vitest + React Testing Library for component tests, colocated `*.test.tsx` next to the component.
+- Vitest is configured at `apps/web/vitest.config.ts` (jsdom environment, `@vitejs/plugin-react`) with `apps/web/vitest.setup.ts` loading `@testing-library/jest-dom/vitest` for the `toBeInTheDocument()`-style matchers. Run via `pnpm --filter web test` (`vitest run`).
 - Playwright specs live under `apps/web/e2e/`, one spec per critical user flow (not one per page).
 
 ## Cross-cutting
