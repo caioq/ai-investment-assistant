@@ -4,7 +4,7 @@ Personal investment platform to visualize a B3 stock portfolio — allocation by
 
 ## Status
 
-Specs are written; implementation hasn't started yet. See [`specs/`](specs/) for what's planned and [`WORKFLOW.md`](WORKFLOW.md) for how this project gets built.
+`project-setup` is implemented (monorepo scaffold, health check, CI). Other modules are spec'd but not yet built. See [`specs/`](specs/) for what's planned and [`WORKFLOW.md`](WORKFLOW.md) for how this project gets built.
 
 ## Stack
 
@@ -34,4 +34,33 @@ Project-level conventions and setup notes live in [`CLAUDE.md`](CLAUDE.md) and [
 
 ## Getting started
 
-Not available yet — no application code exists in this repo yet, only specs and workflow tooling. This section will be filled in once the `project-setup` module is implemented.
+Requires Node, [pnpm](https://pnpm.io) (see `packageManager` in `package.json` for the exact version), and Docker.
+
+1. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+2. Start Postgres:
+   ```bash
+   docker compose up -d db
+   ```
+   (`db-test` is only needed for `apps/api`'s e2e tests against a real database.)
+3. Create the API's env file and set `DATABASE_URL` (see `.env.example` for the full list — the rest are unused until auth/market-data/advisor are implemented):
+   ```bash
+   cp .env.example apps/api/.env
+   ```
+   ```
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/investment_assistant?schema=public
+   ```
+4. Run Prisma migrations:
+   ```bash
+   pnpm db:migrate
+   ```
+5. Build `packages/shared` once — `pnpm dev` doesn't rebuild it automatically, so a stale/missing `dist/` shows up as `Module not found: Can't resolve '@ai-investment-assistant/shared'` in either app:
+   ```bash
+   pnpm --filter @ai-investment-assistant/shared build
+   ```
+6. Start both apps in dev mode:
+   ```bash
+   pnpm dev
+   ```
