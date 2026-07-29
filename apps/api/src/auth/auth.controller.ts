@@ -1,13 +1,14 @@
-import { Body, Controller, HttpCode, Post, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { AuthGuard } from './auth.guard';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 
 /**
- * Remaining routes (`/auth/logout`, `/auth/me`) are added incrementally by
- * later tasks (see specs/auth/tasks/ AUTH_US-3 onward), reusing
- * `AuthService.issueSession` added here.
+ * Remaining routes (`/auth/logout`) are added incrementally by later tasks
+ * (see specs/auth/tasks/ AUTH_US-3 onward), reusing `AuthService.issueSession`
+ * added here.
  */
 @Controller('auth')
 export class AuthController {
@@ -34,6 +35,14 @@ export class AuthController {
     const user = await this.authService.validateUser(dto.email, dto.password);
 
     this.authService.issueSession(res, user);
+
+    return { id: user.id, email: user.email, name: user.name };
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard)
+  async me(@Req() req: Request): Promise<{ id: string; email: string; name: string | null }> {
+    const user = await this.authService.findById((req.user as { id: string }).id);
 
     return { id: user.id, email: user.email, name: user.name };
   }
