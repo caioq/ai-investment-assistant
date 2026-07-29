@@ -1,9 +1,12 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { Response } from 'express';
 import { Prisma, User } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+/** `User` without `passwordHash` — never return the hash in an API response. */
+type SafeUser = Omit<User, 'passwordHash'>;
 
 const BCRYPT_SALT_ROUNDS = 10;
 
@@ -25,7 +28,7 @@ export class AuthService {
    * Shared by the register endpoint and (per AUTH_US-2_T-2) the login endpoint,
    * so the sign+set-cookie logic isn't duplicated between them.
    */
-  issueSession(res: Response, user: User): void {
+  issueSession(res: Response, user: Pick<User, 'id' | 'email'>): void {
     const token = this.jwtService.sign({ sub: user.id, email: user.email });
 
     res.cookie(ACCESS_TOKEN_COOKIE, token, {
@@ -52,5 +55,18 @@ export class AuthService {
 
       throw error;
     }
+  }
+
+  async validateUser(email: string, password: string): Promise<SafeUser> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    // Same error whether the email isn't found or the password doesn't
+    // match, so callers can't use response differences to enumerate emails.
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+    return safeUser;
   }
 }
