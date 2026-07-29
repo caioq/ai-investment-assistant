@@ -1,6 +1,6 @@
 # US-3: Guarded session
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Every other module's endpoints are guarded and scoped to the authenticated user." / AC "After login, `GET /auth/me` returns the current user using only the cookie (no bearer token)." / AC "Hitting any protected endpoint (e.g. `GET /portfolio/holdings`) without the cookie returns 401." / AC "`POST /auth/logout` clears the cookie; a subsequent `GET /auth/me` returns 401." (in `../spec.md`)
 
 As a logged-in user, I want my session verified via a secure cookie on every request, so my data stays private and future endpoints can trust `req.user.id` without re-checking credentials themselves.
@@ -9,7 +9,7 @@ As a logged-in user, I want my session verified via a secure cookie on every req
 
 - [x] [T-1: passport-jwt strategy, cookie extractor, AuthGuard](../tasks/AUTH_US-3_T-1-jwt-strategy-guard.md)
 - [x] [T-2: GET /auth/me endpoint](../tasks/AUTH_US-3_T-2-me-endpoint.md)
-- [ ] [T-3: POST /auth/logout endpoint](../tasks/AUTH_US-3_T-3-logout-endpoint.md)
+- [x] [T-3: POST /auth/logout endpoint](../tasks/AUTH_US-3_T-3-logout-endpoint.md)
 
 ## Notes
 

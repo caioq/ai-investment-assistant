@@ -38,6 +38,19 @@ export class AuthService {
     });
   }
 
+  /**
+   * Clears the `access_token` cookie (per AUTH_US-3_T-3). The clearing flags
+   * must match the ones used in `issueSession` above, or the browser won't
+   * recognize it as the same cookie and won't clear it.
+   */
+  clearSession(res: Response): void {
+    res.clearCookie(ACCESS_TOKEN_COOKIE, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
+
   async register(email: string, password: string, name?: string): Promise<User> {
     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
