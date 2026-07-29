@@ -1,7 +1,7 @@
 # AUTH_US-3_T-1: passport-jwt strategy, cookie extractor, AuthGuard
 
 **Story:** [../stories/US-3-guarded-session.md](../stories/US-3-guarded-session.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #41 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** AUTH_US-1_T-3
 
