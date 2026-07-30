@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/configure-app';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('AuthController (e2e)', () => {
@@ -15,6 +16,7 @@ describe('AuthController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApp(app);
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
@@ -74,6 +76,67 @@ describe('AuthController (e2e)', () => {
 
       const users = await prisma.user.findMany({ where: { email: 'dupe@example.com' } });
       expect(users).toHaveLength(1);
+    });
+  });
+
+  describe('POST /auth/login', () => {
+    it('logs in with the correct credentials, sets the access_token cookie, and returns only public fields', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: 'jane@example.com', password: 'super-secret-password', name: 'Jane Doe' })
+        .expect((res) => {
+          if (res.status !== 200 && res.status !== 201) {
+            throw new Error(`expected 200 or 201, got ${res.status}`);
+          }
+        });
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'jane@example.com', password: 'super-secret-password' });
+
+      expect(response.status).toBe(200);
+
+      const setCookieHeader = response.headers['set-cookie'];
+      expect(setCookieHeader).toBeDefined();
+      expect(
+        (Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader]).some(
+          (cookie: string) => cookie.startsWith('access_token='),
+        ),
+      ).toBe(true);
+
+      expect(response.body).toEqual({
+        id: expect.any(String),
+        email: 'jane@example.com',
+        name: 'Jane Doe',
+      });
+      expect(response.body.passwordHash).toBeUndefined();
+    });
+
+    it('returns 401 with no Set-Cookie header when the password is wrong', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: 'wrongpass@example.com', password: 'super-secret-password' })
+        .expect((res) => {
+          if (res.status !== 200 && res.status !== 201) {
+            throw new Error(`expected 200 or 201, got ${res.status}`);
+          }
+        });
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'wrongpass@example.com', password: 'totally-wrong-password' });
+
+      expect(response.status).toBe(401);
+      expect(response.headers['set-cookie']).toBeUndefined();
+    });
+
+    it('returns 401 with no Set-Cookie header when the email was never registered', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'never-registered@example.com', password: 'whatever-password' });
+
+      expect(response.status).toBe(401);
+      expect(response.headers['set-cookie']).toBeUndefined();
     });
   });
 });

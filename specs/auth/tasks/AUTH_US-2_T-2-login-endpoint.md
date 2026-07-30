@@ -1,7 +1,7 @@
 # AUTH_US-2_T-2: POST /auth/login endpoint
 
 **Story:** [../stories/US-2-login.md](../stories/US-2-login.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #40 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** AUTH_US-2_T-1, AUTH_US-1_T-3
 
