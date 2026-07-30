@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { Response } from 'express';
@@ -68,5 +68,16 @@ export class AuthService {
 
     const { passwordHash: _passwordHash, ...safeUser } = user;
     return safeUser;
+  }
+
+  /** Used by `GET /auth/me` to resolve `req.user.id` (set by `AuthGuard`) into the full public user record. */
+  async findById(id: string): Promise<SafeUser> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt };
   }
 }

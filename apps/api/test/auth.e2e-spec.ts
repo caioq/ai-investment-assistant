@@ -139,4 +139,40 @@ describe('AuthController (e2e)', () => {
       expect(response.headers['set-cookie']).toBeUndefined();
     });
   });
+
+  describe('GET /auth/me', () => {
+    it('returns 401 when no cookie is sent', async () => {
+      const response = await request(app.getHttpServer()).get('/auth/me');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns the current user using only the cookie set at login', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: 'me@example.com', password: 'super-secret-password', name: 'Jane Doe' })
+        .expect((res) => {
+          if (res.status !== 200 && res.status !== 201) {
+            throw new Error(`expected 200 or 201, got ${res.status}`);
+          }
+        });
+
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'me@example.com', password: 'super-secret-password' });
+
+      const setCookieHeader = loginResponse.headers['set-cookie'];
+      const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+
+      const response = await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookies);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        id: expect.any(String),
+        email: 'me@example.com',
+        name: 'Jane Doe',
+      });
+      expect(response.body.passwordHash).toBeUndefined();
+    });
+  });
 });
