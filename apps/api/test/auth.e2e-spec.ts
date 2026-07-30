@@ -1,9 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-// `cookie-parser` uses `export =`; namespace import matches `main.ts`.
-import * as cookieParser from 'cookie-parser';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/configure-app';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('AuthController (e2e)', () => {
@@ -17,9 +16,7 @@ describe('AuthController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    // Mirrors `main.ts`'s bootstrap so `req.cookies` is populated here too —
-    // `JwtStrategy`'s cookie extractor depends on it.
-    app.use(cookieParser());
+    configureApp(app);
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
