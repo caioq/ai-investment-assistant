@@ -7,7 +7,7 @@ As a registered user, I want to log in with my email and password, so that I get
 
 ## Tasks
 
-- [ ] [T-1: AuthService.validateUser + login](../tasks/AUTH_US-2_T-1-login-service.md)
+- [x] [T-1: AuthService.validateUser + login](../tasks/AUTH_US-2_T-1-login-service.md)
 - [ ] [T-2: POST /auth/login endpoint](../tasks/AUTH_US-2_T-2-login-endpoint.md)
 
 ## Notes

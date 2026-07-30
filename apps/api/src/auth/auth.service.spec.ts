@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '../../generated/prisma/client';
@@ -7,13 +7,14 @@ import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
-  let prisma: { user: { create: jest.Mock } };
+  let prisma: { user: { create: jest.Mock; findUnique: jest.Mock } };
   let jwtService: { sign: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       user: {
         create: jest.fn(),
+        findUnique: jest.fn(),
       },
     };
     jwtService = {
@@ -68,6 +69,58 @@ describe('AuthService', () => {
       await expect(authService.register('taken@example.com', 'password123')).rejects.toBeInstanceOf(
         ConflictException,
       );
+    });
+  });
+
+  describe('validateUser', () => {
+    it('returns the user without passwordHash when the email exists and the password matches', async () => {
+      const email = 'jane@example.com';
+      const password = 'super-secret-password';
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email,
+        passwordHash,
+        name: 'Jane Doe',
+        createdAt: new Date(),
+      });
+
+      const result = await authService.validateUser(email, password);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email } });
+      expect(result).toEqual({
+        id: 'user-1',
+        email,
+        name: 'Jane Doe',
+        createdAt: expect.any(Date),
+      });
+      expect(result).not.toHaveProperty('passwordHash');
+    });
+
+    it('throws UnauthorizedException when the email does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        authService.validateUser('missing@example.com', 'password123'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('throws the same UnauthorizedException when the email exists but the password does not match', async () => {
+      const email = 'jane@example.com';
+      const passwordHash = await bcrypt.hash('correct-password', 10);
+
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email,
+        passwordHash,
+        name: 'Jane Doe',
+        createdAt: new Date(),
+      });
+
+      await expect(
+        authService.validateUser(email, 'wrong-password'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 });
