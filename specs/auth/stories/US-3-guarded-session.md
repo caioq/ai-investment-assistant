@@ -7,7 +7,7 @@ As a logged-in user, I want my session verified via a secure cookie on every req
 
 ## Tasks
 
-- [ ] [T-1: passport-jwt strategy, cookie extractor, AuthGuard](../tasks/AUTH_US-3_T-1-jwt-strategy-guard.md)
+- [x] [T-1: passport-jwt strategy, cookie extractor, AuthGuard](../tasks/AUTH_US-3_T-1-jwt-strategy-guard.md)
 - [ ] [T-2: GET /auth/me endpoint](../tasks/AUTH_US-3_T-2-me-endpoint.md)
 - [ ] [T-3: POST /auth/logout endpoint](../tasks/AUTH_US-3_T-3-logout-endpoint.md)
 
