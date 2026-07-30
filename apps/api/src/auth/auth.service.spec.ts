@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +8,7 @@ import { AuthService } from './auth.service';
 describe('AuthService', () => {
   let authService: AuthService;
   let prisma: { user: { create: jest.Mock } };
+  let jwtService: { sign: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -14,8 +16,14 @@ describe('AuthService', () => {
         create: jest.fn(),
       },
     };
+    jwtService = {
+      sign: jest.fn().mockReturnValue('signed-jwt'),
+    };
 
-    authService = new AuthService(prisma as unknown as PrismaService);
+    authService = new AuthService(
+      prisma as unknown as PrismaService,
+      jwtService as unknown as JwtService,
+    );
   });
 
   describe('register', () => {
@@ -42,9 +50,7 @@ describe('AuthService', () => {
       expect(createArgs.data.email).toBe(email);
       expect(createArgs.data.name).toBe(name);
       expect(createArgs.data.passwordHash).not.toBe(password);
-      await expect(
-        bcrypt.compare(password, createArgs.data.passwordHash),
-      ).resolves.toBe(true);
+      await expect(bcrypt.compare(password, createArgs.data.passwordHash)).resolves.toBe(true);
     });
 
     it('throws ConflictException when Prisma rejects with a P2002 unique-constraint error on email', async () => {
@@ -59,9 +65,9 @@ describe('AuthService', () => {
         ),
       );
 
-      await expect(
-        authService.register('taken@example.com', 'password123'),
-      ).rejects.toBeInstanceOf(ConflictException);
+      await expect(authService.register('taken@example.com', 'password123')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
     });
   });
 });

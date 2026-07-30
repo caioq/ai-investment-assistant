@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 
 /**
  * Cross-cutting app configuration shared by the real bootstrap (main.ts) and
@@ -8,4 +8,5 @@ import { INestApplication } from '@nestjs/common';
  */
 export function configureApp(app: INestApplication) {
   app.enableCors({ origin: process.env.FRONTEND_URL, credentials: true });
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
 }

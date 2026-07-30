@@ -1,7 +1,7 @@
 # AUTH_US-1_T-3: POST /auth/register endpoint
 
 **Story:** [../stories/US-1-registration.md](../stories/US-1-registration.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #38 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** AUTH_US-1_T-2, AUTH_SHARED_T-2
 
