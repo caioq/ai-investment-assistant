@@ -7,7 +7,7 @@ As a new user, I want to register with an email and password, so that I have an 
 
 ## Tasks
 
-- [ ] [T-1: User Prisma model + migration](../tasks/AUTH_US-1_T-1-user-prisma-model.md)
+- [x] [T-1: User Prisma model + migration](../tasks/AUTH_US-1_T-1-user-prisma-model.md)
 - [ ] [T-2: AuthService.register](../tasks/AUTH_US-1_T-2-register-service.md)
 - [ ] [T-3: POST /auth/register endpoint](../tasks/AUTH_US-1_T-3-register-endpoint.md)
 
