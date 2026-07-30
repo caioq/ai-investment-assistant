@@ -1,6 +1,6 @@
 # US-2: Login
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Email/password registration and login" (login half) / AC "Logging in with wrong credentials returns 401 and does not set a cookie." (in `../spec.md`)
 
 As a registered user, I want to log in with my email and password, so that I get an authenticated session to access my own data.
@@ -8,7 +8,7 @@ As a registered user, I want to log in with my email and password, so that I get
 ## Tasks
 
 - [x] [T-1: AuthService.validateUser + login](../tasks/AUTH_US-2_T-1-login-service.md)
-- [ ] [T-2: POST /auth/login endpoint](../tasks/AUTH_US-2_T-2-login-endpoint.md)
+- [x] [T-2: POST /auth/login endpoint](../tasks/AUTH_US-2_T-2-login-endpoint.md)
 
 ## Notes
 
