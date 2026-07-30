@@ -23,13 +23,17 @@ The platform needs real, multi-user authentication (not a mocked/single-user sho
 
 ```prisma
 model User {
-  id           String   @id @default(cuid())
+  id           String   @id @default(uuid(7)) @db.Uuid
   email        String   @unique
-  passwordHash String
+  passwordHash String   @map("password_hash")
   name         String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
 }
 ```
+
+`id` is a UUIDv7 (time-ordered, non-enumerable), stored as a native Postgres `uuid` column — not a `cuid()`/`TEXT` id or an autoincrementing integer. Model field names stay camelCase (matching the rest of the TS stack); columns are `snake_case` via `@map`/`@@map`, matching idiomatic Postgres and avoiding the unquoted-identifier case-folding footgun. See `CONVENTIONS.md` → "Prisma models" for the repo-wide rationale — this is the first model in the repo, and every later model follows the same two patterns.
 
 ## API Contract
 
