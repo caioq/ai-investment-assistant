@@ -175,4 +175,57 @@ describe('AuthController (e2e)', () => {
       expect(response.body.passwordHash).toBeUndefined();
     });
   });
+
+  describe('POST /auth/logout', () => {
+    it('clears the access_token cookie and logs the user out of GET /auth/me', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: 'logout@example.com', password: 'super-secret-password', name: 'Jane Doe' })
+        .expect((res) => {
+          if (res.status !== 200 && res.status !== 201) {
+            throw new Error(`expected 200 or 201, got ${res.status}`);
+          }
+        });
+
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'logout@example.com', password: 'super-secret-password' });
+
+      const loginSetCookieHeader = loginResponse.headers['set-cookie'];
+      const loginCookies = Array.isArray(loginSetCookieHeader)
+        ? loginSetCookieHeader
+        : [loginSetCookieHeader];
+
+      const logoutResponse = await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Cookie', loginCookies);
+
+      expect(logoutResponse.status).toBe(204);
+
+      const logoutSetCookieHeader = logoutResponse.headers['set-cookie'];
+      expect(logoutSetCookieHeader).toBeDefined();
+      const logoutCookies = Array.isArray(logoutSetCookieHeader)
+        ? logoutSetCookieHeader
+        : [logoutSetCookieHeader];
+      expect(
+        logoutCookies.some(
+          (cookie: string) =>
+            cookie.startsWith('access_token=') &&
+            (cookie.includes('Expires=') || cookie.includes('Max-Age=0')),
+        ),
+      ).toBe(true);
+
+      const meResponse = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', logoutCookies);
+
+      expect(meResponse.status).toBe(401);
+    });
+
+    it('returns 401 when no cookie is sent', async () => {
+      const response = await request(app.getHttpServer()).post('/auth/logout');
+
+      expect(response.status).toBe(401);
+    });
+  });
 });

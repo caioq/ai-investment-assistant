@@ -5,11 +5,6 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 
-/**
- * Remaining routes (`/auth/logout`) are added incrementally by later tasks
- * (see specs/auth/tasks/ AUTH_US-3 onward), reusing `AuthService.issueSession`
- * added here.
- */
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -45,5 +40,12 @@ export class AuthController {
     const user = await this.authService.findById((req.user as { id: string }).id);
 
     return { id: user.id, email: user.email, name: user.name };
+  }
+
+  @Post('logout')
+  @HttpCode(204)
+  @UseGuards(AuthGuard)
+  logout(@Res({ passthrough: true }) res: Response): void {
+    this.authService.clearSession(res);
   }
 }
