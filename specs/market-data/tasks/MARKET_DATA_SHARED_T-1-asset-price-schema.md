@@ -1,7 +1,7 @@
 # MARKET_DATA_SHARED_T-1: Asset, PriceHistory, BenchmarkSnapshot schema + migration
 
 **Shared by:** US-1, US-2, US-3, US-4
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #56 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 
