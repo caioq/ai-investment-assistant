@@ -21,3 +21,70 @@ model User {
 
   @@map("users")
 }
+
+enum AssetType {
+  EQUITY
+  FIXED_INCOME // not implemented yet
+  CRYPTO       // not implemented yet
+}
+
+enum InvestmentStyle {
+  SMALL_CAP
+  MICRO_CAP
+  DIVIDENDS
+  VALUE_INVESTING
+  TURNAROUND
+}
+
+enum RiskRating {
+  AAA
+  A
+  B
+  C
+}
+
+model Asset {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  ticker           String           @unique
+  name             String
+  assetType        AssetType        @default(EQUITY) @map("asset_type")
+  sector           String?
+  subSector        String?          @map("sub_sector")
+  currency         String           @default("BRL")
+  exchange         String           @default("B3")
+  investmentStyle  InvestmentStyle? @map("investment_style")
+  riskRating       RiskRating?      @map("risk_rating")
+  currentPrice     Float?           @map("current_price")
+  currentChangePct Float?           @map("current_change_pct")
+  priceUpdatedAt   DateTime?        @map("price_updated_at")
+  priceHistory     PriceHistory[]
+
+  @@map("assets")
+}
+
+model PriceHistory {
+  id      String   @id @default(uuid(7)) @db.Uuid
+  assetId String   @map("asset_id") @db.Uuid
+  asset   Asset    @relation(fields: [assetId], references: [id])
+  date    DateTime @db.Date
+  close   Float
+
+  @@unique([assetId, date])
+  @@index([assetId, date])
+  @@map("price_history")
+}
+
+enum Benchmark {
+  IBOVESPA
+  CDI
+}
+
+model BenchmarkSnapshot {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  benchmark Benchmark
+  date      DateTime  @db.Date
+  value     Float
+
+  @@unique([benchmark, date])
+  @@map("benchmark_snapshots")
+}
