@@ -7,7 +7,7 @@ As the platform, I want every tracked B3 ticker's current price and daily change
 
 ## Tasks
 
-- [ ] [T-1: B3BrapiProvider.getQuote batched call](../tasks/MARKET_DATA_US-1_T-1-brapi-get-quote-batched.md)
+- [x] [T-1: B3BrapiProvider.getQuote batched call](../tasks/MARKET_DATA_US-1_T-1-brapi-get-quote-batched.md)
 - [ ] [T-2: refreshAllQuotes writes Asset prices + daily PriceHistory](../tasks/MARKET_DATA_US-1_T-2-refresh-all-quotes.md)
 - [ ] [T-3: provider failure leaves existing prices untouched](../tasks/MARKET_DATA_US-1_T-3-refresh-failure-handling.md)
 - [ ] [T-4: daily cron wiring after B3 close](../tasks/MARKET_DATA_US-1_T-4-daily-cron.md)
