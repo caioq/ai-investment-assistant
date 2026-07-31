@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from './market-data.service';
 import { PriceProvider, Quote } from './providers/price-provider.interface';
@@ -90,6 +91,34 @@ describe('MarketDataService', () => {
       const result = await service.refreshAllQuotes();
 
       expect(result).toEqual({ refreshed: 3 });
+    });
+  });
+
+  describe('refreshAllQuotes when the price provider rejects', () => {
+    const staleAsset = { id: 'asset-1', ticker: 'PETR4', currentPrice: 42 };
+
+    beforeEach(() => {
+      prisma.asset.findMany.mockResolvedValue([staleAsset]);
+      priceProvider.getQuote.mockRejectedValue(new Error('network error'));
+    });
+
+    it('resolves rather than rejecting', async () => {
+      await expect(service.refreshAllQuotes()).resolves.not.toThrow();
+    });
+
+    it('issues no asset.update and no priceHistory.upsert, leaving currentPrice untouched', async () => {
+      await service.refreshAllQuotes();
+
+      expect(prisma.asset.update).not.toHaveBeenCalled();
+      expect(prisma.priceHistory.upsert).not.toHaveBeenCalled();
+    });
+
+    it('logs an error', async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+
+      await service.refreshAllQuotes();
+
+      expect(errorSpy).toHaveBeenCalled();
     });
   });
 });

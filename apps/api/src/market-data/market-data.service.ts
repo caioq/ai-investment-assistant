@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRICE_PROVIDER, PriceProvider } from './providers/price-provider.interface';
 
@@ -20,6 +20,8 @@ function todayAtUtcMidnight(): Date {
  */
 @Injectable()
 export class MarketDataService {
+  private readonly logger = new Logger(MarketDataService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PRICE_PROVIDER) private readonly priceProvider: PriceProvider,
@@ -33,7 +35,20 @@ export class MarketDataService {
    */
   async refreshAllQuotes(): Promise<RefreshSummary> {
     const assets = await this.prisma.asset.findMany();
-    const quotes = await this.priceProvider.getQuote(assets.map((asset) => asset.ticker));
+
+    let quotes;
+    try {
+      quotes = await this.priceProvider.getQuote(assets.map((asset) => asset.ticker));
+    } catch (error) {
+      // Spec AC-4: a stale-but-real price is usable; a null one breaks every
+      // downstream value/allocation computation, and an unhandled rejection
+      // inside a cron tick would take the scheduler down with it. So the
+      // failure is logged and existing Asset prices are left untouched
+      // rather than rethrown.
+      this.logger.error('Failed to refresh quotes from price provider', error);
+      return { refreshed: 0 };
+    }
+
     const quoteByTicker = new Map(quotes.map((quote) => [quote.ticker, quote]));
     const date = todayAtUtcMidnight();
 
