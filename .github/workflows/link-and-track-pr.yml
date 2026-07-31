@@ -1,0 +1,74 @@
+name: Link PR to its issue and move it to In Review
+
+# spec-implementer often stacks a PR on an unmerged dependency's branch to
+# keep per-task diffs small (CONVENTIONS.md -> "Branching, pushing, and PRs
+# per task"). GitHub only registers a `Closes #N` keyword as a real linked
+# issue (Development-sidebar link + auto-close-on-merge) when the PR's base
+# is the repo's default branch, so a stacked PR's issue link silently never
+# registers -- confirmed on PR #51/issue #39.
+#
+# The original plan for this workflow was to fix that WITHOUT touching the
+# PR's base, via `gh issue develop <issue> --branch <existing-branch>`
+# (GitHub's "linked branch" feature, which -- in theory -- links regardless
+# of the PR's base). That doesn't work: `gh issue develop` can only CREATE a
+# new branch: passing an already-existing branch name (which is always the
+# case here, since spec-implementer creates the branch before any PR/issue
+# exists) fails with "API returned empty branch name" -- confirmed via direct
+# testing, not just reading docs.
+#
+# So this retargets the PR's base to `main` instead, which IS confirmed to
+# work (that's what fixed #51/#39 earlier). Tradeoff: a stacked PR's diff
+# will include its dependency's not-yet-merged commits until that dependency
+# lands -- state that explicitly in the PR body if you're stacking, so a
+# reviewer isn't confused about what's actually new (see CONVENTIONS.md ->
+# "PR <-> issue linking").
+#
+# Moving the card to In Review requires a PAT with `project` scope (the
+# default GITHUB_TOKEN can't write to a user-owned Projects v2 board) --
+# see CONVENTIONS.md -> "GitHub issue / project sync" for the required
+# `PROJECT_BOARD_TOKEN` secret.
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  link-and-track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract linked issue number from PR body
+        id: extract
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          issue=$(echo "$PR_BODY" | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+          if [ -z "$issue" ]; then
+            echo "No Closes/Fixes/Resolves #N found in PR body -- not a tracked task PR, nothing to do."
+          else
+            echo "Found linked issue #$issue"
+          fi
+          echo "issue_number=$issue" >> "$GITHUB_OUTPUT"
+
+      - name: Retarget PR to main so its issue link registers
+        if: steps.extract.outputs.issue_number != '' && github.event.pull_request.base.ref != github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO" --base "$DEFAULT_BRANCH"
+
+      - name: Move issue to In Review on the Project board
+        if: steps.extract.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_BOARD_TOKEN }}
+          ISSUE: ${{ steps.extract.outputs.issue_number }}
+        run: bash .github/scripts/move-project-card.sh "$ISSUE" "In Review"

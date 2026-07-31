@@ -14,8 +14,8 @@ If code and the spec/stories/tasks disagree, that's a bug in one of them — nev
 
 ## Prerequisites
 
-- **GitHub MCP server** — `/user-stories` and `/implement` mirror each task as a GitHub issue on [GitHub Project #2](https://github.com/users/caioq/projects/2) (details in `CONVENTIONS.md` → "GitHub issue / project sync"). Connect it once, outside of any Claude Code chat (so the token never lands in conversation history):
-  1. Create a Personal Access Token at [github.com/settings/tokens](https://github.com/settings/tokens) scoped to `caioq/ai-investment-assistant`. Fine-grained: "Issues" read-write and "Projects" read-write. Classic: `repo` + `project`.
+- **GitHub MCP server** — `/user-stories` creates each task's mirror GitHub issue through it, and `spec-implementer` opens each task's PR through it (details in `CONVENTIONS.md` → "GitHub issue / project sync"). Connect it once, outside of any Claude Code chat (so the token never lands in conversation history):
+  1. Create a Personal Access Token at [github.com/settings/tokens](https://github.com/settings/tokens) scoped to `caioq/ai-investment-assistant`. Fine-grained: "Issues" read-write and "Pull requests" read-write. Classic: `repo`.
   2. In your terminal:
      ```
      claude mcp add --transport http github https://api.githubcopilot.com/mcp/ -H "Authorization: Bearer <your-token>"
@@ -23,9 +23,9 @@ If code and the spec/stories/tasks disagree, that's a bug in one of them — nev
   3. Restart Claude Code (or start a new session) if one was already running — MCP servers load at session start, so a server added mid-session won't show up until the next one.
   4. Verify with `claude mcp list` — should show `github` as `Connected`.
 
-  If this isn't set up, `/user-stories` still produces the spec/task files — it just skips issue creation with a warning, and `/implement` skips the board-sync step. Nothing blocks on it.
+  If this isn't set up, `/user-stories` still produces the spec/task files — it just skips issue creation with a warning, and `spec-implementer` pushes its branch but skips opening the PR (see "Branching, pushing, and PRs per task"). Nothing blocks on it.
 
-- **`gh` CLI, authenticated** (`gh auth status`) — `spec-implementer` uses it to push each task's branch and open its PR (see `CONVENTIONS.md` → "Branching, pushing, and PRs per task"). If it isn't authenticated, the agent still completes the task and sets `Status: Done`, but reports that it couldn't push/open the PR so you can do that step by hand.
+- **`gh` CLI, authenticated with a PAT that has `project` scope** — used for board sync (moving a task's card to In Progress/In Review) and for linking a task's PR to its issue, neither of which the `github` MCP server can do for this repo's board (a personal-account, user-owned Projects v2 board — see `CONVENTIONS.md` → "GitHub issue / project sync" for why). `/implement` uses it locally to move the card to In Progress before launching `spec-implementer`; `.github/workflows/link-and-track-pr.yml` and `auto-implement-issues.yml` use it in CI (secret: `PROJECT_BOARD_TOKEN`). If `gh` isn't authenticated locally, `/implement` skips the board-move step and reports it, rather than blocking.
 
 ## The three stages
 
@@ -89,8 +89,9 @@ Implements **exactly one task** — never a whole story or module — via the `s
 
 - Resolves a task id (`US-1_T-2`), a story (`US-1`), or a bare module name to a specific `Not Started` task.
 - Checks the task's `**Depends on:**` field and its story's `Status` before launching anything.
+- Moves the task's linked issue to In Progress on the Project board (via `gh` — see "Prerequisites") before launching the agent; the agent itself never touches the board.
 - Runs the agent in the background by default so several `/implement` calls (independent tasks) can proceed concurrently.
-- Once the task's test is green, the agent pushes its branch and opens a PR itself — stacking on a dependency's still-open PR if that dependency isn't merged yet, branching off `main` otherwise (see `CONVENTIONS.md` → "Branching, pushing, and PRs per task"). Reports back what changed, the test that proves it, and the PR it opened. **It never merges.** Reviewing and merging is on you.
+- Once the task's test is green, the agent pushes its branch and opens a PR itself — stacking on a dependency's still-open PR if that dependency isn't merged yet, branching off `main` otherwise (see `CONVENTIONS.md` → "Branching, pushing, and PRs per task"). Reports back what changed, the test that proves it, and the PR it opened. **It never merges.** Reviewing and merging is on you. A separate workflow (`link-and-track-pr.yml`) links that PR to its issue and moves the card to In Review as soon as it's opened, regardless of whether the PR is stacked.
 
 **Use it:** once a story's tasks are `Ready`, one task at a time (or several in parallel, if they don't depend on each other).
 
@@ -116,9 +117,9 @@ Its loop, per task:
 3. **Strict red-green TDD:** write the test named in the task first, run it, confirm it fails for the right reason, only then implement until it passes.
 4. Mark the task (and, if it was the last one, the story) `Done`.
 5. If it introduced something genuinely new and reusable, append a short entry to `CONVENTIONS.md`.
-6. Commit, push its branch, and open a PR (`Closes #<issue>` in the body when there's a linked issue). Report back — it never merges.
+6. Commit, push its branch, and open a PR (`Closes #<issue>` in the body when there's a linked issue). Report back — it never merges, and it never touches the issue or the Project board itself; a command step and a dedicated workflow own that (see "Prerequisites" and `CONVENTIONS.md` → "GitHub issue / project sync").
 
-Tool access is scoped to `Read, Edit, Write, Bash, Grep, Glob` — no `Agent` (it can't spawn further agents) and no merge authority. It pushes its own branch and opens its own PR via `gh` (through `Bash`), but merging stays outside its scope entirely.
+Tool access is scoped to `Read, Edit, Write, Bash, Grep, Glob, mcp__github__list_pull_requests, mcp__github__create_pull_request` — no `Agent` (it can't spawn further agents), no `gh`/board access, and no merge authority. It pushes its own branch via plain `git` (through `Bash`) and opens its own PR via the `github` MCP server, but merging stays outside its scope entirely.
 
 ## How the pieces actually fit together
 
@@ -135,7 +136,7 @@ The spec/stories/tasks files themselves are the actual contract between all of t
 
 1. `specs/auth/spec.md` already exists and is `Approved` (no dependencies — good first module).
 2. Run `/user-stories auth`. The `spec-to-stories` skill reads the spec and produces `specs/auth/stories/README.md`, story files (e.g. `US-1-register-and-login.md`, `US-2-session-guard.md`), and their task files (e.g. `US-1_T-1-add-user-prisma-model.md`, `US-1_T-2-hash-password-on-register.md`, ...), each with a concrete `Test:` field.
-3. Run `/implement US-1_T-1-add-user-prisma-model`. The `spec-implementer` agent spins up in a worktree, writes a migration test, watches it fail, adds the Prisma model, watches it pass, marks the task `Done`, pushes its branch, opens a PR, and reports the PR link.
+3. Run `/implement US-1_T-1-add-user-prisma-model`. Its issue moves to In Progress on the board, then the `spec-implementer` agent spins up in a worktree, writes a migration test, watches it fail, adds the Prisma model, watches it pass, marks the task `Done`, pushes its branch, and opens a PR — which immediately moves its issue to In Review and gets linked to it, then reports the PR link.
 4. Review that PR, merge it.
 5. Run `/implement US-1_T-2-...` next — and, since it doesn't depend on unrelated work elsewhere, you could also kick off a task from `US-2` in parallel in a separate worktree at the same time. If a next task's `**Depends on:**` names US-1_T-1 and you haven't merged its PR yet, the agent stacks that task's branch on US-1_T-1's still-open PR automatically instead of blocking — you just have two PRs to merge in order instead of one.
 6. Once every task under a story is `Done`, its `README.md` row and the story's own `Status` flip to `Done` automatically as part of the last task's completion.

@@ -29,6 +29,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash .github/scripts/check-unimplemented-issues.sh
 
+      # Requires the PROJECT_BOARD_TOKEN secret (a PAT with `project` scope --
+      # the default GITHUB_TOKEN can't write to a user-owned Projects v2
+      # board). See CONVENTIONS.md -> "GitHub issue / project sync".
+      - name: Move candidate issue to In Progress
+        if: steps.check.outputs.has_candidate == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_BOARD_TOKEN }}
+        run: bash .github/scripts/move-project-card.sh "${{ steps.check.outputs.issue_number }}" "In Progress"
+
   implement:
     needs: check-for-work
     if: needs.check-for-work.outputs.has_candidate == 'true'
