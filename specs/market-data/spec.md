@@ -37,11 +37,34 @@ enum InvestmentStyle {
   TURNAROUND
 }
 
+// Standard S&P / Fitch long-term scale (identical notation between the two
+// agencies), declared best-credit → worst so Postgres' enum ordering sorts
+// low-risk → high-risk natively. Declared complete on purpose — see the note
+// below the schema. Prisma identifiers can't contain +/-, hence the @map.
 enum RiskRating {
   AAA
+  AA_PLUS   @map("AA+")
+  AA
+  AA_MINUS  @map("AA-")
+  A_PLUS    @map("A+")
   A
+  A_MINUS   @map("A-")
+  BBB_PLUS  @map("BBB+")
+  BBB
+  BBB_MINUS @map("BBB-")
+  // ── investment grade ends here; below is speculative / high-yield ──
+  BB_PLUS   @map("BB+")
+  BB
+  BB_MINUS  @map("BB-")
+  B_PLUS    @map("B+")
   B
+  B_MINUS   @map("B-")
+  CCC_PLUS  @map("CCC+")
+  CCC
+  CCC_MINUS @map("CCC-")
+  CC
   C
+  D
 }
 
 model Asset {
@@ -92,6 +115,10 @@ model BenchmarkSnapshot {
 ```
 
 `investmentStyle` and `riskRating` are analytical classifications, not raw market data — brapi.dev doesn't provide them. They're nullable and set manually (from the holdings UI, see [portfolio](../portfolio/spec.md)); this module never writes them.
+
+**`RiskRating` ordering is load-bearing.** Postgres sorts an enum column by the order its values are *declared*, not alphabetically — so `ORDER BY risk_rating` yields safest-first and `... DESC` yields riskiest-first, with no `CASE` expression, join, or denormalized rank column to keep in sync. (Alphabetical would give `A, AA, AAA, B, BB…`, which is wrong.) Because the column is nullable, always sort with `NULLS LAST`. Two consequences for whoever edits this enum: **never reorder or insert values in the middle** — the S&P/Fitch scale is deliberately declared complete so no mid-scale insert is ever needed, and appending a value (Postgres' default) would silently place it after `D` and corrupt every risk-ordered query. This is also why `riskRating` stays an enum rather than a `String`.
+
+The scale is borrowed notation, not an agency rating: S&P/Fitch grades measure an issuer's default risk on *debt*, whereas these are analyst-assigned risk tiers for *equities*. The letters are used because the ranking is well understood, not to assert a bond rating exists for the ticker.
 
 `BenchmarkSnapshot.value` is always an **index level**, never a rate — a value whose ratio between two dates is the return over that window. This matters because the two benchmarks arrive in different units: Ibovespa is already a level, while CDI is published as a daily interest rate in percent and must be compounded into a level before storage (see Behavior Notes). Storing CDI's raw daily percentage would make `value` mean something different per benchmark and silently corrupt any consumer comparing the two series — notably `vsBenchmarkPct` in [portfolio](../portfolio/spec.md)'s `GET /portfolio/performance`.
 

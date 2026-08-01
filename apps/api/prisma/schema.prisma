@@ -21,3 +21,95 @@ model User {
 
   @@map("users")
 }
+
+enum AssetType {
+  EQUITY
+  FIXED_INCOME // not implemented yet
+  CRYPTO       // not implemented yet
+}
+
+enum InvestmentStyle {
+  SMALL_CAP
+  MICRO_CAP
+  DIVIDENDS
+  VALUE_INVESTING
+  TURNAROUND
+}
+
+// Standard S&P / Fitch long-term scale, declared best-credit -> worst.
+// Postgres sorts an enum column by DECLARATION order, so this order is what
+// makes `ORDER BY risk_rating NULLS LAST` mean "safest first". Never reorder
+// these or append a value: a value added later lands after 'D' and silently
+// corrupts every risk-ordered query. Declared complete so no mid-scale insert
+// is ever needed. Prisma identifiers can't contain +/-, hence the @map.
+enum RiskRating {
+  AAA
+  AA_PLUS   @map("AA+")
+  AA
+  AA_MINUS  @map("AA-")
+  A_PLUS    @map("A+")
+  A
+  A_MINUS   @map("A-")
+  BBB_PLUS  @map("BBB+")
+  BBB
+  BBB_MINUS @map("BBB-")
+  // investment grade ends here; below is speculative / high-yield
+  BB_PLUS   @map("BB+")
+  BB
+  BB_MINUS  @map("BB-")
+  B_PLUS    @map("B+")
+  B
+  B_MINUS   @map("B-")
+  CCC_PLUS  @map("CCC+")
+  CCC
+  CCC_MINUS @map("CCC-")
+  CC
+  C
+  D
+}
+
+model Asset {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  ticker           String           @unique
+  name             String
+  assetType        AssetType        @default(EQUITY) @map("asset_type")
+  sector           String?
+  subSector        String?          @map("sub_sector")
+  currency         String           @default("BRL")
+  exchange         String           @default("B3")
+  investmentStyle  InvestmentStyle? @map("investment_style")
+  riskRating       RiskRating?      @map("risk_rating")
+  currentPrice     Float?           @map("current_price")
+  currentChangePct Float?           @map("current_change_pct")
+  priceUpdatedAt   DateTime?        @map("price_updated_at")
+  priceHistory     PriceHistory[]
+
+  @@map("assets")
+}
+
+model PriceHistory {
+  id      String   @id @default(uuid(7)) @db.Uuid
+  assetId String   @map("asset_id") @db.Uuid
+  asset   Asset    @relation(fields: [assetId], references: [id])
+  date    DateTime @db.Date
+  close   Float
+
+  @@unique([assetId, date])
+  @@index([assetId, date])
+  @@map("price_history")
+}
+
+enum Benchmark {
+  IBOVESPA
+  CDI
+}
+
+model BenchmarkSnapshot {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  benchmark Benchmark
+  date      DateTime  @db.Date
+  value     Float
+
+  @@unique([benchmark, date])
+  @@map("benchmark_snapshots")
+}
