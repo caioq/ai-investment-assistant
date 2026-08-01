@@ -36,11 +36,36 @@ enum InvestmentStyle {
   TURNAROUND
 }
 
+// Standard S&P / Fitch long-term scale, declared best-credit -> worst.
+// Postgres sorts an enum column by DECLARATION order, so this order is what
+// makes `ORDER BY risk_rating NULLS LAST` mean "safest first". Never reorder
+// these or append a value: a value added later lands after 'D' and silently
+// corrupts every risk-ordered query. Declared complete so no mid-scale insert
+// is ever needed. Prisma identifiers can't contain +/-, hence the @map.
 enum RiskRating {
   AAA
+  AA_PLUS   @map("AA+")
+  AA
+  AA_MINUS  @map("AA-")
+  A_PLUS    @map("A+")
   A
+  A_MINUS   @map("A-")
+  BBB_PLUS  @map("BBB+")
+  BBB
+  BBB_MINUS @map("BBB-")
+  // investment grade ends here; below is speculative / high-yield
+  BB_PLUS   @map("BB+")
+  BB
+  BB_MINUS  @map("BB-")
+  B_PLUS    @map("B+")
   B
+  B_MINUS   @map("B-")
+  CCC_PLUS  @map("CCC+")
+  CCC
+  CCC_MINUS @map("CCC-")
+  CC
   C
+  D
 }
 
 model Asset {

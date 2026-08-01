@@ -5,7 +5,7 @@ CREATE TYPE "AssetType" AS ENUM ('EQUITY', 'FIXED_INCOME', 'CRYPTO');
 CREATE TYPE "InvestmentStyle" AS ENUM ('SMALL_CAP', 'MICRO_CAP', 'DIVIDENDS', 'VALUE_INVESTING', 'TURNAROUND');
 
 -- CreateEnum
-CREATE TYPE "RiskRating" AS ENUM ('AAA', 'A', 'B', 'C');
+CREATE TYPE "RiskRating" AS ENUM ('AAA', 'AA+', 'AA', 'AA-', 'A+', 'A', 'A-', 'BBB+', 'BBB', 'BBB-', 'BB+', 'BB', 'BB-', 'B+', 'B', 'B-', 'CCC+', 'CCC', 'CCC-', 'CC', 'C', 'D');
 
 -- CreateEnum
 CREATE TYPE "Benchmark" AS ENUM ('IBOVESPA', 'CDI');
