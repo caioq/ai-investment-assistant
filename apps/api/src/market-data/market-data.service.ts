@@ -1,5 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { PriceProvider, PRICE_PROVIDER } from './providers/price-provider.interface';
+
+/** Today at UTC midnight, matching `PriceHistory.date`'s `@db.Date` column. */
+function todayAtUtcMidnight(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
 
 /**
  * Aggregation/cron logic for market data (price refresh, backfill,
@@ -10,5 +17,45 @@ import { PriceProvider, PRICE_PROVIDER } from './providers/price-provider.interf
  */
 @Injectable()
 export class MarketDataService {
-  constructor(@Inject(PRICE_PROVIDER) private readonly priceProvider: PriceProvider) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(PRICE_PROVIDER) private readonly priceProvider: PriceProvider,
+  ) {}
+
+  /**
+   * Refreshes `currentPrice`/`currentChangePct`/`priceUpdatedAt` for every
+   * `Asset` and upserts today's `PriceHistory` row for each, in a single
+   * batched `getQuote` call (spec.md -> "Batching is mandatory"). Iterates
+   * `Asset` rows, not `Holding` rows — see spec.md -> "Module boundary" and
+   * `../stories/README.md` -> "Dependency ordering".
+   */
+  async refreshAllQuotes(): Promise<{ refreshed: number }> {
+    const assets = await this.prisma.asset.findMany();
+    const tickers = assets.map((asset) => asset.ticker);
+    const quotes = await this.priceProvider.getQuote(tickers);
+    const quoteByTicker = new Map(quotes.map((quote) => [quote.ticker, quote]));
+    const date = todayAtUtcMidnight();
+
+    for (const asset of assets) {
+      const quote = quoteByTicker.get(asset.ticker);
+      if (!quote) continue;
+
+      await this.prisma.asset.update({
+        where: { id: asset.id },
+        data: {
+          currentPrice: quote.price,
+          currentChangePct: quote.changePct,
+          priceUpdatedAt: new Date(),
+        },
+      });
+
+      await this.prisma.priceHistory.upsert({
+        where: { assetId_date: { assetId: asset.id, date } },
+        update: { close: quote.price },
+        create: { assetId: asset.id, date, close: quote.price },
+      });
+    }
+
+    return { refreshed: assets.length };
+  }
 }

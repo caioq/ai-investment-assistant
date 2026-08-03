@@ -1,7 +1,7 @@
 # MARKET_DATA_US-1_T-2: refreshAllQuotes writes Asset prices + daily PriceHistory
 
 **Story:** [../stories/US-1-daily-price-refresh.md](../stories/US-1-daily-price-refresh.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #59 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** MARKET_DATA_SHARED_T-1, MARKET_DATA_US-1_T-1
 
