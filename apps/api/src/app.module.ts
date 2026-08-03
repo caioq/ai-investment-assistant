@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
 import { SharedInfoService } from './health/shared-info.service';
@@ -6,7 +7,7 @@ import { MarketDataModule } from './market-data/market-data.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, MarketDataModule],
+  imports: [ScheduleModule.forRoot(), PrismaModule, AuthModule, MarketDataModule],
   controllers: [HealthController],
   providers: [SharedInfoService],
 })

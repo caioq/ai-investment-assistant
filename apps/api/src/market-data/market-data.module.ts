@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MarketDataCron } from './market-data.cron';
 import { MarketDataService } from './market-data.service';
 import { B3YahooProvider } from './providers/b3-yahoo.provider';
 import { PRICE_PROVIDER } from './providers/price-provider.interface';
@@ -13,6 +14,7 @@ import { PRICE_PROVIDER } from './providers/price-provider.interface';
 @Module({
   providers: [
     MarketDataService,
+    MarketDataCron,
     B3YahooProvider,
     { provide: PRICE_PROVIDER, useExisting: B3YahooProvider },
   ],
