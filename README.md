@@ -36,6 +36,16 @@ Project-level conventions and setup notes live in [`CLAUDE.md`](CLAUDE.md) and [
 
 Requires Node, [pnpm](https://pnpm.io) (see `packageManager` in `package.json` for the exact version), and Docker.
 
+```bash
+pnpm bootstrap
+pnpm dev
+```
+
+`pnpm bootstrap` (`scripts/bootstrap.sh`) does everything a fresh clone needs in one shot: installs dependencies, starts Postgres (`docker compose up -d db --wait`), creates `apps/api/.env` from `.env.example` with `DATABASE_URL` pre-filled for local dev (skipped if the file already exists — safe to re-run any time), runs Prisma migrations, and builds `packages/shared` (`pnpm dev` doesn't rebuild it automatically, so a stale/missing `dist/` otherwise shows up as `Module not found: Can't resolve '@ai-investment-assistant/shared'` in either app). `pnpm dev` then starts both apps.
+
+<details>
+<summary>Equivalent manual steps, if you want to run (or debug) each one yourself</summary>
+
 1. Install dependencies:
    ```bash
    pnpm install
@@ -45,7 +55,7 @@ Requires Node, [pnpm](https://pnpm.io) (see `packageManager` in `package.json` f
    docker compose up -d db
    ```
    (`db-test` is only needed for `apps/api`'s e2e tests against a real database.)
-3. Create the API's env file and set `DATABASE_URL` (see `.env.example` for the full list — the rest are unused until auth/market-data/advisor are implemented):
+3. Create the API's env file and set `DATABASE_URL` (see `.env.example` for the full list — the rest are unused until auth/advisor are implemented):
    ```bash
    cp .env.example apps/api/.env
    ```
@@ -56,7 +66,7 @@ Requires Node, [pnpm](https://pnpm.io) (see `packageManager` in `package.json` f
    ```bash
    pnpm db:migrate
    ```
-5. Build `packages/shared` once — `pnpm dev` doesn't rebuild it automatically, so a stale/missing `dist/` shows up as `Module not found: Can't resolve '@ai-investment-assistant/shared'` in either app:
+5. Build `packages/shared` once:
    ```bash
    pnpm --filter @ai-investment-assistant/shared build
    ```
@@ -64,3 +74,5 @@ Requires Node, [pnpm](https://pnpm.io) (see `packageManager` in `package.json` f
    ```bash
    pnpm dev
    ```
+
+</details>

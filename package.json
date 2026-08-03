@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
+    "bootstrap": "bash scripts/bootstrap.sh",
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "lint": "eslint . && pnpm -r run lint",

@@ -15,6 +15,7 @@ No application code exists yet — every other module's spec assumes a working m
 - Prisma initialized against Postgres, with separate dev and test databases via `docker-compose`.
 - Shared TypeScript/ESLint/Prettier config used consistently by both apps and `packages/shared`.
 - Basic CI (GitHub Actions): install, lint, typecheck, build on every push/PR.
+- One-command local bootstrap (`pnpm bootstrap`): install deps, start Postgres, create `apps/api/.env` if missing, migrate, build `packages/shared` — so a fresh clone needs exactly two commands (`pnpm bootstrap && pnpm dev`) to get running.
 - `.env.example` documenting every environment variable later specs will need (`DATABASE_URL`, `JWT_SECRET`, `ANTHROPIC_API_KEY`, `FRONTEND_URL`), even before they're consumed. (`market-data`'s provider needs no token — see its own spec.)
 
 ## Non-Goals
@@ -55,7 +56,8 @@ Monorepo layout:
 - `docker-compose.yml` runs two Postgres services (`db` for dev, `db-test` on a separate port) so integration tests never touch dev data — this is what `CONVENTIONS.md`'s testing sections assume exists.
 - CI workflow: on push/PR — `pnpm install`, `pnpm lint`, `pnpm typecheck`, `pnpm --filter api build`, `pnpm --filter web build`. No test step yet — nothing to test until the first feature module lands; added then, as part of that module's own tasks.
 - Root `package.json` scripts (`dev`, `build`, `lint`, `typecheck`, `db:migrate`) proxy to the workspace filters so one command runs both apps — referenced throughout `WORKFLOW.md` and every module spec.
-- `.env.example` lists every variable later specs need, even though most aren't consumed yet — so `auth`, `market-data`, and `advisor` don't each have to reintroduce env-var setup from scratch.
+- `.env.example` lists every variable later specs need, even though most aren't consumed yet — so `auth` and `advisor` don't each have to reintroduce env-var setup from scratch.
+- `scripts/bootstrap.sh` (root `pnpm bootstrap`) chains the manual setup steps into one idempotent command — re-running it is always safe: it skips creating `apps/api/.env` if one already exists (never overwrites local edits), and `docker compose up -d db --wait`/`prisma migrate dev`/the `packages/shared` build are all no-ops when already up to date. Named `bootstrap`, not `setup` — `pnpm setup` is a reserved pnpm CLI command (bootstraps pnpm itself) and silently shadows a same-named package.json script when invoked without `run`, so that name was avoided entirely rather than relying on everyone remembering to type `pnpm run setup`.
 
 ## Acceptance Criteria
 
