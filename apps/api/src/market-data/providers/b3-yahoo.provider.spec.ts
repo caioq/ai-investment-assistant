@@ -30,6 +30,24 @@ const SPARK_PAYLOAD = {
   },
 };
 
+/**
+ * Canned `/v8/finance/chart` payload with 4 points, last `close` null
+ * (Yahoo returns `null` for the most-recent trading day when it's still
+ * in progress).
+ */
+const CHART_PAYLOAD = {
+  chart: {
+    result: [
+      {
+        timestamp: [1704067200, 1704153600, 1704240000, 1704326400],
+        indicators: {
+          quote: [{ close: [38.5, 38.9, 39.2, null] }],
+        },
+      },
+    ],
+  },
+};
+
 describe('B3YahooProvider', () => {
   let provider: B3YahooProvider;
   let fetchSpy: jest.SpyInstance;
@@ -144,6 +162,53 @@ describe('B3YahooProvider', () => {
 
         expect(quotes).toEqual([]);
       });
+    });
+  });
+
+  describe('getHistory', () => {
+    beforeEach(() => {
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        json: async () => CHART_PAYLOAD,
+      } as Response);
+    });
+
+    it('requests a URL for {ticker}.SA containing range and interval', async () => {
+      await provider.getHistory('PETR4', '1y', '1d');
+
+      const requestedUrl = new URL(fetchSpy.mock.calls[0][0] as string);
+      expect(requestedUrl.pathname).toContain('PETR4.SA');
+      expect(requestedUrl.searchParams.get('range')).toBe('1y');
+      expect(requestedUrl.searchParams.get('interval')).toBe('1d');
+    });
+
+    it('returns exactly 3 PricePoints, dropping the entry with a null close', async () => {
+      const points = await provider.getHistory('PETR4', '1y', '1d');
+
+      expect(points).toHaveLength(3);
+      expect(points.map((p) => p.close)).toEqual([38.5, 38.9, 39.2]);
+    });
+
+    it('converts each timestamp to a Date at UTC midnight for that day', async () => {
+      const points = await provider.getHistory('PETR4', '1y', '1d');
+
+      const expectedDates = [1704067200, 1704153600, 1704240000].map(
+        (epochSeconds) => new Date(epochSeconds * 1000),
+      );
+      expect(points.map((p) => p.date)).toEqual(expectedDates);
+      points.forEach((p) => {
+        expect(p.date.getUTCHours()).toBe(0);
+        expect(p.date.getUTCMinutes()).toBe(0);
+        expect(p.date.getUTCSeconds()).toBe(0);
+      });
+    });
+
+    it('requests a URL for an index ticker with no .SA suffix', async () => {
+      await provider.getHistory('^BVSP', '1y', '1d');
+
+      const requestedUrl = new URL(fetchSpy.mock.calls[0][0] as string);
+      expect(requestedUrl.pathname).toContain('^BVSP');
+      expect(requestedUrl.pathname).not.toContain('.SA');
     });
   });
 });
