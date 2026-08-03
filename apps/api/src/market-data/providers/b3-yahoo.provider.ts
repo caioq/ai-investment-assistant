@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PriceProvider, PricePoint, Quote } from './price-provider.interface';
 
 const SPARK_URL = 'https://query1.finance.yahoo.com/v7/finance/spark';
+const CHART_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
 
 /**
  * Yahoo rejects requests with no `User-Agent` more readily than ones that
@@ -22,6 +23,18 @@ interface SparkResponse {
           chartPreviousClose: number;
         };
       }[];
+    }[];
+  };
+}
+
+/** Shape of the `/v8/finance/chart` response this provider cares about. */
+interface ChartResponse {
+  chart: {
+    result: {
+      timestamp: number[];
+      indicators: {
+        quote: { close: (number | null)[] }[];
+      };
     }[];
   };
 }
@@ -88,9 +101,36 @@ export class B3YahooProvider implements PriceProvider {
     return quotes;
   }
 
-  getHistory(ticker: string, range: string, interval: string): Promise<PricePoint[]> {
-    throw new Error(
-      `Not implemented yet (MARKET_DATA_US-2_T-1): getHistory(${ticker}, ${range}, ${interval})`,
-    );
+  /**
+   * Fetches a daily price series for a single ticker over `range`. Index
+   * tickers (e.g. `^BVSP`, used by `MARKET_DATA_US-3_T-1`) aren't B3-listed
+   * equities and don't take the `.SA` suffix.
+   */
+  async getHistory(ticker: string, range: string, interval: string): Promise<PricePoint[]> {
+    const symbol = ticker.startsWith('^') ? ticker : `${ticker}.SA`;
+    const url = new URL(`${CHART_URL}/${symbol}`);
+    url.searchParams.set('range', range);
+    url.searchParams.set('interval', interval);
+
+    const res = await fetch(url.toString(), {
+      headers: { 'User-Agent': USER_AGENT },
+    });
+    const payload = (await res.json()) as ChartResponse;
+
+    const result = payload.chart.result[0];
+    const timestamps = result.timestamp;
+    const closes = result.indicators.quote[0].close;
+
+    const points: PricePoint[] = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const close = closes[i];
+      // Yahoo returns `null` for the most-recent trading day when it's
+      // still in progress; skip it rather than violate PriceHistory.close's
+      // non-null constraint (see spec.md -> Behavior Notes).
+      if (close === null) continue;
+      points.push({ date: new Date(timestamps[i] * 1000), close });
+    }
+
+    return points;
   }
 }

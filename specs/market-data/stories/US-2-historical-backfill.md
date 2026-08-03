@@ -7,7 +7,7 @@ As a user who just added a stock I've held for years, I want its past year of da
 
 ## Tasks
 
-- [ ] [T-1: B3YahooProvider.getHistory 1y daily series](../tasks/MARKET_DATA_US-2_T-1-yahoo-get-history.md)
+- [x] [T-1: B3YahooProvider.getHistory 1y daily series](../tasks/MARKET_DATA_US-2_T-1-yahoo-get-history.md)
 - [ ] [T-2: backfillHistory inserts the series idempotently](../tasks/MARKET_DATA_US-2_T-2-backfill-history.md)
 
 ## Notes
