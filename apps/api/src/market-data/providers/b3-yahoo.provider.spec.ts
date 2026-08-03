@@ -207,8 +207,9 @@ describe('B3YahooProvider', () => {
       await provider.getHistory('^BVSP', '1y', '1d');
 
       const requestedUrl = new URL(fetchSpy.mock.calls[0][0] as string);
-      expect(requestedUrl.pathname).toContain('^BVSP');
-      expect(requestedUrl.pathname).not.toContain('.SA');
+      const decodedPathname = decodeURIComponent(requestedUrl.pathname);
+      expect(decodedPathname).toContain('^BVSP');
+      expect(decodedPathname).not.toContain('.SA');
     });
   });
 });
