@@ -6,8 +6,9 @@ import { PRICE_PROVIDER } from './providers/price-provider.interface';
 import { PrismaService } from '../prisma/prisma.service';
 
 // `MarketDataService` depends on `PrismaService` (added by
-// `MARKET_DATA_US-2_T-2`'s `backfillHistory`), which is normally satisfied
-// by the app-wide `@Global()` `PrismaModule` (see CONVENTIONS.md -> "Module
+// `MARKET_DATA_US-2_T-2`'s `backfillHistory`, extended by
+// `MARKET_DATA_US-3_T-1`'s `syncIbovespa`), which is normally satisfied by
+// the app-wide `@Global()` `PrismaModule` (see CONVENTIONS.md -> "Module
 // structure") — but this spec compiles `MarketDataModule` in isolation, so
 // that global registration never happens implicitly. `PrismaModule` is
 // imported explicitly here (only in the test) and its `PrismaService`

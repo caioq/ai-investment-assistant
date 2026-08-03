@@ -7,7 +7,7 @@ As a user reviewing my returns, I want Ibovespa and CDI history stored alongside
 
 ## Tasks
 
-- [ ] [T-1: Ibovespa history into BenchmarkSnapshot](../tasks/MARKET_DATA_US-3_T-1-ibovespa-history.md)
+- [x] [T-1: Ibovespa history into BenchmarkSnapshot](../tasks/MARKET_DATA_US-3_T-1-ibovespa-history.md)
 - [ ] [T-2: CDI history into BenchmarkSnapshot](../tasks/MARKET_DATA_US-3_T-2-cdi-history.md)
 - [ ] [T-3: benchmark job wiring](../tasks/MARKET_DATA_US-3_T-3-benchmark-job.md)
 
