@@ -81,5 +81,69 @@ describe('B3YahooProvider', () => {
         { ticker: 'WEGE3', price: 40.0, changePct: ((40.0 - 39.0) / 39.0) * 100 },
       ]);
     });
+
+    /**
+     * `MARKET_DATA_US-1_T-3`: the provider is the half that must fail loudly
+     * and precisely, so `MarketDataService.refreshAllQuotes` has a rejection
+     * to catch. `fetch` does not reject on 4xx/5xx, and one unrecognised
+     * ticker must not void the whole batch.
+     */
+    describe('upstream failure modes', () => {
+      it('rejects with the status when Yahoo returns a non-2xx carrying a JSON body', async () => {
+        // A rate-limited 429 whose body is *valid JSON* — without an `res.ok`
+        // check this parses fine and only dies later on `payload.spark` being
+        // undefined, so asserting on the message is the point of this case.
+        fetchSpy.mockResolvedValue({
+          ok: false,
+          status: 429,
+          json: async () => ({ finance: { error: { code: 'Too Many Requests' } } }),
+        } as Response);
+
+        await expect(provider.getQuote(TICKERS)).rejects.toThrow('429');
+      });
+
+      it('skips results with an empty response array rather than voiding the batch', async () => {
+        fetchSpy.mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            spark: {
+              result: [
+                { symbol: 'NOPE3.SA', response: [] },
+                {
+                  symbol: 'PETR4.SA',
+                  response: [{ meta: { regularMarketPrice: 38.5, chartPreviousClose: 38.0 } }],
+                },
+              ],
+            },
+          }),
+        } as Response);
+
+        const quotes = await provider.getQuote(['NOPE3', 'PETR4']);
+
+        expect(quotes).toEqual([
+          { ticker: 'PETR4', price: 38.5, changePct: ((38.5 - 38.0) / 38.0) * 100 },
+        ]);
+      });
+
+      it('skips results with a zero chartPreviousClose rather than emitting Infinity', async () => {
+        fetchSpy.mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            spark: {
+              result: [
+                {
+                  symbol: 'ZERO3.SA',
+                  response: [{ meta: { regularMarketPrice: 10.0, chartPreviousClose: 0 } }],
+                },
+              ],
+            },
+          }),
+        } as Response);
+
+        const quotes = await provider.getQuote(['ZERO3']);
+
+        expect(quotes).toEqual([]);
+      });
+    });
   });
 });
