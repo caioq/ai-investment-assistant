@@ -9,7 +9,7 @@ Personal investment platform: visualize a B3 stock portfolio (allocation by sect
 - **Frontend:** Next.js (App Router), TypeScript, Tailwind — `apps/web/`
 - **Backend:** NestJS, TypeScript — `apps/api/`
 - **Database:** Postgres via Prisma — `apps/api/prisma/schema.prisma`
-- **Market data:** brapi.dev (B3 quotes + history)
+- **Market data:** Yahoo Finance's public quote/chart endpoints (B3 quotes + history) — unofficial API, no key required
 - **AI:** Claude API (Anthropic), structured output
 - **Repo layout:** pnpm workspace monorepo — `apps/web`, `apps/api`, `packages/shared`
 

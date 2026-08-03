@@ -1,0 +1,12 @@
+# MARKET_DATA_US-2_T-1: B3YahooProvider.getHistory 1y daily series
+
+**Story:** [../stories/US-2-historical-backfill.md](../stories/US-2-historical-backfill.md)
+**Status:** Not Started
+**GitHub Issue:** #62 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
+**Depends on:** MARKET_DATA_SHARED_T-2
+
+Implement `getHistory(ticker, range, interval)` on `B3YahooProvider` (`apps/api/src/market-data/providers/b3-yahoo.provider.ts`): `GET https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={range}&interval={interval}` — append `.SA` to `ticker` unless it already starts with `^` (index tickers like `^BVSP`, used by `MARKET_DATA_US-3_T-1`, aren't B3-listed equities and don't take the suffix). Set a browser-like `User-Agent` header; no API key needed. Map the response's `chart.result[0].timestamp[]` (Unix epoch seconds) and `chart.result[0].indicators.quote[0].close[]` (parallel arrays, same index = same day) to the `PricePoint` type (`{ date, close }`) from `MARKET_DATA_SHARED_T-2`, converting each timestamp to a `Date` at UTC midnight so it lands cleanly in `PriceHistory.date`'s `@db.Date` column. **Skip any entry whose `close` is `null`** — Yahoo returns `null` for the most-recent trading day when it's still in progress (confirmed by direct testing against the live endpoint), and a null `close` would violate `PriceHistory.close`'s non-null constraint.
+
+**Test:** `apps/api/src/market-data/providers/b3-yahoo.provider.spec.ts` (extends the file from `MARKET_DATA_US-1_T-1`) — with `jest.spyOn(global, 'fetch')` stubbed to resolve a canned `chart` payload whose `timestamp`/`close` arrays have 4 points, the last `close` being `null`: (1) `getHistory('PETR4', '1y', '1d')` requests a URL for `PETR4.SA` containing `range=1y` and `interval=1d`; (2) returns exactly 3 `PricePoint`s (the `null`-close entry is dropped) with `close` values matching the payload; (3) each `date` is a `Date` at UTC midnight corresponding to that entry's epoch-seconds timestamp (this is the conversion most likely to be silently wrong, and an off-by-a-timezone date breaks the `@@unique([assetId, date])` idempotency in `MARKET_DATA_US-2_T-2`); (4) a second test case calling `getHistory('^BVSP', '1y', '1d')` requests a URL for `^BVSP` with **no** `.SA` suffix appended. Confirm red first (no `getHistory` implementation), then green.
+
+**Done when:** the test above passes.

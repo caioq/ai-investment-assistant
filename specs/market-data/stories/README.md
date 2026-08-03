@@ -16,7 +16,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 Work shared by more than one story lives in `../tasks/MARKET_DATA_SHARED_T-<T>-<short-task-title>.md`, referenced by every story it serves — never duplicated per story.
 
 - [`MARKET_DATA_SHARED_T-1-asset-price-schema.md`](../tasks/MARKET_DATA_SHARED_T-1-asset-price-schema.md) — `Asset`, `PriceHistory`, `BenchmarkSnapshot` models and their enums; the storage layer every other task in this module reads or writes. Shared by US-1, US-2, US-3, US-4.
-- [`MARKET_DATA_SHARED_T-2-price-provider-interface.md`](../tasks/MARKET_DATA_SHARED_T-2-price-provider-interface.md) — the `PriceProvider` interface + `MarketDataModule` wiring, so the cron/aggregation logic never depends on brapi.dev concretely (spec Behavior Note: `FixedIncomeProvider`/`CryptoProvider` can be added later without touching it). Shared by US-1, US-2, US-4.
+- [`MARKET_DATA_SHARED_T-2-price-provider-interface.md`](../tasks/MARKET_DATA_SHARED_T-2-price-provider-interface.md) — the `PriceProvider` interface + `MarketDataModule` wiring, so the cron/aggregation logic never depends on Yahoo Finance concretely (spec Behavior Note: `FixedIncomeProvider`/`CryptoProvider` can be added later without touching it). Shared by US-1, US-2, US-4.
 
 ## Out of scope for this pass
 

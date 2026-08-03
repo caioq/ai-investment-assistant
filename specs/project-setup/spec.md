@@ -15,7 +15,7 @@ No application code exists yet — every other module's spec assumes a working m
 - Prisma initialized against Postgres, with separate dev and test databases via `docker-compose`.
 - Shared TypeScript/ESLint/Prettier config used consistently by both apps and `packages/shared`.
 - Basic CI (GitHub Actions): install, lint, typecheck, build on every push/PR.
-- `.env.example` documenting every environment variable later specs will need (`DATABASE_URL`, `JWT_SECRET`, `BRAPI_TOKEN`, `ANTHROPIC_API_KEY`, `FRONTEND_URL`), even before they're consumed.
+- `.env.example` documenting every environment variable later specs will need (`DATABASE_URL`, `JWT_SECRET`, `ANTHROPIC_API_KEY`, `FRONTEND_URL`), even before they're consumed. (`market-data`'s provider needs no token — see its own spec.)
 
 ## Non-Goals
 
