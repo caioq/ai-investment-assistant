@@ -1,6 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PriceProvider, PRICE_PROVIDER } from './providers/price-provider.interface';
+import { PriceProvider, PRICE_PROVIDER, Quote } from './providers/price-provider.interface';
 
 /** Today at UTC midnight, matching `PriceHistory.date`'s `@db.Date` column. */
 function todayAtUtcMidnight(): Date {
@@ -17,6 +17,8 @@ function todayAtUtcMidnight(): Date {
  */
 @Injectable()
 export class MarketDataService {
+  private readonly logger = new Logger(MarketDataService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PRICE_PROVIDER) private readonly priceProvider: PriceProvider,
@@ -32,7 +34,22 @@ export class MarketDataService {
   async refreshAllQuotes(): Promise<{ refreshed: number }> {
     const assets = await this.prisma.asset.findMany();
     const tickers = assets.map((asset) => asset.ticker);
-    const quotes = await this.priceProvider.getQuote(tickers);
+
+    let quotes: Quote[];
+    try {
+      quotes = await this.priceProvider.getQuote(tickers);
+    } catch (error) {
+      // Spec AC-4: a provider failure (network error, non-2xx, malformed
+      // payload) must not null out or leave stale `Asset.currentPrice`
+      // values, and must not crash the process (e.g. an unhandled rejection
+      // inside a cron tick taking the scheduler down with it). A stale-but-
+      // real price stays usable; logging is the only side effect here.
+      this.logger.error(
+        `refreshAllQuotes: PriceProvider.getQuote failed, leaving existing Asset prices untouched: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { refreshed: 0 };
+    }
+
     const quoteByTicker = new Map(quotes.map((quote) => [quote.ticker, quote]));
     const date = todayAtUtcMidnight();
 

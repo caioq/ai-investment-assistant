@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from './market-data.service';
 import { PriceProvider, Quote } from './providers/price-provider.interface';
@@ -118,6 +119,22 @@ describe('MarketDataService', () => {
       const result = await marketDataService.refreshAllQuotes();
 
       expect(result).toEqual({ refreshed: 3 });
+    });
+
+    it('leaves existing Asset prices untouched and logs the failure when the provider is unreachable', async () => {
+      const existingAsset = { id: 'asset-1', ticker: 'PETR4', currentPrice: 42 };
+      prisma.asset.findMany.mockResolvedValue([existingAsset]);
+      priceProvider.getQuote.mockRejectedValue(new Error('upstream unreachable'));
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      await expect(marketDataService.refreshAllQuotes()).resolves.not.toThrow();
+
+      expect(prisma.asset.update).not.toHaveBeenCalled();
+      expect(prisma.priceHistory.upsert).not.toHaveBeenCalled();
+      expect(existingAsset.currentPrice).toBe(42);
+      expect(errorSpy).toHaveBeenCalled();
+
+      errorSpy.mockRestore();
     });
   });
 });
