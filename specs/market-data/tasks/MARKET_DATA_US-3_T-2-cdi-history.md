@@ -1,7 +1,7 @@
 # MARKET_DATA_US-3_T-2: CDI history into BenchmarkSnapshot
 
 **Story:** [../stories/US-3-benchmark-series.md](../stories/US-3-benchmark-series.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #65 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** MARKET_DATA_SHARED_T-1
 

@@ -74,6 +74,10 @@ describe('MarketDataService', () => {
     );
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('refreshAllQuotes', () => {
     it('calls getQuote once with every Asset ticker', async () => {
       await marketDataService.refreshAllQuotes();
@@ -232,6 +236,43 @@ describe('MarketDataService', () => {
 
       await expect(marketDataService.syncIbovespa()).resolves.not.toThrow();
       expect(prisma.benchmarkSnapshot.createMany).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('syncCdi', () => {
+    const cannedSgsPayload = [
+      { data: '01/07/2026', valor: '0.040000' },
+      { data: '02/07/2026', valor: '0.040000' },
+      { data: '03/07/2026', valor: '0.040000' },
+    ];
+
+    it('writes one compounded-index BenchmarkSnapshot row per business day, idempotently', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => cannedSgsPayload,
+      } as Response);
+
+      await marketDataService.syncCdi();
+
+      expect(prisma.benchmarkSnapshot.createMany).toHaveBeenCalledTimes(1);
+      const { data, skipDuplicates } = prisma.benchmarkSnapshot.createMany.mock.calls[0][0];
+
+      expect(skipDuplicates).toBe(true);
+      expect(data).toHaveLength(3);
+
+      for (const row of data) {
+        expect(row.benchmark).toBe('CDI');
+      }
+
+      // 01/07/2026 (DD/MM/YYYY) must parse to 2026-07-01, not 2026-01-07.
+      expect(data[0].date).toEqual(new Date(Date.UTC(2026, 6, 1)));
+      expect(data[1].date).toEqual(new Date(Date.UTC(2026, 6, 2)));
+      expect(data[2].date).toEqual(new Date(Date.UTC(2026, 6, 3)));
+
+      // Compounded index, not the raw daily rate.
+      expect(data[0].value).toBe(100);
+      expect(data[1].value).toBeCloseTo(100.04, 6);
+      expect(data[2].value).toBeCloseTo(100.04 * 1.0004, 6);
     });
   });
 });

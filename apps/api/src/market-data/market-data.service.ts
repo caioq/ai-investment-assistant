@@ -1,11 +1,34 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PriceProvider, PRICE_PROVIDER, Quote } from './providers/price-provider.interface';
+import { Benchmark } from '../../generated/prisma/client';
 
 /** Today at UTC midnight, matching `PriceHistory.date`'s `@db.Date` column. */
 function todayAtUtcMidnight(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+/** Banco Central SGS API, series 12 = CDI, daily rate in percent. See spec.md -> Behavior Notes. */
+const CDI_SGS_SERIES_URL = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados';
+
+interface SgsDataPoint {
+  data: string; // DD/MM/YYYY
+  valor: string; // daily rate in percent, e.g. "0.043739"
+}
+
+/** `DD/MM/YYYY`, as required by the SGS API's `dataInicial`/`dataFinal` query params. */
+function formatSgsDate(date: Date): string {
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+/** Parses SGS's `DD/MM/YYYY` string into a UTC-midnight `Date` — not `MM/DD/YYYY`. */
+function parseSgsDate(data: string): Date {
+  const [day, month, year] = data.split('/').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 /**
@@ -114,6 +137,52 @@ export class MarketDataService {
         date: point.date,
         value: point.close,
       })),
+      skipDuplicates: true,
+    });
+  }
+
+  /**
+   * Fetches 1y of daily CDI from the Banco Central SGS API (series 12) and
+   * writes one `BenchmarkSnapshot` row per business day, idempotent on
+   * `@@unique([benchmark, date])`. SGS returns a daily rate in percent, not
+   * a price level, so it's compounded into an index starting at 100 on the
+   * series' first day (spec.md -> "CDI is compounded into an index before
+   * storage") — this keeps `BenchmarkSnapshot.value` unit-consistent with
+   * `IBOVESPA`. Separate upstream/failure domain from `syncIbovespa`: a
+   * failure here is logged, not propagated, so one benchmark being down
+   * doesn't block the other (spec.md -> Behavior Notes).
+   */
+  async syncCdi(): Promise<void> {
+    const dataFinal = new Date();
+    const dataInicial = new Date(dataFinal);
+    dataInicial.setUTCFullYear(dataInicial.getUTCFullYear() - 1);
+
+    const url = `${CDI_SGS_SERIES_URL}?formato=json&dataInicial=${formatSgsDate(dataInicial)}&dataFinal=${formatSgsDate(dataFinal)}`;
+
+    let series: SgsDataPoint[];
+    try {
+      const response = await fetch(url);
+      series = (await response.json()) as SgsDataPoint[];
+    } catch (error) {
+      this.logger.error('Failed to fetch CDI history from Banco Central SGS', error);
+      return;
+    }
+
+    let index = 100;
+    const rows = series.map(({ data, valor }, i) => {
+      if (i > 0) {
+        index *= 1 + Number(valor) / 100;
+      }
+
+      return {
+        benchmark: Benchmark.CDI,
+        date: parseSgsDate(data),
+        value: index,
+      };
+    });
+
+    await this.prisma.benchmarkSnapshot.createMany({
+      data: rows,
       skipDuplicates: true,
     });
   }
