@@ -1,6 +1,6 @@
 # US-2: Historical backfill for a new ticker
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Backfill 1y of daily history for a ticker the first time it's added." / AC "Backfilling a brand-new ticker produces a full year of `PriceHistory` rows (not just today's price), and running it a second time for the same ticker neither duplicates rows nor errors." (in `../spec.md`)
 
 As a user who just added a stock I've held for years, I want its past year of daily closes loaded immediately, so the performance chart shows a real history instead of starting flat from today.
@@ -8,7 +8,7 @@ As a user who just added a stock I've held for years, I want its past year of da
 ## Tasks
 
 - [x] [T-1: B3YahooProvider.getHistory 1y daily series](../tasks/MARKET_DATA_US-2_T-1-yahoo-get-history.md)
-- [ ] [T-2: backfillHistory inserts the series idempotently](../tasks/MARKET_DATA_US-2_T-2-backfill-history.md)
+- [x] [T-2: backfillHistory inserts the series idempotently](../tasks/MARKET_DATA_US-2_T-2-backfill-history.md)
 
 ## Notes
 

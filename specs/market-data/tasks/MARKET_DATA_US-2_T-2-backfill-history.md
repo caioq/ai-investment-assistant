@@ -1,7 +1,7 @@
 # MARKET_DATA_US-2_T-2: backfillHistory inserts the series idempotently
 
 **Story:** [../stories/US-2-historical-backfill.md](../stories/US-2-historical-backfill.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #63 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** MARKET_DATA_SHARED_T-1, MARKET_DATA_US-2_T-1
 

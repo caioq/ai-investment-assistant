@@ -75,4 +75,26 @@ export class MarketDataService {
 
     return { refreshed: assets.length };
   }
+
+  /**
+   * One-off fetch backfilling a full year of daily history for a single
+   * asset (spec.md -> Behavior Notes: "a one-off fetch (range=1y&interval=1d)
+   * backfills PriceHistory so the performance chart isn't empty"). The
+   * write uses `skipDuplicates: true` against `PriceHistory`'s
+   * `@@unique([assetId, date])` constraint, so calling this twice for the
+   * same asset neither throws nor double-inserts (spec AC-3).
+   */
+  async backfillHistory(assetId: string): Promise<void> {
+    const asset = await this.prisma.asset.findUniqueOrThrow({ where: { id: assetId } });
+    const series = await this.priceProvider.getHistory(asset.ticker, '1y', '1d');
+
+    await this.prisma.priceHistory.createMany({
+      data: series.map((point) => ({
+        assetId,
+        date: point.date,
+        close: point.close,
+      })),
+      skipDuplicates: true,
+    });
+  }
 }

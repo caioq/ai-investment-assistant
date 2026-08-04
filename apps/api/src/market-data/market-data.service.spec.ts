@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from './market-data.service';
-import { PriceProvider, Quote } from './providers/price-provider.interface';
+import { PriceProvider, PricePoint, Quote } from './providers/price-provider.interface';
 
 describe('MarketDataService', () => {
   let marketDataService: MarketDataService;
@@ -9,9 +9,11 @@ describe('MarketDataService', () => {
     asset: {
       findMany: jest.Mock;
       update: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
     };
     priceHistory: {
       upsert: jest.Mock;
+      createMany: jest.Mock;
     };
   };
   let priceProvider: { getQuote: jest.Mock; getHistory: jest.Mock };
@@ -28,19 +30,31 @@ describe('MarketDataService', () => {
     { ticker: 'ITUB4', price: 33.9, changePct: 0.3 },
   ];
 
+  const assetId = 'asset-1';
+  const ticker = 'PETR4';
+
+  // A 250-point 1y daily series, matching what B3YahooProvider.getHistory
+  // returns for range='1y'/interval='1d' (spec.md AC-3).
+  const oneYearSeries: PricePoint[] = Array.from({ length: 250 }, (_, i) => ({
+    date: new Date(Date.UTC(2025, 0, 1 + i)),
+    close: 30 + i * 0.1,
+  }));
+
   beforeEach(() => {
     prisma = {
       asset: {
         findMany: jest.fn().mockResolvedValue(assets),
         update: jest.fn(),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ id: assetId, ticker }),
       },
       priceHistory: {
         upsert: jest.fn(),
+        createMany: jest.fn().mockResolvedValue({ count: oneYearSeries.length }),
       },
     };
     priceProvider = {
       getQuote: jest.fn().mockResolvedValue(quotes),
-      getHistory: jest.fn(),
+      getHistory: jest.fn().mockResolvedValue(oneYearSeries),
     };
 
     marketDataService = new MarketDataService(
@@ -135,6 +149,40 @@ describe('MarketDataService', () => {
       expect(errorSpy).toHaveBeenCalled();
 
       errorSpy.mockRestore();
+    });
+  });
+
+  describe('backfillHistory', () => {
+    it("calls getHistory with the asset's ticker, '1y', and '1d'", async () => {
+      await marketDataService.backfillHistory(assetId);
+
+      expect(prisma.asset.findUniqueOrThrow).toHaveBeenCalledWith({ where: { id: assetId } });
+      expect(priceProvider.getHistory).toHaveBeenCalledWith(ticker, '1y', '1d');
+    });
+
+    it('writes one PriceHistory row per point in the returned series (not just today)', async () => {
+      await marketDataService.backfillHistory(assetId);
+
+      expect(prisma.priceHistory.createMany).toHaveBeenCalledTimes(1);
+      const createManyArgs = prisma.priceHistory.createMany.mock.calls[0][0];
+
+      expect(createManyArgs.data).toHaveLength(oneYearSeries.length);
+      expect(createManyArgs.data[0]).toEqual({
+        assetId,
+        date: oneYearSeries[0].date,
+        close: oneYearSeries[0].close,
+      });
+    });
+
+    it('writes with skipDuplicates so a second backfill for the same asset resolves without throwing', async () => {
+      await marketDataService.backfillHistory(assetId);
+      const firstCallArgs = prisma.priceHistory.createMany.mock.calls[0][0];
+      expect(firstCallArgs.skipDuplicates).toBe(true);
+
+      // Calling it again must not throw, simulating the idempotent
+      // @@unique([assetId, date]) constraint being upheld by skipDuplicates.
+      await expect(marketDataService.backfillHistory(assetId)).resolves.not.toThrow();
+      expect(prisma.priceHistory.createMany).toHaveBeenCalledTimes(2);
     });
   });
 });
