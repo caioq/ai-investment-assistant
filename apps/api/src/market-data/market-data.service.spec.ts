@@ -15,6 +15,7 @@ describe('MarketDataService', () => {
       upsert: jest.Mock;
       createMany: jest.Mock;
     };
+    benchmarkSnapshot: { createMany: jest.Mock };
   };
   let priceProvider: { getQuote: jest.Mock; getHistory: jest.Mock };
 
@@ -40,6 +41,13 @@ describe('MarketDataService', () => {
     close: 30 + i * 0.1,
   }));
 
+  // A 250-point 1y daily series, matching what B3YahooProvider.getHistory
+  // returns for range='1y'/interval='1d' (spec.md AC-3) for the ^BVSP ticker.
+  const ibovespaSeries: PricePoint[] = Array.from({ length: 250 }, (_, i) => ({
+    date: new Date(Date.UTC(2025, 0, 1 + i)),
+    close: 120000 + i * 10,
+  }));
+
   beforeEach(() => {
     prisma = {
       asset: {
@@ -50,6 +58,9 @@ describe('MarketDataService', () => {
       priceHistory: {
         upsert: jest.fn(),
         createMany: jest.fn().mockResolvedValue({ count: oneYearSeries.length }),
+      },
+      benchmarkSnapshot: {
+        createMany: jest.fn().mockResolvedValue({ count: ibovespaSeries.length }),
       },
     };
     priceProvider = {
@@ -183,6 +194,44 @@ describe('MarketDataService', () => {
       // @@unique([assetId, date]) constraint being upheld by skipDuplicates.
       await expect(marketDataService.backfillHistory(assetId)).resolves.not.toThrow();
       expect(prisma.priceHistory.createMany).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('syncIbovespa', () => {
+    beforeEach(() => {
+      priceProvider.getHistory.mockResolvedValue(ibovespaSeries);
+    });
+
+    it("calls getHistory with '^BVSP', '1y', and '1d'", async () => {
+      await marketDataService.syncIbovespa();
+
+      expect(priceProvider.getHistory).toHaveBeenCalledWith('^BVSP', '1y', '1d');
+    });
+
+    it('writes one BenchmarkSnapshot row per point, all with benchmark IBOVESPA', async () => {
+      await marketDataService.syncIbovespa();
+
+      expect(prisma.benchmarkSnapshot.createMany).toHaveBeenCalledTimes(1);
+      const createManyArgs = prisma.benchmarkSnapshot.createMany.mock.calls[0][0];
+
+      expect(createManyArgs.data).toHaveLength(ibovespaSeries.length);
+      expect(createManyArgs.data[0]).toEqual({
+        benchmark: 'IBOVESPA',
+        date: ibovespaSeries[0].date,
+        value: ibovespaSeries[0].close,
+      });
+      expect(
+        createManyArgs.data.every((row: { benchmark: string }) => row.benchmark === 'IBOVESPA'),
+      ).toBe(true);
+    });
+
+    it('writes with skipDuplicates so a re-run resolves without throwing', async () => {
+      await marketDataService.syncIbovespa();
+      const firstCallArgs = prisma.benchmarkSnapshot.createMany.mock.calls[0][0];
+      expect(firstCallArgs.skipDuplicates).toBe(true);
+
+      await expect(marketDataService.syncIbovespa()).resolves.not.toThrow();
+      expect(prisma.benchmarkSnapshot.createMany).toHaveBeenCalledTimes(2);
     });
   });
 });

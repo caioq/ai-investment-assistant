@@ -97,4 +97,24 @@ export class MarketDataService {
       skipDuplicates: true,
     });
   }
+
+  /**
+   * Fetches 1y of daily Ibovespa closes and writes one BenchmarkSnapshot row
+   * per point (spec.md -> Behavior Notes). The write uses
+   * `skipDuplicates: true` against `BenchmarkSnapshot`'s
+   * `@@unique([benchmark, date])` constraint, so this can run daily without
+   * throwing on days already stored.
+   */
+  async syncIbovespa(): Promise<void> {
+    const series = await this.priceProvider.getHistory('^BVSP', '1y', '1d');
+
+    await this.prisma.benchmarkSnapshot.createMany({
+      data: series.map((point) => ({
+        benchmark: 'IBOVESPA' as const,
+        date: point.date,
+        value: point.close,
+      })),
+      skipDuplicates: true,
+    });
+  }
 }
