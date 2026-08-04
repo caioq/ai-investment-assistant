@@ -1,7 +1,7 @@
 # MARKET_DATA_US-4_T-1: getOrRefreshPrice with 15-minute TTL gate
 
 **Story:** [../stories/US-4-on-demand-refresh.md](../stories/US-4-on-demand-refresh.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #67 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** MARKET_DATA_US-1_T-2
 

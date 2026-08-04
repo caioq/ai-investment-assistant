@@ -32,6 +32,20 @@ function parseSgsDate(data: string): Date {
 }
 
 /**
+ * TTL for `getOrRefreshPrice`'s on-demand refresh gate (spec.md -> Behavior
+ * Notes: "gated by a 15-minute TTL on priceUpdatedAt").
+ */
+const REFRESH_TTL_MS = 15 * 60 * 1000;
+
+/** Response shape for `getOrRefreshPrice`, matching the debug endpoint's contract (spec.md -> API Contract). */
+export interface AssetQuote {
+  ticker: string;
+  price: number;
+  changePct: number;
+  updatedAt: Date;
+}
+
+/**
  * Aggregation/cron logic for market data (price refresh, backfill,
  * benchmark sync) lands here across `MARKET_DATA_US-1..4`. The provider is
  * injected via the `PRICE_PROVIDER` token, never the concrete
@@ -185,5 +199,51 @@ export class MarketDataService {
       data: rows,
       skipDuplicates: true,
     });
+  }
+
+  /**
+   * On-demand refresh for interactive use (spec.md -> Behavior Notes),
+   * gated by a 15-minute TTL on `Asset.priceUpdatedAt`: within the TTL,
+   * returns the stored price with no upstream call; otherwise refreshes
+   * through the same batched `PriceProvider.getQuote(tickers[])` path as
+   * `refreshAllQuotes`, using a one-element array so an on-demand refresh is
+   * "still always executed as a batch call even if triggered by a single
+   * asset lookup" (US-4 story notes). A `null` `priceUpdatedAt` (never
+   * priced) is treated as a cache miss.
+   */
+  async getOrRefreshPrice(assetId: string): Promise<AssetQuote> {
+    const asset = await this.prisma.asset.findUniqueOrThrow({ where: { id: assetId } });
+
+    const isFresh =
+      asset.priceUpdatedAt !== null &&
+      Date.now() - asset.priceUpdatedAt.getTime() < REFRESH_TTL_MS;
+
+    if (isFresh) {
+      return {
+        ticker: asset.ticker,
+        price: asset.currentPrice!,
+        changePct: asset.currentChangePct!,
+        updatedAt: asset.priceUpdatedAt!,
+      };
+    }
+
+    const [quote] = await this.priceProvider.getQuote([asset.ticker]);
+    const updatedAt = new Date();
+
+    await this.prisma.asset.update({
+      where: { id: asset.id },
+      data: {
+        currentPrice: quote.price,
+        currentChangePct: quote.changePct,
+        priceUpdatedAt: updatedAt,
+      },
+    });
+
+    return {
+      ticker: asset.ticker,
+      price: quote.price,
+      changePct: quote.changePct,
+      updatedAt,
+    };
   }
 }
