@@ -1,6 +1,6 @@
 # US-3: Benchmark series (Ibovespa, CDI)
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Fetch benchmark series (Ibovespa, CDI) for performance comparison." / AC "`BenchmarkSnapshot` has daily rows for both `IBOVESPA` and `CDI` covering at least the last year after the benchmark job runs once, with `CDI` stored as a compounded index level rather than a raw daily rate." (in `../spec.md`)
 
 As a user reviewing my returns, I want Ibovespa and CDI history stored alongside my portfolio's, so "am I beating the index?" is answerable instead of a number floating without context.
@@ -9,7 +9,7 @@ As a user reviewing my returns, I want Ibovespa and CDI history stored alongside
 
 - [x] [T-1: Ibovespa history into BenchmarkSnapshot](../tasks/MARKET_DATA_US-3_T-1-ibovespa-history.md)
 - [x] [T-2: CDI history into BenchmarkSnapshot](../tasks/MARKET_DATA_US-3_T-2-cdi-history.md)
-- [ ] [T-3: benchmark job wiring](../tasks/MARKET_DATA_US-3_T-3-benchmark-job.md)
+- [x] [T-3: benchmark job wiring](../tasks/MARKET_DATA_US-3_T-3-benchmark-job.md)
 
 ## Notes
 
