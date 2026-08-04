@@ -1,6 +1,6 @@
 # US-4: On-demand quote refresh
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec AC "A second `getOrRefreshPrice` call for the same asset within 15 minutes makes no Yahoo Finance request and returns the stored price." / spec Behavior Note "`getOrRefreshPrice(assetId)`: on-demand refresh for interactive use…, gated by a 15-minute TTL on `priceUpdatedAt`" / spec API Contract `GET /market-data/quote/:ticker` (in `../spec.md`)
 
 As someone demoing the app between cron runs, I want a price I can refresh on demand without waiting until after B3 close, so the dashboard isn't showing yesterday's numbers — while still not re-hitting an unofficial, unsupported API on every page load.
@@ -8,7 +8,7 @@ As someone demoing the app between cron runs, I want a price I can refresh on de
 ## Tasks
 
 - [x] [T-1: getOrRefreshPrice with 15-minute TTL gate](../tasks/MARKET_DATA_US-4_T-1-get-or-refresh-price.md)
-- [ ] [T-2: GET /market-data/quote/:ticker debug endpoint](../tasks/MARKET_DATA_US-4_T-2-quote-debug-endpoint.md)
+- [x] [T-2: GET /market-data/quote/:ticker debug endpoint](../tasks/MARKET_DATA_US-4_T-2-quote-debug-endpoint.md)
 
 ## Notes
 
