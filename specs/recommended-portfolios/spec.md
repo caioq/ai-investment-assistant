@@ -28,29 +28,34 @@ enum WalletType {
 }
 
 model RecommendedPortfolio {
-  id            String     @id @default(cuid())
-  userId        String
+  id            String     @id @default(uuid(7)) @db.Uuid
+  userId        String     @map("user_id") @db.Uuid
   user          User       @relation(fields: [userId], references: [id])
-  walletType    WalletType
-  sourceName    String?    // e.g. "XP"
-  effectiveDate DateTime   @db.Date
-  uploadedAt    DateTime   @default(now())
+  walletType    WalletType @map("wallet_type")
+  sourceName    String?    @map("source_name") // e.g. "XP"
+  effectiveDate DateTime   @map("effective_date") @db.Date
+  uploadedAt    DateTime   @default(now()) @map("uploaded_at")
 
   holdings RecommendedHolding[]
 
   @@index([walletType, effectiveDate])
+  @@map("recommended_portfolios")
 }
 
 model RecommendedHolding {
-  id                     String                @id @default(cuid())
-  recommendedPortfolioId String
-  recommendedPortfolio   RecommendedPortfolio  @relation(fields: [recommendedPortfolioId], references: [id], onDelete: Cascade)
-  assetId                String
-  asset                  Asset                 @relation(fields: [assetId], references: [id])
-  targetWeightPct        Float
-  limitPrice             Float
+  id                     String               @id @default(uuid(7)) @db.Uuid
+  recommendedPortfolioId String               @map("recommended_portfolio_id") @db.Uuid
+  recommendedPortfolio   RecommendedPortfolio @relation(fields: [recommendedPortfolioId], references: [id], onDelete: Cascade)
+  assetId                String               @map("asset_id") @db.Uuid
+  asset                  Asset                @relation(fields: [assetId], references: [id])
+  targetWeightPct        Float                @map("target_weight_pct")
+  limitPrice             Float                @map("limit_price")
+
+  @@map("recommended_holdings")
 }
 ```
+
+Both models follow the repo-wide Prisma conventions in [`CONVENTIONS.md`](../../CONVENTIONS.md) → "Module structure": UUIDv7 primary keys stored as native Postgres `uuid` rather than `cuid()`/`TEXT`, a `snake_case` plural `@@map` per model, and `@map` on multi-word fields. Foreign-key scalars carry `@db.Uuid` so their column type matches the `id` they reference. Adding these models also adds the required back-relations on models owned elsewhere: `recommendedPortfolios RecommendedPortfolio[]` on `User` ([auth](../auth/spec.md)) and `recommendedHoldings RecommendedHolding[]` on `Asset` ([market-data](../market-data/spec.md)).
 
 ## API Contract
 

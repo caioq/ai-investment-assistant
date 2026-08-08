@@ -24,33 +24,39 @@ The user needs to record which B3 stocks they hold (ticker, quantity, average pr
 
 ```prisma
 model Holding {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  assetId     String
-  asset       Asset     @relation(fields: [assetId], references: [id])
-  quantity    Float
-  avgPrice    Float
-  metadata    Json?     // future per-asset-type fields (fixed income maturity, crypto wallet, etc.) — no migration needed
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  assetId   String   @map("asset_id") @db.Uuid
+  asset     Asset    @relation(fields: [assetId], references: [id])
+  quantity  Float
+  avgPrice  Float    @map("avg_price")
+  metadata  Json?    // future per-asset-type fields (fixed income maturity, crypto wallet, etc.) — no migration needed
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([userId, assetId])
   @@index([userId])
+  @@map("holdings")
 }
 
 model PortfolioValueSnapshot {
-  id            String   @id @default(cuid())
-  userId        String
+  id            String   @id @default(uuid(7)) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
   user          User     @relation(fields: [userId], references: [id])
   date          DateTime @db.Date
-  totalValue    Float
-  totalInvested Float
+  totalValue    Float    @map("total_value")
+  totalInvested Float    @map("total_invested")
 
   @@unique([userId, date])
   @@index([userId, date])
+  @@map("portfolio_value_snapshots")
 }
 ```
+
+Both models follow the repo-wide Prisma conventions established by `User` (`AUTH_US-1_T-1`) and the market-data models, and recorded in [`CONVENTIONS.md`](../../CONVENTIONS.md) → "Module structure": UUIDv7 primary keys stored as native Postgres `uuid` (`@id @default(uuid(7)) @db.Uuid`) rather than `cuid()`/`TEXT`, a `snake_case` plural `@@map` per model, and `@map` on every multi-word field. Foreign-key scalars (`userId`, `assetId`) carry `@db.Uuid` too, so their column type matches the `id` they reference — a plain `String` FK would be `TEXT` and the relation wouldn't build.
+
+Adding these models also requires the **other side** of two relations Prisma won't compile without: `holdings Holding[]` and `portfolioValueSnapshots PortfolioValueSnapshot[]` on `User`, and `holdings Holding[]` on `Asset`. Both `User` and `Asset` already exist and are owned by other modules ([auth](../auth/spec.md), [market-data](../market-data/spec.md)); market-data's spec explicitly defers its `Asset.holdings` back-relation to this module, so adding it here is expected rather than a cross-module violation.
 
 `Holding` links to `Asset` (owned by the [market-data](../market-data/spec.md) spec), which is where `currentPrice`, `sector`, `investmentStyle`, and `riskRating` live — market data is shared across users, holdings are per-user positions. `investmentStyle` and `riskRating` are edited from the holdings UI even though they're stored on `Asset`, since that's where the user is looking at a specific stock.
 
