@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MarketDataController } from './market-data.controller';
 import { MarketDataCron } from './market-data.cron';
 import { MarketDataService } from './market-data.service';
 import { B3YahooProvider } from './providers/b3-yahoo.provider';
@@ -20,6 +21,7 @@ import { PrismaModule } from '../prisma/prisma.module';
  */
 @Module({
   imports: [PrismaModule],
+  controllers: [MarketDataController],
   providers: [
     MarketDataService,
     MarketDataCron,
