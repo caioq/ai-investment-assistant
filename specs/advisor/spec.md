@@ -24,36 +24,43 @@ The user wants a single button that produces an expert-style read on their portf
 
 ```prisma
 model AdvisorReport {
-  id         String   @id @default(cuid())
-  userId     String
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
   user       User     @relation(fields: [userId], references: [id])
-  sourceName String?
-  fileName   String?
-  rawText    String   @db.Text
-  uploadedAt DateTime @default(now())
+  sourceName String?  @map("source_name")
+  fileName   String?  @map("file_name")
+  rawText    String   @map("raw_text") @db.Text
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  analyses AdvisorAnalysis[]
+
+  @@map("advisor_reports")
 }
 
 model AdvisorAnalysis {
-  id                    String          @id @default(cuid())
-  userId                String
-  user                  User            @relation(fields: [userId], references: [id])
-  advisorReportId       String?
-  advisorReport         AdvisorReport?  @relation(fields: [advisorReportId], references: [id])
-  recommendedPortfolioIds Json          // string[] — which RecommendedPortfolio snapshots were in the prompt
+  id                      String         @id @default(uuid(7)) @db.Uuid
+  userId                  String         @map("user_id") @db.Uuid
+  user                    User           @relation(fields: [userId], references: [id])
+  advisorReportId         String?        @map("advisor_report_id") @db.Uuid
+  advisorReport           AdvisorReport? @relation(fields: [advisorReportId], references: [id])
+  recommendedPortfolioIds Json           @map("recommended_portfolio_ids") // string[] — which RecommendedPortfolio snapshots were in the prompt
 
   score           Float
-  summary         String   @db.Text
-  strengths       Json     // string[]
-  risks           Json     // string[]
-  recommendations Json     // string[]
-  impactMetrics   Json     // { label: string, value: string }[]
+  summary         String @db.Text
+  strengths       Json   // string[]
+  risks           Json   // string[]
+  recommendations Json   // string[]
+  impactMetrics   Json   @map("impact_metrics") // { label: string, value: string }[]
 
   model     String   // which Claude model generated this, for audit
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId, createdAt])
+  @@map("advisor_analyses")
 }
 ```
+
+Both models follow the repo-wide Prisma conventions in [`CONVENTIONS.md`](../../CONVENTIONS.md) → "Module structure": UUIDv7 primary keys stored as native Postgres `uuid` rather than `cuid()`/`TEXT`, a `snake_case` plural `@@map` per model, and `@map` on multi-word fields. Foreign-key scalars carry `@db.Uuid` so their column type matches the `id` they reference. `AdvisorReport.analyses` is the back-relation Prisma requires for `AdvisorAnalysis.advisorReport` to compile; `User` also gains `advisorReports AdvisorReport[]` and `advisorAnalyses AdvisorAnalysis[]` ([auth](../auth/spec.md) owns that model).
 
 ## API Contract
 
