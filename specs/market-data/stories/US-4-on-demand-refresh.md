@@ -7,7 +7,7 @@ As someone demoing the app between cron runs, I want a price I can refresh on de
 
 ## Tasks
 
-- [ ] [T-1: getOrRefreshPrice with 15-minute TTL gate](../tasks/MARKET_DATA_US-4_T-1-get-or-refresh-price.md)
+- [x] [T-1: getOrRefreshPrice with 15-minute TTL gate](../tasks/MARKET_DATA_US-4_T-1-get-or-refresh-price.md)
 - [ ] [T-2: GET /market-data/quote/:ticker debug endpoint](../tasks/MARKET_DATA_US-4_T-2-quote-debug-endpoint.md)
 
 ## Notes

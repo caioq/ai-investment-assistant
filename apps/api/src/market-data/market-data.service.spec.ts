@@ -275,4 +275,91 @@ describe('MarketDataService', () => {
       expect(data[2].value).toBeCloseTo(100.04 * 1.0004, 6);
     });
   });
+
+  describe('getOrRefreshPrice', () => {
+    const now = new Date('2026-08-04T12:00:00Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(now);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('returns the stored price and calls getQuote zero times when priceUpdatedAt is 5 minutes ago (cache hit)', async () => {
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      prisma.asset.findUniqueOrThrow.mockResolvedValue({
+        id: assetId,
+        ticker,
+        currentPrice: 38.5,
+        currentChangePct: 1.2,
+        priceUpdatedAt: fiveMinutesAgo,
+      });
+
+      const result = await marketDataService.getOrRefreshPrice(assetId);
+
+      expect(prisma.asset.findUniqueOrThrow).toHaveBeenCalledWith({ where: { id: assetId } });
+      expect(priceProvider.getQuote).not.toHaveBeenCalled();
+      expect(prisma.asset.update).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        ticker,
+        price: 38.5,
+        changePct: 1.2,
+        updatedAt: fiveMinutesAgo,
+      });
+    });
+
+    it("calls getQuote once with ['PETR4'] and writes the fresh price back when priceUpdatedAt is 20 minutes ago (cache miss)", async () => {
+      const twentyMinutesAgo = new Date(now.getTime() - 20 * 60 * 1000);
+      prisma.asset.findUniqueOrThrow.mockResolvedValue({
+        id: assetId,
+        ticker,
+        currentPrice: 30,
+        currentChangePct: 0,
+        priceUpdatedAt: twentyMinutesAgo,
+      });
+      priceProvider.getQuote.mockResolvedValue([{ ticker, price: 39.9, changePct: 2.1 }]);
+
+      const result = await marketDataService.getOrRefreshPrice(assetId);
+
+      expect(priceProvider.getQuote).toHaveBeenCalledTimes(1);
+      expect(priceProvider.getQuote).toHaveBeenCalledWith(['PETR4']);
+      expect(prisma.asset.update).toHaveBeenCalledWith({
+        where: { id: assetId },
+        data: {
+          currentPrice: 39.9,
+          currentChangePct: 2.1,
+          priceUpdatedAt: now,
+        },
+      });
+      expect(result).toEqual({
+        ticker,
+        price: 39.9,
+        changePct: 2.1,
+        updatedAt: now,
+      });
+    });
+
+    it('treats a null priceUpdatedAt (never priced) as a cache miss', async () => {
+      prisma.asset.findUniqueOrThrow.mockResolvedValue({
+        id: assetId,
+        ticker,
+        currentPrice: null,
+        currentChangePct: null,
+        priceUpdatedAt: null,
+      });
+      priceProvider.getQuote.mockResolvedValue([{ ticker, price: 39.9, changePct: 2.1 }]);
+
+      const result = await marketDataService.getOrRefreshPrice(assetId);
+
+      expect(priceProvider.getQuote).toHaveBeenCalledWith(['PETR4']);
+      expect(result).toEqual({
+        ticker,
+        price: 39.9,
+        changePct: 2.1,
+        updatedAt: now,
+      });
+    });
+  });
 });
