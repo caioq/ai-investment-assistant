@@ -7,7 +7,7 @@ As someone with an existing portfolio, I want to upload a CSV of my positions in
 
 ## Tasks
 
-- [ ] [T-1: CSV row parsing and per-row upsert](../tasks/PORTFOLIO_US-2_T-1-csv-row-parsing.md)
+- [x] [T-1: CSV row parsing and per-row upsert](../tasks/PORTFOLIO_US-2_T-1-csv-row-parsing.md)
 - [ ] [T-2: POST /portfolio/holdings/upload-csv](../tasks/PORTFOLIO_US-2_T-2-upload-csv-endpoint.md)
 
 ## Notes
