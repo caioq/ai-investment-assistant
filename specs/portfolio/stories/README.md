@@ -6,7 +6,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 
 | Story | Title | Status | Tasks |
 |---|---|---|---|
-| [US-1](./US-1-manage-holdings.md) | Manage my holdings | Ready | T-1..T-5 in `../tasks/` |
+| [US-1](./US-1-manage-holdings.md) | Manage my holdings | Done | T-1..T-5 in `../tasks/` |
 | [US-2](./US-2-csv-import.md) | Bulk-import holdings from CSV | Ready | T-1..T-2 in `../tasks/` |
 | [US-3](./US-3-allocation.md) | See where my money is concentrated | Ready | T-1..T-2 in `../tasks/` |
 | [US-4](./US-4-summary.md) | See what my portfolio is worth | Ready | T-1 in `../tasks/` |

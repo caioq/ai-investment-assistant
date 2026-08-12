@@ -1,7 +1,7 @@
 # PORTFOLIO_US-1_T-5: cross-user isolation e2e
 
 **Story:** [../stories/US-1-manage-holdings.md](../stories/US-1-manage-holdings.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #103 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** PORTFOLIO_US-1_T-1, PORTFOLIO_US-1_T-2, PORTFOLIO_US-1_T-3, PORTFOLIO_US-1_T-4
 

@@ -452,3 +452,140 @@ describe('PortfolioController (e2e) - DELETE /portfolio/holdings/:id', () => {
     expect(assetAfter).not.toBeNull();
   });
 });
+
+describe('PortfolioController (e2e) - cross-user isolation (PORTFOLIO_US-1_T-5)', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  // Stubs `MarketDataService` so the seeding `POST /portfolio/holdings` call
+  // below never hits live Yahoo Finance (CONVENTIONS.md -> "Testing").
+  const marketDataServiceStub = {
+    backfillHistory: jest.fn().mockResolvedValue(undefined),
+  } as unknown as MarketDataService;
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(MarketDataService)
+      .useValue(marketDataServiceStub)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // Scoped to rows this suite creates, rather than an unscoped `deleteMany()`
+  // — e2e suites run in parallel against the same test Postgres
+  // (CONVENTIONS.md -> "Testing").
+  afterEach(async () => {
+    await prisma.holding.deleteMany({
+      where: { asset: { ticker: { in: ['ISOL4'] } } },
+    });
+    await prisma.asset.deleteMany({ where: { ticker: { in: ['ISOL4'] } } });
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: ['portfolio-isolation-e2e-a@example.com', 'portfolio-isolation-e2e-b@example.com'],
+        },
+      },
+    });
+  });
+
+  /** Registers + logs in a user, returning the `access_token` cookie array. */
+  async function authCookies(email: string): Promise<string[]> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  }
+
+  /**
+   * Registers A and B (distinct emails) and has A create a holding. Returns
+   * both cookie jars plus A's holding id, so each case below just picks up
+   * from here with B's cookie.
+   */
+  async function seedTwoUsersWithAsHolding(): Promise<{
+    cookiesA: string[];
+    cookiesB: string[];
+    holdingId: string;
+  }> {
+    const cookiesA = await authCookies('portfolio-isolation-e2e-a@example.com');
+    const cookiesB = await authCookies('portfolio-isolation-e2e-b@example.com');
+
+    const createResponse = await request(app.getHttpServer())
+      .post('/portfolio/holdings')
+      .set('Cookie', cookiesA)
+      .send({ ticker: 'ISOL4', quantity: 100, avgPrice: 30 });
+
+    const holdingId = (createResponse.body as { id: string }).id;
+
+    return { cookiesA, cookiesB, holdingId };
+  }
+
+  it("GET /portfolio/holdings as B returns 200 and [] — B never sees A's rows", async () => {
+    const { cookiesB } = await seedTwoUsersWithAsHolding();
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio/holdings')
+      .set('Cookie', cookiesB);
+
+    // An empty list rather than an error, so a leak would show up as extra
+    // data rather than a different status code (task file, case 1).
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  it("PATCH /portfolio/holdings/{A's id} as B returns 404 and leaves A's quantity unchanged", async () => {
+    const { cookiesA, cookiesB, holdingId } = await seedTwoUsersWithAsHolding();
+
+    const response = await request(app.getHttpServer())
+      .patch(`/portfolio/holdings/${holdingId}`)
+      .set('Cookie', cookiesB)
+      .send({ quantity: 999 });
+
+    // 404, not 403 (task file): a 403 would confirm to B that the id exists,
+    // turning the endpoint into an existence oracle.
+    expect(response.status).toBe(404);
+
+    // Assert the database, not just the status — a handler could return 404
+    // after having already written (task file, case 2).
+    const holdingAfter = await prisma.holding.findUniqueOrThrow({ where: { id: holdingId } });
+    expect(holdingAfter.quantity).toBe(100);
+
+    // Re-reading as A also shows the original quantity unchanged.
+    const listAsA = await request(app.getHttpServer())
+      .get('/portfolio/holdings')
+      .set('Cookie', cookiesA);
+    expect(listAsA.body).toEqual([expect.objectContaining({ id: holdingId, quantity: 100 })]);
+  });
+
+  it("DELETE /portfolio/holdings/{A's id} as B returns 404 and A's holding still exists", async () => {
+    const { cookiesA, cookiesB, holdingId } = await seedTwoUsersWithAsHolding();
+
+    const response = await request(app.getHttpServer())
+      .delete(`/portfolio/holdings/${holdingId}`)
+      .set('Cookie', cookiesB);
+
+    // 404, not 403, for the same existence-oracle reason as the PATCH case.
+    expect(response.status).toBe(404);
+
+    const holdingAfter = await prisma.holding.findUnique({ where: { id: holdingId } });
+    expect(holdingAfter).not.toBeNull();
+
+    const listAsA = await request(app.getHttpServer())
+      .get('/portfolio/holdings')
+      .set('Cookie', cookiesA);
+    expect(listAsA.body).toEqual([expect.objectContaining({ id: holdingId })]);
+  });
+});
