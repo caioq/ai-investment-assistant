@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MarketDataModule } from '../market-data/market-data.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PortfolioController } from './portfolio.controller';
 import { PortfolioService } from './portfolio.service';
@@ -9,9 +10,14 @@ import { PortfolioService } from './portfolio.service';
  * `PortfolioModule` also resolves `PrismaService` when compiled standalone
  * (as `portfolio.module.spec.ts` does) rather than only as part of the full
  * app graph.
+ *
+ * `MarketDataModule` is imported so `PortfolioService` can inject
+ * `MarketDataService` (`.backfillHistory`) — PORTFOLIO_US-1_T-1 triggers the
+ * historical backfill for a newly-created `Asset` right after creating a
+ * `Holding` for it.
  */
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, MarketDataModule],
   controllers: [PortfolioController],
   providers: [PortfolioService],
   exports: [PortfolioService],
