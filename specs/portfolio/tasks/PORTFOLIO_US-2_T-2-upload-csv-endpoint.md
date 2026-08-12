@@ -1,7 +1,7 @@
 # PORTFOLIO_US-2_T-2: POST /portfolio/holdings/upload-csv
 
 **Story:** [../stories/US-2-csv-import.md](../stories/US-2-csv-import.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #105 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** PORTFOLIO_US-2_T-1
 

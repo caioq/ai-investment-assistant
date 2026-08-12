@@ -1,6 +1,6 @@
 # US-2: Bulk-import holdings from CSV
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Add holdings manually or via CSV upload." / AC "CSV upload with 3 valid rows and 1 malformed row creates 3 holdings and reports 1 error, without a 500." (in `../spec.md`)
 
 As someone with an existing portfolio, I want to upload a CSV of my positions instead of adding them one at a time, so getting started takes one step rather than twenty.
@@ -8,7 +8,7 @@ As someone with an existing portfolio, I want to upload a CSV of my positions in
 ## Tasks
 
 - [x] [T-1: CSV row parsing and per-row upsert](../tasks/PORTFOLIO_US-2_T-1-csv-row-parsing.md)
-- [ ] [T-2: POST /portfolio/holdings/upload-csv](../tasks/PORTFOLIO_US-2_T-2-upload-csv-endpoint.md)
+- [x] [T-2: POST /portfolio/holdings/upload-csv](../tasks/PORTFOLIO_US-2_T-2-upload-csv-endpoint.md)
 
 ## Notes
 
