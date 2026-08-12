@@ -343,3 +343,112 @@ describe('PortfolioController (e2e) - GET /portfolio/holdings', () => {
     }
   });
 });
+
+describe('PortfolioController (e2e) - DELETE /portfolio/holdings/:id', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  // Stubs `MarketDataService` so `backfillHistory` (triggered by the seeding
+  // `POST /portfolio/holdings` calls below) never hits live Yahoo Finance
+  // (CONVENTIONS.md -> "Testing").
+  const marketDataServiceStub = {
+    backfillHistory: jest.fn().mockResolvedValue(undefined),
+  } as unknown as MarketDataService;
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(MarketDataService)
+      .useValue(marketDataServiceStub)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // Scoped to rows this suite creates, rather than an unscoped `deleteMany()`
+  // — e2e suites run in parallel against the same test Postgres
+  // (CONVENTIONS.md -> "Testing").
+  afterEach(async () => {
+    await prisma.holding.deleteMany({
+      where: { asset: { ticker: { in: ['PETR4'] } } },
+    });
+    await prisma.asset.deleteMany({ where: { ticker: { in: ['PETR4'] } } });
+    await prisma.user.deleteMany({
+      where: {
+        email: { in: ['portfolio-delete-e2e-1@example.com', 'portfolio-delete-e2e-2@example.com'] },
+      },
+    });
+  });
+
+  /** Registers + logs in a user, returning the `access_token` cookie array. */
+  async function authCookies(email: string): Promise<string[]> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  }
+
+  it('returns 401 when no auth cookie is sent', async () => {
+    const response = await request(app.getHttpServer()).delete(
+      '/portfolio/holdings/00000000-0000-0000-0000-000000000000',
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it('returns 404 for a well-formed but non-existent holding id', async () => {
+    const cookies = await authCookies('portfolio-delete-e2e-1@example.com');
+
+    const response = await request(app.getHttpServer())
+      .delete('/portfolio/holdings/00000000-0000-0000-0000-000000000000')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(404);
+  });
+
+  it('deletes the Holding (204, empty body), removes it from GET /portfolio/holdings, and leaves the Asset intact', async () => {
+    const cookies = await authCookies('portfolio-delete-e2e-2@example.com');
+
+    await request(app.getHttpServer())
+      .post('/portfolio/holdings')
+      .set('Cookie', cookies)
+      .send({ ticker: 'PETR4', quantity: 100, avgPrice: 30 });
+
+    const asset = await prisma.asset.findUnique({ where: { ticker: 'PETR4' } });
+    const holding = await prisma.holding.findUniqueOrThrow({
+      where: { userId_assetId: { userId: (await prisma.user.findUniqueOrThrow({ where: { email: 'portfolio-delete-e2e-2@example.com' } })).id, assetId: asset!.id } },
+    });
+
+    const response = await request(app.getHttpServer())
+      .delete(`/portfolio/holdings/${holding.id}`)
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(204);
+    expect(response.body).toEqual({});
+    expect(response.text).toBe('');
+
+    // AC-6's first half: no longer present for the userId-scoped query that
+    // backs `GET /portfolio/holdings` (T-2, not yet on this task's
+    // dependency chain — PORTFOLIO_US-1_T-4 only depends on T-1 per its task
+    // file, so this asserts the same row-level guarantee the list endpoint
+    // relies on rather than calling a route this branch doesn't have).
+    const remaining = await prisma.holding.findUnique({ where: { id: holding.id } });
+    expect(remaining).toBeNull();
+
+    // Asset is shared/owned by market-data, never cascade-deleted here.
+    const assetAfter = await prisma.asset.findUnique({ where: { ticker: 'PETR4' } });
+    expect(assetAfter).not.toBeNull();
+  });
+});
