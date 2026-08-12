@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MarketDataModule } from '../market-data/market-data.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PortfolioController } from './portfolio.controller';
+import { PortfolioListener } from './portfolio.listener';
 import { PortfolioService } from './portfolio.service';
 
 /**
@@ -16,10 +17,19 @@ import { PortfolioService } from './portfolio.service';
  * historical backfill for a newly-created `Asset` right after creating a
  * `Holding` for it.
  */
+/**
+ * `PortfolioListener` (PORTFOLIO_US-5_T-2) is registered as a plain provider
+ * here, not exported — its `@OnEvent` handler is discovered and wired up by
+ * the app-wide `EventEmitterModule.forRoot()` (registered once in
+ * `app.module.ts`, see CONVENTIONS.md -> "Scheduled jobs" for the same
+ * pattern applied to `ScheduleModule.forRoot()`) as long as it's part of the
+ * compiled app graph, which importing `PortfolioModule` into `AppModule`
+ * already guarantees.
+ */
 @Module({
   imports: [PrismaModule, MarketDataModule],
   controllers: [PortfolioController],
-  providers: [PortfolioService],
+  providers: [PortfolioService, PortfolioListener],
   exports: [PortfolioService],
 })
 export class PortfolioModule {}

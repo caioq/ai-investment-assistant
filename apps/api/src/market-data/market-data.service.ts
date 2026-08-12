@@ -1,7 +1,18 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { PriceProvider, PRICE_PROVIDER, Quote } from './providers/price-provider.interface';
 import { Benchmark } from '../../generated/prisma/client';
+
+/**
+ * Fired after `refreshAllQuotes()` succeeds — see spec.md's Goals ("signals
+ * that a price refresh has completed") and
+ * `specs/portfolio/tasks/PORTFOLIO_US-5_T-2-daily-snapshot.md`, which builds
+ * the subscriber side (`PortfolioListener`). Payload mirrors
+ * `refreshAllQuotes`'s own return shape so a `{ refreshed: 0 }` failure/
+ * no-op run is distinguishable from a real refresh without a second lookup.
+ */
+export const MARKET_DATA_REFRESH_COMPLETED_EVENT = 'market-data.refresh.completed';
 
 /** Today at UTC midnight, matching `PriceHistory.date`'s `@db.Date` column. */
 function todayAtUtcMidnight(): Date {
@@ -59,6 +70,7 @@ export class MarketDataService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PRICE_PROVIDER) private readonly priceProvider: PriceProvider,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -110,7 +122,12 @@ export class MarketDataService {
       });
     }
 
-    return { refreshed: assets.length };
+    const result = { refreshed: assets.length };
+    // Emitted only on the success path reached here — the try/catch above
+    // returns early with { refreshed: 0 } on an upstream failure, which
+    // never reaches this line (spec.md -> "Emit only on success").
+    this.eventEmitter.emit(MARKET_DATA_REFRESH_COMPLETED_EVENT, result);
+    return result;
   }
 
   /**
@@ -215,8 +232,7 @@ export class MarketDataService {
     const asset = await this.prisma.asset.findUniqueOrThrow({ where: { id: assetId } });
 
     const isFresh =
-      asset.priceUpdatedAt !== null &&
-      Date.now() - asset.priceUpdatedAt.getTime() < REFRESH_TTL_MS;
+      asset.priceUpdatedAt !== null && Date.now() - asset.priceUpdatedAt.getTime() < REFRESH_TTL_MS;
 
     if (isFresh) {
       return {

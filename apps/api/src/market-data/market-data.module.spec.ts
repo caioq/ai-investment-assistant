@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MarketDataModule } from './market-data.module';
 import { MarketDataService } from './market-data.service';
@@ -26,7 +27,14 @@ const prismaStub = {} as PrismaService;
 describe('MarketDataModule', () => {
   it('resolves a PriceProvider behind the PRICE_PROVIDER token', async () => {
     const module = await Test.createTestingModule({
-      imports: [PrismaModule, MarketDataModule],
+      // `MarketDataService` also injects `EventEmitter2` (added by
+      // `PORTFOLIO_US-5_T-2`), normally satisfied by the app-wide
+      // `EventEmitterModule.forRoot()` registered once in `app.module.ts`
+      // (CONVENTIONS.md -> "Scheduled jobs" documents the same pattern for
+      // `ScheduleModule.forRoot()`) — added to this standalone module test's
+      // own imports rather than to `MarketDataModule` itself, same as
+      // `market-data.cron.spec.ts` does for `ScheduleModule.forRoot()`.
+      imports: [PrismaModule, EventEmitterModule.forRoot(), MarketDataModule],
     })
       .overrideProvider(PrismaService)
       .useValue(prismaStub)
@@ -40,7 +48,14 @@ describe('MarketDataModule', () => {
 
   it('resolves MarketDataService', async () => {
     const module = await Test.createTestingModule({
-      imports: [PrismaModule, MarketDataModule],
+      // `MarketDataService` also injects `EventEmitter2` (added by
+      // `PORTFOLIO_US-5_T-2`), normally satisfied by the app-wide
+      // `EventEmitterModule.forRoot()` registered once in `app.module.ts`
+      // (CONVENTIONS.md -> "Scheduled jobs" documents the same pattern for
+      // `ScheduleModule.forRoot()`) — added to this standalone module test's
+      // own imports rather than to `MarketDataModule` itself, same as
+      // `market-data.cron.spec.ts` does for `ScheduleModule.forRoot()`.
+      imports: [PrismaModule, EventEmitterModule.forRoot(), MarketDataModule],
     })
       .overrideProvider(PrismaService)
       .useValue(prismaStub)
