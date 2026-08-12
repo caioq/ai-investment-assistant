@@ -1,7 +1,7 @@
 # PORTFOLIO_US-3_T-2: GET /portfolio/allocation
 
 **Story:** [../stories/US-3-allocation.md](../stories/US-3-allocation.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #107 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** PORTFOLIO_US-3_T-1, PORTFOLIO_US-1_T-1
 

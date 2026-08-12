@@ -1,6 +1,6 @@
 # US-3: See where my money is concentrated
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Compute allocation by sector, sub-sector, stock, investment style, and risk rating." / AC "`GET /portfolio/allocation?by=sector` percentages sum to 100 (within floating-point tolerance)." (in `../spec.md`)
 
 As an investor, I want my portfolio broken down by sector, stock, style, and risk, so I can see concentration I didn't intend — which is the main input the AI Advisor reasons about.
@@ -8,7 +8,7 @@ As an investor, I want my portfolio broken down by sector, stock, style, and ris
 ## Tasks
 
 - [x] [T-1: computeAllocation in packages/shared](../tasks/PORTFOLIO_US-3_T-1-allocation-shared.md)
-- [ ] [T-2: GET /portfolio/allocation](../tasks/PORTFOLIO_US-3_T-2-allocation-endpoint.md)
+- [x] [T-2: GET /portfolio/allocation](../tasks/PORTFOLIO_US-3_T-2-allocation-endpoint.md)
 
 ## Notes
 
