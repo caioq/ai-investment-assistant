@@ -30,6 +30,18 @@ const ALLOCATION_LABEL_SELECTORS: Record<AllocationBy, (asset: Asset) => string 
 };
 
 /**
+ * Response shape for `GET /portfolio/summary` (spec.md -> API Contract).
+ * Not a `class-validator` DTO — there's no request body to validate, this is
+ * purely a response type.
+ */
+export interface PortfolioSummary {
+  totalInvested: number;
+  currentValue: number;
+  gainLoss: number;
+  returnPct: number;
+}
+
+/**
  * Business logic for the `portfolio` module lives here per CONVENTIONS.md ->
  * "Module structure" (controllers stay thin).
  */
@@ -311,5 +323,47 @@ export class PortfolioService {
     }));
 
     return computeAllocation(inputs);
+  }
+
+  /**
+   * `GET /portfolio/summary` (PORTFOLIO_US-4_T-1) — four arithmetic
+   * reductions over the same `userId`-scoped `Holding` rows joined with
+   * `Asset` that `GET /portfolio/holdings` loads:
+   *
+   * - `totalInvested` = Σ quantity × avgPrice
+   * - `currentValue` = Σ quantity × (asset.currentPrice ?? holding.avgPrice)
+   * - `gainLoss` = currentValue − totalInvested
+   * - `returnPct` = gainLoss / totalInvested × 100
+   *
+   * Two traps live in the `currentValue` line (task's own words): `??`, not
+   * `||`, so a legitimately-zero `currentPrice` isn't mistaken for "not
+   * priced yet"; and the fallback to `avgPrice` must never be dropped, or an
+   * unpriced holding (a brand-new `Asset` before the next market-data cron
+   * run) contributes `0` instead of its cost basis — reading as "my
+   * portfolio is worth nothing" on a fresh account.
+   *
+   * `returnPct` divides by `totalInvested`, which is `0` for a user with no
+   * holdings — guarded explicitly so the response is `0`, not `NaN` (which
+   * serialises to `null` in JSON and surfaces as a blank dashboard tile).
+   */
+  async getSummary(userId: string): Promise<PortfolioSummary> {
+    const holdings = await this.prisma.holding.findMany({
+      where: { userId },
+      include: { asset: true },
+    });
+
+    const totalInvested = holdings.reduce(
+      (sum, holding) => sum + holding.quantity * holding.avgPrice,
+      0,
+    );
+    const currentValue = holdings.reduce(
+      (sum, holding) =>
+        sum + holding.quantity * (holding.asset.currentPrice ?? holding.avgPrice),
+      0,
+    );
+    const gainLoss = currentValue - totalInvested;
+    const returnPct = totalInvested === 0 ? 0 : (gainLoss / totalInvested) * 100;
+
+    return { totalInvested, currentValue, gainLoss, returnPct };
   }
 }

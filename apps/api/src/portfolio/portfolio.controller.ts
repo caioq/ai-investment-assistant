@@ -21,7 +21,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { AllocationQueryDto } from './dto/allocation-query.dto';
 import { CreateHoldingDto } from './dto/create-holding.dto';
 import { UpdateHoldingDto } from './dto/update-holding.dto';
-import { ImportHoldingsCsvResult, PortfolioService } from './portfolio.service';
+import { ImportHoldingsCsvResult, PortfolioService, PortfolioSummary } from './portfolio.service';
 import { Asset, Holding } from '../../generated/prisma/client';
 import { AllocationSlice } from '@ai-investment-assistant/shared';
 
@@ -113,5 +113,12 @@ export class PortfolioController {
     const userId = (req.user as { id: string }).id;
 
     return this.portfolioService.getAllocation(userId, query.by);
+  }
+
+  @Get('summary')
+  async getSummary(@Req() req: Request): Promise<PortfolioSummary> {
+    const userId = (req.user as { id: string }).id;
+
+    return this.portfolioService.getSummary(userId);
   }
 }
