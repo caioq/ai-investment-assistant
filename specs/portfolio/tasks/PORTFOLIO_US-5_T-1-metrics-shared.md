@@ -1,7 +1,7 @@
 # PORTFOLIO_US-5_T-1: CAGR / volatility / max drawdown in packages/shared
 
 **Story:** [../stories/US-5-performance.md](../stories/US-5-performance.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #109 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** PORTFOLIO_SHARED_T-3
 

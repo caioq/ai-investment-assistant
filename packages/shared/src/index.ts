@@ -6,3 +6,5 @@ export {
   type AllocationInput,
   type AllocationSlice,
 } from "./allocation";
+export { cagr, maxDrawdown, volatility } from "./metrics";
+export type { PortfolioValuePoint } from "./metrics";
