@@ -71,6 +71,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Auth
 - Every protected controller uses a shared `AuthGuard` (`apps/api/src/auth/auth.guard.ts`) that resolves `req.user.id` from the `access_token` httpOnly cookie. No endpoint outside `AuthModule` accepts a `userId`/`portfolioId` from the client — it always comes from `req.user.id`.
+- A `PATCH`/`DELETE` endpoint scoped to `req.user.id` must filter on `(id, userId)` together in the actual DB call, not `id` alone — `AuthGuard` only proves *who* the caller is, not that the row named by `:id` is theirs. Prisma's `update`/`delete` only accept a unique identifier in `where`, so use `updateMany`/`deleteMany({ where: { id, userId } })` instead and check `count`: `0` means "not found or not yours" — return `404` either way (never `403`), so the response can't be used to probe which ids exist for another user. See `PortfolioService.updateHolding` (`apps/api/src/portfolio/portfolio.service.ts`, `PORTFOLIO_US-1_T-3`).
 - Signing the JWT and setting the `access_token` cookie is centralized in `AuthService.issueSession(res, user)` (`apps/api/src/auth/auth.service.ts`), configured via `JwtModule.register({ secret: process.env.JWT_SECRET })` in `auth.module.ts`. Both `POST /auth/register` and `POST /auth/login` call this instead of duplicating the sign+`res.cookie(...)` logic (flags: `httpOnly: true, sameSite: 'lax', secure: isProd`, per spec Behavior Notes).
 
 ### GitHub issue / project sync
