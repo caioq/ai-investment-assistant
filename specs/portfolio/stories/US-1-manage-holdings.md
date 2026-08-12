@@ -8,7 +8,7 @@ As an investor, I want to record and adjust the B3 positions I hold, so the rest
 ## Tasks
 
 - [x] [T-1: POST /portfolio/holdings](../tasks/PORTFOLIO_US-1_T-1-create-holding.md)
-- [ ] [T-2: GET /portfolio/holdings](../tasks/PORTFOLIO_US-1_T-2-list-holdings.md)
+- [x] [T-2: GET /portfolio/holdings](../tasks/PORTFOLIO_US-1_T-2-list-holdings.md)
 - [ ] [T-3: PATCH /portfolio/holdings/:id](../tasks/PORTFOLIO_US-1_T-3-update-holding.md)
 - [ ] [T-4: DELETE /portfolio/holdings/:id](../tasks/PORTFOLIO_US-1_T-4-delete-holding.md)
 - [ ] [T-5: cross-user isolation e2e](../tasks/PORTFOLIO_US-1_T-5-cross-user-isolation.md)

@@ -174,3 +174,111 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
     expect(holdings).toHaveLength(1);
   });
 });
+
+describe('PortfolioController (e2e) - GET /portfolio/holdings', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  // Same reasoning as the POST describe above (CONVENTIONS.md -> "Testing"):
+  // stub `backfillHistory` so seeding holdings via POST doesn't hit live
+  // Yahoo Finance.
+  const marketDataServiceStub = {
+    backfillHistory: jest.fn().mockResolvedValue(undefined),
+  } as unknown as MarketDataService;
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(MarketDataService)
+      .useValue(marketDataServiceStub)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // Scoped to rows this suite creates (CONVENTIONS.md -> "Testing"), using
+  // tickers/emails distinct from the POST describe above so both can run
+  // without interfering with each other.
+  afterEach(async () => {
+    await prisma.holding.deleteMany({
+      where: { asset: { ticker: { in: ['BBAS3', 'WEGE3'] } } },
+    });
+    await prisma.asset.deleteMany({ where: { ticker: { in: ['BBAS3', 'WEGE3'] } } });
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: ['portfolio-list-e2e-1@example.com', 'portfolio-list-e2e-2@example.com'],
+        },
+      },
+    });
+  });
+
+  /** Registers + logs in a user, returning the `access_token` cookie array. */
+  async function authCookies(email: string): Promise<string[]> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  }
+
+  it('returns 401 when no auth cookie is sent', async () => {
+    const response = await request(app.getHttpServer()).get('/portfolio/holdings');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('returns 200 and [] for a freshly-registered user with no holdings', async () => {
+    const cookies = await authCookies('portfolio-list-e2e-1@example.com');
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio/holdings')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  it('returns 200 with both holdings after creating two, each carrying a nested asset object', async () => {
+    const cookies = await authCookies('portfolio-list-e2e-2@example.com');
+
+    await request(app.getHttpServer())
+      .post('/portfolio/holdings')
+      .set('Cookie', cookies)
+      .send({ ticker: 'BBAS3', quantity: 100, avgPrice: 30 });
+
+    await request(app.getHttpServer())
+      .post('/portfolio/holdings')
+      .set('Cookie', cookies)
+      .send({ ticker: 'WEGE3', quantity: 50, avgPrice: 40 });
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio/holdings')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(2);
+
+    const tickers = (response.body as Array<{ asset: { ticker: string } }>)
+      .map((holding) => holding.asset.ticker)
+      .sort();
+    expect(tickers).toEqual(['BBAS3', 'WEGE3']);
+
+    for (const holding of response.body as Array<{ asset: { ticker: string; name: string } }>) {
+      expect(holding.asset).toEqual(
+        expect.objectContaining({ ticker: expect.any(String), name: expect.any(String) }),
+      );
+    }
+  });
+});

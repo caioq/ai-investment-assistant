@@ -1,9 +1,9 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreateHoldingDto } from './dto/create-holding.dto';
 import { PortfolioService } from './portfolio.service';
-import { Holding } from '../../generated/prisma/client';
+import { Asset, Holding } from '../../generated/prisma/client';
 
 /**
  * `AuthGuard` (CONVENTIONS.md -> "Auth") is applied once here, at the
@@ -23,5 +23,12 @@ export class PortfolioController {
     const userId = (req.user as { id: string }).id;
 
     return this.portfolioService.createHolding(userId, dto.ticker, dto.quantity, dto.avgPrice);
+  }
+
+  @Get('holdings')
+  async listHoldings(@Req() req: Request): Promise<(Holding & { asset: Asset })[]> {
+    const userId = (req.user as { id: string }).id;
+
+    return this.portfolioService.listHoldings(userId);
   }
 }
