@@ -48,6 +48,13 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 - Vitest is configured at `apps/web/vitest.config.ts` (jsdom environment, `@vitejs/plugin-react`) with `apps/web/vitest.setup.ts` loading `@testing-library/jest-dom/vitest` for the `toBeInTheDocument()`-style matchers, and registering `afterEach(() => cleanup())` (from `@testing-library/react`) so multiple `render()` calls across tests in one file don't leak DOM nodes into later assertions (`globals` isn't enabled in the Vitest config, so RTL's auto-cleanup doesn't kick in on its own). Run via `pnpm --filter web test` (`vitest run`).
 - Playwright specs live under `apps/web/e2e/`, one spec per critical user flow (not one per page).
 
+## Shared package (`packages/shared`)
+
+### Testing
+- Vitest (`"test": "vitest run"` in `packages/shared/package.json`), specs colocated as `*.test.ts` next to the code they test — same colocation convention as `apps/web`. No `vitest.config.ts` needed here (plain Node/TS, no jsdom/React), unlike `apps/web/vitest.config.ts`.
+- `packages/shared/tsconfig.json` (the config `build`/`typecheck` both run via `tsc -p tsconfig.json`) has `"exclude": ["src/**/*.test.ts"]` so test files never end up in `dist/` (which `apps/api`/`apps/web` consume as the package's compiled output) — vitest itself compiles test files on the fly and doesn't need them in `include`. One side effect: `pnpm --filter @ai-investment-assistant/shared typecheck` doesn't typecheck test files as a result; vitest still catches real type errors in them at test-run time.
+- `pnpm --filter @ai-investment-assistant/shared test` is the deliverable command, but note pnpm's own recursive/`--filter` run has a special case for the literal script name `test`: if it's missing, `--filter` silently no-ops (exit `0`, no output) instead of erroring, unlike any other script name (which prints `None of the selected packages has a "<name>" script`). To confirm a real "no test script" failure (e.g. before this setup existed), run `pnpm test` directly inside `packages/shared/` instead of through `--filter` from the repo root.
+
 ## Cross-cutting
 
 ### Shared TypeScript/ESLint/Prettier config
