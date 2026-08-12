@@ -9,7 +9,7 @@ As an investor, I want my portfolio's value over time next to Ibovespa or CDI, s
 
 - [x] [T-1: CAGR / volatility / max drawdown in packages/shared](../tasks/PORTFOLIO_US-5_T-1-metrics-shared.md)
 - [x] [T-2: daily PortfolioValueSnapshot population](../tasks/PORTFOLIO_US-5_T-2-daily-snapshot.md)
-- [ ] [T-3: GET /portfolio/performance](../tasks/PORTFOLIO_US-5_T-3-performance-endpoint.md)
+- [x] [T-3: GET /portfolio/performance](../tasks/PORTFOLIO_US-5_T-3-performance-endpoint.md)
 
 ## Notes
 

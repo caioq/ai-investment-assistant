@@ -2,9 +2,18 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
-import { Asset, Holding } from '../../generated/prisma/client';
+import { Asset, Benchmark, Holding } from '../../generated/prisma/client';
 import { AllocationBy } from './dto/allocation-query.dto';
-import { AllocationInput, AllocationSlice, computeAllocation } from '@ai-investment-assistant/shared';
+import { PerformanceBenchmark, PerformanceRange } from './dto/performance-query.dto';
+import {
+  AllocationInput,
+  AllocationSlice,
+  cagr,
+  computeAllocation,
+  maxDrawdown,
+  PortfolioValuePoint,
+  volatility,
+} from '@ai-investment-assistant/shared';
 
 /** Response body of `POST /portfolio/holdings/upload-csv` (spec.md -> API Contract). */
 export interface ImportHoldingsCsvResult {
@@ -41,10 +50,96 @@ export interface PortfolioSummary {
   returnPct: number;
 }
 
-/** Today at UTC midnight, matching `PortfolioValueSnapshot.date`'s `@db.Date` column. */
+/** `GET /portfolio/performance`'s response shape, per spec.md -> API Contract. */
+export interface PerformanceResponse {
+  series: PortfolioValuePoint[];
+  benchmarkSeries?: PortfolioValuePoint[];
+  cagr: number;
+  volatility: number;
+  maxDrawdown: number;
+  vsBenchmarkPct?: number;
+}
+
+/**
+ * Today at UTC midnight, matching `PortfolioValueSnapshot.date`/
+ * `BenchmarkSnapshot.date`'s `@db.Date` columns — same helper as
+ * `market-data.service.ts`'s `todayAtUtcMidnight`.
+ */
 function todayAtUtcMidnight(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+/**
+ * Lower date bound for `range`, per spec.md -> API Contract. `ALL` means no
+ * lower bound (`null`), per PORTFOLIO_US-5_T-3.
+ */
+function rangeStartDate(range: PerformanceRange): Date | null {
+  if (range === 'ALL') return null;
+
+  const start = todayAtUtcMidnight();
+  if (range === '6M') {
+    start.setUTCMonth(start.getUTCMonth() - 6);
+  } else {
+    start.setUTCFullYear(start.getUTCFullYear() - 1);
+  }
+  return start;
+}
+
+/**
+ * Total return over `series` (assumed sorted ascending by date):
+ * `last / first - 1`. Returns 0 for an empty series and for a first value
+ * of 0 — mirrors `cagr`'s own edge-case handling (packages/shared/src/
+ * metrics.ts) so `vsBenchmarkPct` never comes back NaN/Infinity.
+ */
+function totalReturn(series: PortfolioValuePoint[]): number {
+  if (series.length === 0) return 0;
+
+  const first = series[0].value;
+  const last = series[series.length - 1].value;
+  if (first === 0) return 0;
+
+  return last / first - 1;
+}
+
+/** Points within `[start, end]` (inclusive), assumed sorted ascending. */
+function trimToWindow(series: PortfolioValuePoint[], start: Date, end: Date): PortfolioValuePoint[] {
+  return series.filter((point) => point.date >= start && point.date <= end);
+}
+
+/**
+ * `vsBenchmarkPct`: the portfolio's total return minus the benchmark's,
+ * computed over the two series' **overlapping** date window (the later of
+ * the two first dates, the earlier of the two last dates) rather than each
+ * series' own endpoints — see PORTFOLIO_US-5_T-3's "compare like with like"
+ * note. Comparing a short portfolio history against a much longer benchmark
+ * history produces a plausible-looking wrong number, not an error, if the
+ * windows aren't aligned first.
+ *
+ * Returns 0 when either series is empty or the two windows don't overlap
+ * at all.
+ */
+function computeVsBenchmarkPct(
+  portfolioSeries: PortfolioValuePoint[],
+  benchmarkSeries: PortfolioValuePoint[],
+): number {
+  if (portfolioSeries.length === 0 || benchmarkSeries.length === 0) return 0;
+
+  const overlapStart = new Date(
+    Math.max(portfolioSeries[0].date.getTime(), benchmarkSeries[0].date.getTime()),
+  );
+  const overlapEnd = new Date(
+    Math.min(
+      portfolioSeries[portfolioSeries.length - 1].date.getTime(),
+      benchmarkSeries[benchmarkSeries.length - 1].date.getTime(),
+    ),
+  );
+  if (overlapStart > overlapEnd) return 0;
+
+  const portfolioReturn = totalReturn(trimToWindow(portfolioSeries, overlapStart, overlapEnd));
+  const benchmarkReturn = totalReturn(trimToWindow(benchmarkSeries, overlapStart, overlapEnd));
+
+  return portfolioReturn - benchmarkReturn;
 }
 
 /**
@@ -422,5 +517,59 @@ export class PortfolioService {
         );
       }
     }
+  }
+
+  /**
+   * `GET /portfolio/performance?range=&benchmark=` (PORTFOLIO_US-5_T-3).
+   * Reads the user's `PortfolioValueSnapshot` rows (scoped to `userId`,
+   * ordered ascending, filtered to `range`) and hands them to
+   * `cagr`/`volatility`/`maxDrawdown` (packages/shared) — no metric
+   * arithmetic lives in this module beyond the `vsBenchmarkPct`
+   * overlap-window alignment above, which is specific to comparing two
+   * series and isn't one of `packages/shared`'s generic single-series
+   * functions.
+   *
+   * `benchmark` omitted -> `benchmarkSeries`/`vsBenchmarkPct` are left out
+   * of the response entirely, per spec.md -> API Contract (`benchmarkSeries`
+   * is optional).
+   */
+  async getPerformance(
+    userId: string,
+    range: PerformanceRange = 'ALL',
+    benchmark?: PerformanceBenchmark,
+  ): Promise<PerformanceResponse> {
+    const startDate = rangeStartDate(range);
+
+    const snapshots = await this.prisma.portfolioValueSnapshot.findMany({
+      where: { userId, ...(startDate ? { date: { gte: startDate } } : {}) },
+      orderBy: { date: 'asc' },
+    });
+
+    const series: PortfolioValuePoint[] = snapshots.map((snapshot) => ({
+      date: snapshot.date,
+      value: snapshot.totalValue,
+    }));
+
+    const response: PerformanceResponse = {
+      series,
+      cagr: cagr(series),
+      volatility: volatility(series),
+      maxDrawdown: maxDrawdown(series),
+    };
+
+    if (!benchmark) return response;
+
+    const benchmarkRows = await this.prisma.benchmarkSnapshot.findMany({
+      where: {
+        benchmark: benchmark as Benchmark,
+        ...(startDate ? { date: { gte: startDate } } : {}),
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    response.benchmarkSeries = benchmarkRows.map((row) => ({ date: row.date, value: row.value }));
+    response.vsBenchmarkPct = computeVsBenchmarkPct(series, response.benchmarkSeries);
+
+    return response;
   }
 }

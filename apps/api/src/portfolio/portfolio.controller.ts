@@ -21,7 +21,13 @@ import { AuthGuard } from '../auth/auth.guard';
 import { AllocationQueryDto } from './dto/allocation-query.dto';
 import { CreateHoldingDto } from './dto/create-holding.dto';
 import { UpdateHoldingDto } from './dto/update-holding.dto';
-import { ImportHoldingsCsvResult, PortfolioService, PortfolioSummary } from './portfolio.service';
+import { PerformanceQueryDto } from './dto/performance-query.dto';
+import {
+  ImportHoldingsCsvResult,
+  PerformanceResponse,
+  PortfolioService,
+  PortfolioSummary,
+} from './portfolio.service';
 import { Asset, Holding } from '../../generated/prisma/client';
 import { AllocationSlice } from '@ai-investment-assistant/shared';
 
@@ -120,5 +126,15 @@ export class PortfolioController {
     const userId = (req.user as { id: string }).id;
 
     return this.portfolioService.getSummary(userId);
+  }
+
+  @Get('performance')
+  async getPerformance(
+    @Query() query: PerformanceQueryDto,
+    @Req() req: Request,
+  ): Promise<PerformanceResponse> {
+    const userId = (req.user as { id: string }).id;
+
+    return this.portfolioService.getPerformance(userId, query.range, query.benchmark);
   }
 }
