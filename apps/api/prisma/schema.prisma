@@ -13,11 +13,13 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid(7)) @db.Uuid
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  name         String?
-  createdAt    DateTime @default(now()) @map("created_at")
+  id                      String                    @id @default(uuid(7)) @db.Uuid
+  email                   String                    @unique
+  passwordHash            String                    @map("password_hash")
+  name                    String?
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  holdings                Holding[]
+  portfolioValueSnapshots PortfolioValueSnapshot[]
 
   @@map("users")
 }
@@ -83,6 +85,7 @@ model Asset {
   currentChangePct Float?           @map("current_change_pct")
   priceUpdatedAt   DateTime?        @map("price_updated_at")
   priceHistory     PriceHistory[]
+  holdings         Holding[]
 
   @@map("assets")
 }
@@ -112,4 +115,34 @@ model BenchmarkSnapshot {
 
   @@unique([benchmark, date])
   @@map("benchmark_snapshots")
+}
+
+model Holding {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  assetId   String   @map("asset_id") @db.Uuid
+  asset     Asset    @relation(fields: [assetId], references: [id])
+  quantity  Float
+  avgPrice  Float    @map("avg_price")
+  metadata  Json?    // future per-asset-type fields (fixed income maturity, crypto wallet, etc.) — no migration needed
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, assetId])
+  @@index([userId])
+  @@map("holdings")
+}
+
+model PortfolioValueSnapshot {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  user          User     @relation(fields: [userId], references: [id])
+  date          DateTime @db.Date
+  totalValue    Float    @map("total_value")
+  totalInvested Float    @map("total_invested")
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("portfolio_value_snapshots")
 }
