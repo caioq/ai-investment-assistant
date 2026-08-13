@@ -1,6 +1,9 @@
-import { Controller, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
+import { CreateHoldingDto } from './dto/create-holding.dto';
 import { PortfolioService } from './portfolio.service';
+import { Holding } from '../../generated/prisma/client';
 
 /**
  * `AuthGuard` (CONVENTIONS.md -> "Auth") is applied once here, at the
@@ -9,12 +12,16 @@ import { PortfolioService } from './portfolio.service';
  * guarding the class means a handler added later is protected by default
  * instead of relying on someone remembering to decorate it individually
  * (see PORTFOLIO_US-1_T-5, which exists to catch exactly that omission).
- *
- * No endpoints are added by this task (PORTFOLIO_SHARED_T-2) — each story's
- * own tasks add their own handlers here.
  */
 @Controller('portfolio')
 @UseGuards(AuthGuard)
 export class PortfolioController {
   constructor(private readonly portfolioService: PortfolioService) {}
+
+  @Post('holdings')
+  async createHolding(@Body() dto: CreateHoldingDto, @Req() req: Request): Promise<Holding> {
+    const userId = (req.user as { id: string }).id;
+
+    return this.portfolioService.createHolding(userId, dto.ticker, dto.quantity, dto.avgPrice);
+  }
 }
