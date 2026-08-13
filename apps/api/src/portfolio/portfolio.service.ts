@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
-import { Holding } from '../../generated/prisma/client';
+import { Asset, Holding } from '../../generated/prisma/client';
 
 /**
  * Business logic for the `portfolio` module lives here per CONVENTIONS.md ->
@@ -68,5 +68,21 @@ export class PortfolioService {
     }
 
     return holding;
+  }
+
+  /**
+   * `GET /portfolio/holdings` (PORTFOLIO_US-1_T-2). Joined with `Asset` via
+   * Prisma `include`, per spec.md -> API Contract: the consumer needs
+   * `ticker`/`name`/`sector`/`currentPrice`/`investmentStyle`/`riskRating`,
+   * all of which live on `Asset`, not `Holding` — leaving the join out would
+   * mean the dashboard issuing one follow-up request per row. A user with no
+   * holdings gets `[]`, not a `404` (spec.md -> Behavior Notes for this
+   * task): an empty portfolio is a normal state for a new account.
+   */
+  async listHoldings(userId: string): Promise<(Holding & { asset: Asset })[]> {
+    return this.prisma.holding.findMany({
+      where: { userId },
+      include: { asset: true },
+    });
   }
 }

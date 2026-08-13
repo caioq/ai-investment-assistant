@@ -1,7 +1,7 @@
 # PORTFOLIO_US-1_T-2: GET /portfolio/holdings
 
 **Story:** [../stories/US-1-manage-holdings.md](../stories/US-1-manage-holdings.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #100 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** PORTFOLIO_SHARED_T-1, PORTFOLIO_SHARED_T-2
 
