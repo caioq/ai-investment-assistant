@@ -1,6 +1,6 @@
 # US-1: Manage my holdings
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Add holdings manually or via CSV upload." / Goal "Edit/remove holdings." / AC "Adding a holding for a ticker never seen before creates the `Asset` and the `Holding` in one request." / AC "Adding a holding for a ticker already held updates quantity/avgPrice rather than creating a duplicate row." / AC "Deleting a holding removes it from `GET /portfolio/holdings` and from subsequent allocation/summary calculations." / AC "A user can never read or modify another user's holdings." (in `../spec.md`)
 
 As an investor, I want to record and adjust the B3 positions I hold, so the rest of the platform has real data to analyse instead of me re-entering it every session.
@@ -11,7 +11,7 @@ As an investor, I want to record and adjust the B3 positions I hold, so the rest
 - [x] [T-2: GET /portfolio/holdings](../tasks/PORTFOLIO_US-1_T-2-list-holdings.md)
 - [x] [T-3: PATCH /portfolio/holdings/:id](../tasks/PORTFOLIO_US-1_T-3-update-holding.md)
 - [x] [T-4: DELETE /portfolio/holdings/:id](../tasks/PORTFOLIO_US-1_T-4-delete-holding.md)
-- [ ] [T-5: cross-user isolation e2e](../tasks/PORTFOLIO_US-1_T-5-cross-user-isolation.md)
+- [x] [T-5: cross-user isolation e2e](../tasks/PORTFOLIO_US-1_T-5-cross-user-isolation.md)
 
 ## Notes
 
