@@ -124,4 +124,34 @@ export class PortfolioService {
 
     return this.prisma.holding.findUniqueOrThrow({ where: { id } });
   }
+
+  /**
+   * `DELETE /portfolio/holdings/:id` (PORTFOLIO_US-1_T-4).
+   *
+   * Scoped on `(id, userId)` together, not `id` alone — same reasoning as
+   * `updateHolding` (PORTFOLIO_US-1_T-3): a bare
+   * `prisma.holding.delete({ where: { id } })` lets any authenticated user
+   * destroy any holding whose id they can name, since the guard only proves
+   * *who* the caller is, not that the row belongs to them (spec AC-7).
+   * `Holding`'s `id` is globally unique, so `deleteMany` is the way to add
+   * the `userId` filter to the `where` clause — `delete` only accepts a
+   * unique identifier. `deleteMany`'s `count` distinguishes "no such id"
+   * from "id exists but isn't this user's" without leaking which case it
+   * was: both return `404`, not `403`, so the response can't be used to
+   * probe which ids exist.
+   *
+   * Only the `Holding` row is deleted. `Asset` is intentionally left
+   * alone — it's shared across all users and owned by market-data (see the
+   * task file), so this never cascades into deleting it even if this was
+   * the last holding referencing it.
+   */
+  async deleteHolding(userId: string, id: string): Promise<void> {
+    const { count } = await this.prisma.holding.deleteMany({
+      where: { id, userId },
+    });
+
+    if (count === 0) {
+      throw new NotFoundException(`No Holding found for id '${id}'`);
+    }
+  }
 }
