@@ -46,9 +46,11 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
   // (CONVENTIONS.md -> "Testing").
   afterEach(async () => {
     await prisma.holding.deleteMany({
-      where: { asset: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4'] } } },
+      where: { asset: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4', 'BBDC4'] } } },
     });
-    await prisma.asset.deleteMany({ where: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4'] } } });
+    await prisma.asset.deleteMany({
+      where: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4', 'BBDC4'] } },
+    });
     await prisma.user.deleteMany({
       where: {
         email: {
@@ -57,6 +59,8 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
             'portfolio-e2e-2@example.com',
             'portfolio-e2e-3@example.com',
             'portfolio-e2e-4@example.com',
+            'portfolio-e2e-5@example.com',
+            'portfolio-e2e-6@example.com',
           ],
         },
       },
@@ -172,6 +176,63 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
 
     const holdings = await prisma.holding.findMany({ where: { assetId: asset!.id } });
     expect(holdings).toHaveLength(1);
+  });
+
+  describe('PATCH /portfolio/holdings/:id', () => {
+    /** Creates a fresh BBDC4 holding for `portfolio-e2e-5@example.com` and returns its id + cookies. */
+    async function seedHolding(): Promise<{ id: string; cookies: string[] }> {
+      const cookies = await authCookies('portfolio-e2e-5@example.com');
+
+      const response = await request(app.getHttpServer())
+        .post('/portfolio/holdings')
+        .set('Cookie', cookies)
+        .send({ ticker: 'BBDC4', quantity: 100, avgPrice: 25 });
+
+      return { id: (response.body as { id: string }).id, cookies };
+    }
+
+    it('updates only quantity, leaving avgPrice unchanged, on a partial update', async () => {
+      const { id, cookies } = await seedHolding();
+
+      const response = await request(app.getHttpServer())
+        .patch(`/portfolio/holdings/${id}`)
+        .set('Cookie', cookies)
+        .send({ quantity: 250 });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({ quantity: 250, avgPrice: 25 });
+    });
+
+    it('updates only avgPrice, leaving quantity unchanged, on a partial update', async () => {
+      const { id, cookies } = await seedHolding();
+
+      const response = await request(app.getHttpServer())
+        .patch(`/portfolio/holdings/${id}`)
+        .set('Cookie', cookies)
+        .send({ avgPrice: 41.5 });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({ quantity: 100, avgPrice: 41.5 });
+    });
+
+    it('returns 404 for a well-formed but non-existent id', async () => {
+      const cookies = await authCookies('portfolio-e2e-6@example.com');
+
+      const response = await request(app.getHttpServer())
+        .patch('/portfolio/holdings/018f0000-0000-7000-8000-000000000000')
+        .set('Cookie', cookies)
+        .send({ quantity: 10 });
+
+      expect(response.status).toBe(404);
+    });
+
+    it('returns 401 when no auth cookie is sent', async () => {
+      const response = await request(app.getHttpServer())
+        .patch('/portfolio/holdings/018f0000-0000-7000-8000-000000000000')
+        .send({ quantity: 10 });
+
+      expect(response.status).toBe(401);
+    });
   });
 });
 

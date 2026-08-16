@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
 import { Asset, Holding } from '../../generated/prisma/client';
@@ -84,5 +84,44 @@ export class PortfolioService {
       where: { userId },
       include: { asset: true },
     });
+  }
+
+  /**
+   * `PATCH /portfolio/holdings/:id` (PORTFOLIO_US-1_T-3).
+   *
+   * Scoped on `(id, userId)` together, not `id` alone — a bare
+   * `prisma.holding.update({ where: { id } })` lets any authenticated user
+   * modify any holding whose id they can name, since the guard only proves
+   * *who* the caller is, not that the row belongs to them (this is the
+   * concrete instance of spec AC-7 the task calls out). `Holding`'s `id` is
+   * globally unique, so `updateMany` is the way to add the `userId` filter
+   * to the `where` clause — `update` only accepts a unique identifier.
+   * `updateMany`'s `count` distinguishes "no such id" from "id exists but
+   * isn't this user's" without leaking which case it was: both return `404`,
+   * not `403`, so the response can't be used to probe which ids exist.
+   *
+   * `quantity`/`avgPrice` are passed straight through as given — both are
+   * optional on the DTO, and Prisma's `update`/`updateMany` treat an
+   * `undefined` field in `data` as "not provided" (skipped), not "set to
+   * null". Naively re-passing `{ quantity, avgPrice }` from a DTO that
+   * validated fine with only one field present is exactly this behavior;
+   * spelling it out here since it's easy to break by "helpfully" defaulting
+   * the missing field to something.
+   */
+  async updateHolding(
+    userId: string,
+    id: string,
+    { quantity, avgPrice }: { quantity?: number; avgPrice?: number },
+  ): Promise<Holding> {
+    const { count } = await this.prisma.holding.updateMany({
+      where: { id, userId },
+      data: { quantity, avgPrice },
+    });
+
+    if (count === 0) {
+      throw new NotFoundException(`No Holding found for id '${id}'`);
+    }
+
+    return this.prisma.holding.findUniqueOrThrow({ where: { id } });
   }
 }

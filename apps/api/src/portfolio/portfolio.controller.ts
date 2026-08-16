@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreateHoldingDto } from './dto/create-holding.dto';
+import { UpdateHoldingDto } from './dto/update-holding.dto';
 import { PortfolioService } from './portfolio.service';
 import { Asset, Holding } from '../../generated/prisma/client';
 
@@ -30,5 +31,16 @@ export class PortfolioController {
     const userId = (req.user as { id: string }).id;
 
     return this.portfolioService.listHoldings(userId);
+  }
+
+  @Patch('holdings/:id')
+  async updateHolding(
+    @Param('id') id: string,
+    @Body() dto: UpdateHoldingDto,
+    @Req() req: Request,
+  ): Promise<Holding> {
+    const userId = (req.user as { id: string }).id;
+
+    return this.portfolioService.updateHolding(userId, id, dto);
   }
 }
