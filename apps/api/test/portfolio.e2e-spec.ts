@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/configure-app';
 import { MarketDataService } from '../src/market-data/market-data.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { cagr, maxDrawdown, volatility, PortfolioValuePoint } from '@ai-investment-assistant/shared';
 
 describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
   let app: INestApplication;
@@ -1035,6 +1036,239 @@ describe('PortfolioController (e2e) - GET /portfolio/summary', () => {
       currentValue: 3300,
       gainLoss: 300,
       returnPct: 10,
+    });
+  });
+});
+
+/**
+ * `GET /portfolio/performance` (PORTFOLIO_US-5_T-3). This file only covers
+ * this endpoint — it seeds `PortfolioValueSnapshot`/`BenchmarkSnapshot` rows
+ * directly via Prisma rather than going through the CSV/holdings endpoints
+ * or waiting on PORTFOLIO_US-5_T-2's event listener, since this endpoint
+ * only *reads* those tables.
+ */
+describe('PortfolioController (e2e) - GET /portfolio/performance', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  const testEmail = 'portfolio-performance-e2e@example.com';
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // Scoped to rows this suite creates, rather than an unscoped
+  // `deleteMany()` — jest e2e suites run in parallel workers against the
+  // same test Postgres (CONVENTIONS.md -> "Testing").
+  afterEach(async () => {
+    await prisma.portfolioValueSnapshot.deleteMany({ where: { user: { email: testEmail } } });
+    await prisma.benchmarkSnapshot.deleteMany({
+      where: { date: { gte: new Date('2015-01-01'), lt: new Date('2016-01-01') } },
+    });
+    await prisma.user.deleteMany({ where: { email: testEmail } });
+  });
+
+  /** Registers + logs in a fresh user, returning their cookies and id. */
+  async function registerUser(): Promise<{ cookies: string[]; userId: string }> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: testEmail, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+
+    return { cookies, userId: response.body.id as string };
+  }
+
+  function daysAgo(days: number): Date {
+    const date = new Date();
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCDate(date.getUTCDate() - days);
+    return date;
+  }
+
+  describe('GET /portfolio/performance', () => {
+    it('returns 401 when no cookie is sent', async () => {
+      const response = await request(app.getHttpServer()).get('/portfolio/performance?range=ALL');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 400 for an unrecognised range', async () => {
+      const { cookies } = await registerUser();
+
+      const response = await request(app.getHttpServer())
+        .get('/portfolio/performance?range=bogus')
+        .set('Cookie', cookies);
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 200 with an empty series and zeroed metrics for a user with no snapshots', async () => {
+      const { cookies } = await registerUser();
+
+      const response = await request(app.getHttpServer())
+        .get('/portfolio/performance?range=ALL')
+        .set('Cookie', cookies);
+
+      expect(response.status).toBe(200);
+      expect(response.body.series).toEqual([]);
+      expect(response.body.cagr).toBe(0);
+      expect(response.body.volatility).toBe(0);
+      expect(response.body.maxDrawdown).toBe(0);
+      expect(response.body.benchmarkSeries).toBeUndefined();
+      expect(response.body.vsBenchmarkPct).toBeUndefined();
+    });
+
+    it('range=ALL returns series in ascending order with cagr/volatility/maxDrawdown wired to the shared functions', async () => {
+      const { cookies, userId } = await registerUser();
+
+      const points: { date: Date; value: number }[] = [
+        { date: daysAgo(200), value: 100 },
+        { date: daysAgo(150), value: 110 },
+        { date: daysAgo(100), value: 100 },
+        { date: daysAgo(50), value: 110 },
+        { date: daysAgo(1), value: 100 },
+      ];
+      await prisma.portfolioValueSnapshot.createMany({
+        data: points.map((p) => ({
+          userId,
+          date: p.date,
+          totalValue: p.value,
+          totalInvested: p.value,
+        })),
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/portfolio/performance?range=ALL')
+        .set('Cookie', cookies);
+
+      expect(response.status).toBe(200);
+      expect(response.body.series).toHaveLength(5);
+      const dates = response.body.series.map((s: { date: string }) => new Date(s.date).getTime());
+      expect(dates).toEqual([...dates].sort((a, b) => a - b));
+
+      const expectedSeries: PortfolioValuePoint[] = points.map((p) => ({ date: p.date, value: p.value }));
+      expect(response.body.cagr).toBeCloseTo(cagr(expectedSeries));
+      expect(response.body.volatility).toBeCloseTo(volatility(expectedSeries));
+      expect(response.body.maxDrawdown).toBeCloseTo(maxDrawdown(expectedSeries));
+    });
+
+    it('range=6M excludes snapshots older than six months, range=ALL returns strictly more points', async () => {
+      const { cookies, userId } = await registerUser();
+
+      await prisma.portfolioValueSnapshot.createMany({
+        data: [
+          { userId, date: daysAgo(300), totalValue: 90, totalInvested: 90 },
+          { userId, date: daysAgo(200), totalValue: 95, totalInvested: 90 },
+          { userId, date: daysAgo(30), totalValue: 100, totalInvested: 90 },
+          { userId, date: daysAgo(1), totalValue: 105, totalInvested: 90 },
+        ],
+      });
+
+      const sixMonthResponse = await request(app.getHttpServer())
+        .get('/portfolio/performance?range=6M')
+        .set('Cookie', cookies);
+      const allResponse = await request(app.getHttpServer())
+        .get('/portfolio/performance?range=ALL')
+        .set('Cookie', cookies);
+
+      expect(sixMonthResponse.status).toBe(200);
+      expect(allResponse.status).toBe(200);
+      expect(sixMonthResponse.body.series).toHaveLength(2);
+      expect(allResponse.body.series).toHaveLength(4);
+      expect(allResponse.body.series.length).toBeGreaterThan(sixMonthResponse.body.series.length);
+    });
+
+    it('without benchmark, benchmarkSeries and vsBenchmarkPct are absent and the request still 200s', async () => {
+      const { cookies, userId } = await registerUser();
+
+      await prisma.portfolioValueSnapshot.create({
+        data: { userId, date: daysAgo(1), totalValue: 100, totalInvested: 90 },
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/portfolio/performance?range=ALL')
+        .set('Cookie', cookies);
+
+      expect(response.status).toBe(200);
+      expect(response.body.benchmarkSeries).toBeUndefined();
+      expect(response.body.vsBenchmarkPct).toBeUndefined();
+    });
+
+    it('with benchmark=IBOVESPA, benchmarkSeries is present and vsBenchmarkPct equals the hand-computed return difference', async () => {
+      const { cookies, userId } = await registerUser();
+
+      // Portfolio: 100 -> 120 (+20%) over the overlapping window.
+      await prisma.portfolioValueSnapshot.createMany({
+        data: [
+          { userId, date: new Date('2015-03-01'), totalValue: 100, totalInvested: 100 },
+          { userId, date: new Date('2015-06-01'), totalValue: 120, totalInvested: 100 },
+        ],
+      });
+
+      // Benchmark: 1000 -> 1100 (+10%) over the same window.
+      await prisma.benchmarkSnapshot.createMany({
+        data: [
+          { benchmark: 'IBOVESPA', date: new Date('2015-03-01'), value: 1000 },
+          { benchmark: 'IBOVESPA', date: new Date('2015-06-01'), value: 1100 },
+        ],
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/portfolio/performance?range=ALL&benchmark=IBOVESPA')
+        .set('Cookie', cookies);
+
+      expect(response.status).toBe(200);
+      expect(response.body.benchmarkSeries).toHaveLength(2);
+      expect(response.body.vsBenchmarkPct).toBeCloseTo(0.2 - 0.1);
+    });
+
+    it('a wider benchmark window yields the same vsBenchmarkPct as one trimmed to the overlap', async () => {
+      const { cookies, userId } = await registerUser();
+
+      // Portfolio window: 2015-03-01 -> 2015-06-01, 100 -> 120 (+20%).
+      await prisma.portfolioValueSnapshot.createMany({
+        data: [
+          { userId, date: new Date('2015-03-01'), totalValue: 100, totalInvested: 100 },
+          { userId, date: new Date('2015-06-01'), totalValue: 120, totalInvested: 100 },
+        ],
+      });
+
+      // Benchmark spans a *wider* window than the portfolio's: starts
+      // earlier (2015-01-01) and ends later (2015-09-01). Its value over
+      // the overlap (2015-03-01 -> 2015-06-01) is 1000 -> 1100 (+10%); the
+      // extra points outside the overlap have very different returns, so a
+      // naive "each series' own endpoints" implementation would give a
+      // different, wrong answer.
+      await prisma.benchmarkSnapshot.createMany({
+        data: [
+          { benchmark: 'IBOVESPA', date: new Date('2015-01-01'), value: 500 },
+          { benchmark: 'IBOVESPA', date: new Date('2015-03-01'), value: 1000 },
+          { benchmark: 'IBOVESPA', date: new Date('2015-06-01'), value: 1100 },
+          { benchmark: 'IBOVESPA', date: new Date('2015-09-01'), value: 5000 },
+        ],
+      });
+
+      const wideResponse = await request(app.getHttpServer())
+        .get('/portfolio/performance?range=ALL&benchmark=IBOVESPA')
+        .set('Cookie', cookies);
+
+      expect(wideResponse.status).toBe(200);
+      expect(wideResponse.body.vsBenchmarkPct).toBeCloseTo(0.2 - 0.1);
     });
   });
 });
