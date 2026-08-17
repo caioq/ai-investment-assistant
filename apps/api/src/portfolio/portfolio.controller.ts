@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -17,10 +18,12 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
+import { AllocationQueryDto } from './dto/allocation-query.dto';
 import { CreateHoldingDto } from './dto/create-holding.dto';
 import { UpdateHoldingDto } from './dto/update-holding.dto';
 import { ImportHoldingsCsvResult, PortfolioService } from './portfolio.service';
 import { Asset, Holding } from '../../generated/prisma/client';
+import { AllocationSlice } from '@ai-investment-assistant/shared';
 
 /** 1 MB — far beyond any realistic holdings CSV; caps the in-memory upload
  * so an authenticated endpoint can't be used to exhaust process memory
@@ -100,5 +103,15 @@ export class PortfolioController {
     const csv = file.buffer.toString('utf-8');
 
     return this.portfolioService.importHoldingsCsv(userId, csv);
+  }
+
+  @Get('allocation')
+  async getAllocation(
+    @Query() query: AllocationQueryDto,
+    @Req() req: Request,
+  ): Promise<AllocationSlice[]> {
+    const userId = (req.user as { id: string }).id;
+
+    return this.portfolioService.getAllocation(userId, query.by);
   }
 }

@@ -708,3 +708,161 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings/upload-csv', () =
     },
   );
 });
+
+describe('PortfolioController (e2e) - GET /portfolio/allocation', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  const ALLOCATION_TICKERS = ['BBAS3', 'WEGE3', 'MGLU3'];
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  afterEach(async () => {
+    await prisma.holding.deleteMany({
+      where: { asset: { ticker: { in: ALLOCATION_TICKERS } } },
+    });
+    await prisma.asset.deleteMany({ where: { ticker: { in: ALLOCATION_TICKERS } } });
+    await prisma.user.deleteMany({
+      where: {
+        email: { in: ['portfolio-allocation-e2e-1@example.com', 'portfolio-allocation-e2e-2@example.com'] },
+      },
+    });
+  });
+
+  /** Registers + logs in a user, returning the `access_token` cookie array and the user's id. */
+  async function registerUser(email: string): Promise<{ cookies: string[]; userId: string }> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+
+    return { cookies, userId: user.id };
+  }
+
+  it('returns 401 when no auth cookie is sent', async () => {
+    const response = await request(app.getHttpServer()).get('/portfolio/allocation').query({ by: 'sector' });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('returns 400 for an unrecognised `by` value', async () => {
+    const { cookies } = await registerUser('portfolio-allocation-e2e-1@example.com');
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio/allocation')
+      .set('Cookie', cookies)
+      .query({ by: 'bogus' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('by=sector returns one slice per sector, with pct summing to 100, by=stock returns one slice per ticker, by=riskRating groups nulls under Unclassified without dropping value, and a null currentPrice falls back to avgPrice', async () => {
+    const { cookies, userId } = await registerUser('portfolio-allocation-e2e-2@example.com');
+
+    // Priced asset, classified sector/risk rating.
+    const bbas3 = await prisma.asset.create({
+      data: {
+        ticker: 'BBAS3',
+        name: 'Banco do Brasil',
+        sector: 'Financials',
+        currentPrice: 30,
+        riskRating: 'AA',
+      },
+    });
+    // Priced asset, different sector, unclassified risk rating.
+    const wege3 = await prisma.asset.create({
+      data: {
+        ticker: 'WEGE3',
+        name: 'WEG',
+        sector: 'Industrials',
+        currentPrice: 40,
+        riskRating: null,
+      },
+    });
+    // Unpriced asset (currentPrice null) — must fall back to avgPrice, not 0.
+    const mglu3 = await prisma.asset.create({
+      data: {
+        ticker: 'MGLU3',
+        name: 'Magazine Luiza',
+        sector: 'Industrials',
+        currentPrice: null,
+        riskRating: null,
+      },
+    });
+
+    await prisma.holding.createMany({
+      data: [
+        { userId, assetId: bbas3.id, quantity: 100, avgPrice: 25 }, // value = 100 * 30 = 3000
+        { userId, assetId: wege3.id, quantity: 50, avgPrice: 35 }, // value = 50 * 40 = 2000
+        { userId, assetId: mglu3.id, quantity: 10, avgPrice: 20 }, // value = 10 * 20 (fallback) = 200
+      ],
+    });
+
+    const totalValue = 3000 + 2000 + 200;
+
+    // by=sector: Financials (3000) + Industrials (2000 + 200 = 2200).
+    const sectorResponse = await request(app.getHttpServer())
+      .get('/portfolio/allocation')
+      .set('Cookie', cookies)
+      .query({ by: 'sector' });
+
+    expect(sectorResponse.status).toBe(200);
+    expect(sectorResponse.body).toHaveLength(2);
+    const sectorPctSum = sectorResponse.body.reduce(
+      (sum: number, slice: { pct: number }) => sum + slice.pct,
+      0,
+    );
+    expect(sectorPctSum).toBeCloseTo(100, 5);
+    const financials = sectorResponse.body.find((slice: { label: string }) => slice.label === 'Financials');
+    expect(financials.value).toBe(3000);
+    const industrials = sectorResponse.body.find((slice: { label: string }) => slice.label === 'Industrials');
+    expect(industrials.value).toBe(2200);
+
+    // by=stock: one slice per ticker.
+    const stockResponse = await request(app.getHttpServer())
+      .get('/portfolio/allocation')
+      .set('Cookie', cookies)
+      .query({ by: 'stock' });
+
+    expect(stockResponse.status).toBe(200);
+    expect(stockResponse.body).toHaveLength(3);
+    const mgluSlice = stockResponse.body.find((slice: { label: string }) => slice.label === 'MGLU3');
+    // Case 4: MGLU3's currentPrice is null, so its value must be quantity * avgPrice, not 0.
+    expect(mgluSlice.value).toBe(200);
+
+    // by=riskRating: BBAS3 is AA, WEGE3 and MGLU3 are null -> Unclassified.
+    const riskResponse = await request(app.getHttpServer())
+      .get('/portfolio/allocation')
+      .set('Cookie', cookies)
+      .query({ by: 'riskRating' });
+
+    expect(riskResponse.status).toBe(200);
+    const unclassified = riskResponse.body.find((slice: { label: string }) => slice.label === 'Unclassified');
+    expect(unclassified).toBeDefined();
+    expect(unclassified.value).toBe(2200);
+    const riskValueSum = riskResponse.body.reduce(
+      (sum: number, slice: { value: number }) => sum + slice.value,
+      0,
+    );
+    expect(riskValueSum).toBe(totalValue);
+  });
+});

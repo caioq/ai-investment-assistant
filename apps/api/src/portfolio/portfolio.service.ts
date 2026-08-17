@@ -3,6 +3,8 @@ import { parse } from 'csv-parse/sync';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
 import { Asset, Holding } from '../../generated/prisma/client';
+import { AllocationBy } from './dto/allocation-query.dto';
+import { AllocationInput, AllocationSlice, computeAllocation } from '@ai-investment-assistant/shared';
 
 /** Response body of `POST /portfolio/holdings/upload-csv` (spec.md -> API Contract). */
 export interface ImportHoldingsCsvResult {
@@ -10,6 +12,22 @@ export interface ImportHoldingsCsvResult {
   updated: number;
   errors: string[];
 }
+
+/**
+ * `by=` -> the `Asset` field that becomes an allocation slice's `label`, per
+ * PORTFOLIO_US-3_T-2. `investmentStyle`/`riskRating`/`sector`/`subSector`
+ * come back `null` for unclassified assets — that `null` is passed straight
+ * through to `computeAllocation` (packages/shared), which is what turns it
+ * into an explicit "Unclassified" slice; duplicating that mapping here would
+ * let the two drift.
+ */
+const ALLOCATION_LABEL_SELECTORS: Record<AllocationBy, (asset: Asset) => string | null> = {
+  sector: (asset) => asset.sector,
+  subsector: (asset) => asset.subSector,
+  stock: (asset) => asset.ticker,
+  investmentStyle: (asset) => asset.investmentStyle,
+  riskRating: (asset) => asset.riskRating,
+};
 
 /**
  * Business logic for the `portfolio` module lives here per CONVENTIONS.md ->
@@ -263,5 +281,35 @@ export class PortfolioService {
     if (count === 0) {
       throw new NotFoundException(`No Holding found for id '${id}'`);
     }
+  }
+
+  /**
+   * `GET /portfolio/allocation?by=...` (PORTFOLIO_US-3_T-2). Loads the
+   * user's holdings joined with `Asset` (scoped to `userId`, never a client
+   * -supplied id), maps each to `{ label, value }`, and hands the array to
+   * `computeAllocation` (packages/shared) — all grouping, percentage,
+   * sorting, and colour logic lives there; this only picks the label field
+   * and computes each holding's current value.
+   *
+   * `value` is the holding's current market value:
+   * `quantity * (asset.currentPrice ?? holding.avgPrice)`. `??`, not `||` —
+   * a legitimately-zero `currentPrice` must not silently fall back to
+   * `avgPrice`. Allocating on `avgPrice` alone would show the concentration
+   * the user *bought*, not the one they *have*.
+   */
+  async getAllocation(userId: string, by: AllocationBy): Promise<AllocationSlice[]> {
+    const holdings = await this.prisma.holding.findMany({
+      where: { userId },
+      include: { asset: true },
+    });
+
+    const labelSelector = ALLOCATION_LABEL_SELECTORS[by];
+
+    const inputs: AllocationInput[] = holdings.map((holding) => ({
+      label: labelSelector(holding.asset),
+      value: holding.quantity * (holding.asset.currentPrice ?? holding.avgPrice),
+    }));
+
+    return computeAllocation(inputs);
   }
 }
