@@ -866,3 +866,175 @@ describe('PortfolioController (e2e) - GET /portfolio/allocation', () => {
     expect(riskValueSum).toBe(totalValue);
   });
 });
+
+describe('PortfolioController (e2e) - GET /portfolio/summary', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // Scoped to rows this suite creates, rather than an unscoped `deleteMany()`
+  // — e2e suites run in parallel against the same test Postgres
+  // (CONVENTIONS.md -> "Testing").
+  afterEach(async () => {
+    await prisma.holding.deleteMany({
+      where: { asset: { ticker: { in: ['SUMA1', 'SUMB2', 'SUMC3', 'SUMD4'] } } },
+    });
+    await prisma.asset.deleteMany({
+      where: { ticker: { in: ['SUMA1', 'SUMB2', 'SUMC3', 'SUMD4'] } },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: [
+            'portfolio-summary-e2e-1@example.com',
+            'portfolio-summary-e2e-2@example.com',
+            'portfolio-summary-e2e-3@example.com',
+            'portfolio-summary-e2e-4@example.com',
+          ],
+        },
+      },
+    });
+  });
+
+  /** Registers a user, returning both its id and the `access_token` cookie array. */
+  async function registerUser(email: string): Promise<{ id: string; cookies: string[] }> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    return {
+      id: response.body.id,
+      cookies: Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader],
+    };
+  }
+
+  /** Creates an `Asset` with a fixed `currentPrice` (or `null`, to exercise the `avgPrice` fallback). */
+  async function createAsset(ticker: string, currentPrice: number | null) {
+    return prisma.asset.create({ data: { ticker, name: ticker, currentPrice } });
+  }
+
+  it('returns 401 when no auth cookie is sent', async () => {
+    const response = await request(app.getHttpServer()).get('/portfolio/summary');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('matches a hand-computed summary for a seeded set of priced holdings (spec AC-5)', async () => {
+    const { id: userId, cookies } = await registerUser('portfolio-summary-e2e-1@example.com');
+
+    const assetA = await createAsset('SUMA1', 33);
+    const assetB = await createAsset('SUMB2', 18);
+
+    await prisma.holding.create({
+      data: { userId, assetId: assetA.id, quantity: 100, avgPrice: 30 },
+    });
+    await prisma.holding.create({
+      data: { userId, assetId: assetB.id, quantity: 50, avgPrice: 20 },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio/summary')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      totalInvested: 4000,
+      currentValue: 4200,
+      gainLoss: 200,
+      returnPct: 5,
+    });
+  });
+
+  it('falls back to avgPrice for a holding whose Asset has no currentPrice yet', async () => {
+    const { id: userId, cookies } = await registerUser('portfolio-summary-e2e-1@example.com');
+
+    const assetA = await createAsset('SUMA1', 33);
+    const assetB = await createAsset('SUMB2', 18);
+    const assetC = await createAsset('SUMC3', null);
+
+    await prisma.holding.create({
+      data: { userId, assetId: assetA.id, quantity: 100, avgPrice: 30 },
+    });
+    await prisma.holding.create({
+      data: { userId, assetId: assetB.id, quantity: 50, avgPrice: 20 },
+    });
+    await prisma.holding.create({
+      data: { userId, assetId: assetC.id, quantity: 10, avgPrice: 15 },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio/summary')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(200);
+    // The unpriced holding contributes 10 * 15 = 150 via the avgPrice
+    // fallback, not 0 — the trap the task calls out explicitly.
+    expect(response.body.totalInvested).toBe(4150);
+    expect(response.body.currentValue).toBe(4350);
+  });
+
+  it('returns all-zero fields (not NaN/null) for a user with no holdings', async () => {
+    const { cookies } = await registerUser('portfolio-summary-e2e-2@example.com');
+
+    const response = await request(app.getHttpServer())
+      .get('/portfolio/summary')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      totalInvested: 0,
+      currentValue: 0,
+      gainLoss: 0,
+      returnPct: 0,
+    });
+  });
+
+  it('reflects a deleted holding in subsequent summary calculations (spec AC-6)', async () => {
+    const { id: userId, cookies } = await registerUser('portfolio-summary-e2e-3@example.com');
+
+    const assetA = await createAsset('SUMA1', 33);
+    const assetD = await createAsset('SUMD4', 10);
+
+    await prisma.holding.create({
+      data: { userId, assetId: assetA.id, quantity: 100, avgPrice: 30 },
+    });
+    const holdingToDelete = await prisma.holding.create({
+      data: { userId, assetId: assetD.id, quantity: 10, avgPrice: 10 },
+    });
+
+    const beforeDelete = await request(app.getHttpServer())
+      .get('/portfolio/summary')
+      .set('Cookie', cookies);
+    expect(beforeDelete.body.totalInvested).toBe(3100);
+
+    await prisma.holding.delete({ where: { id: holdingToDelete.id } });
+
+    const afterDelete = await request(app.getHttpServer())
+      .get('/portfolio/summary')
+      .set('Cookie', cookies);
+
+    expect(afterDelete.body).toEqual({
+      totalInvested: 3000,
+      currentValue: 3300,
+      gainLoss: 300,
+      returnPct: 10,
+    });
+  });
+});

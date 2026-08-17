@@ -1,13 +1,13 @@
 # US-4: See what my portfolio is worth
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Compute portfolio summary (invested, current value, gain/loss, return %)…" / AC "`GET /portfolio/summary` matches a hand-computed value for a seeded set of holdings with known prices." (in `../spec.md`)
 
 As an investor, I want one line telling me what I put in, what it's worth now, and whether I'm up or down, so I don't have to add it up myself.
 
 ## Tasks
 
-- [ ] [T-1: GET /portfolio/summary](../tasks/PORTFOLIO_US-4_T-1-summary-endpoint.md)
+- [x] [T-1: GET /portfolio/summary](../tasks/PORTFOLIO_US-4_T-1-summary-endpoint.md)
 
 ## Notes
 
