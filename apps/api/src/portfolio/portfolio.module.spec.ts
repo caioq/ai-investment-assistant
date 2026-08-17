@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { PortfolioController } from './portfolio.controller';
@@ -16,7 +17,13 @@ import { PortfolioService } from './portfolio.service';
 describe('PortfolioModule', () => {
   it('resolves PortfolioService and PortfolioController', async () => {
     const module = await Test.createTestingModule({
-      imports: [PortfolioModule, PrismaModule],
+      // `PortfolioModule` imports `MarketDataModule` (for
+      // `MarketDataService.backfillHistory`), whose `MarketDataService` now
+      // also injects `EventEmitter2` (added by `PORTFOLIO_US-5_T-2`),
+      // normally satisfied by the app-wide `EventEmitterModule.forRoot()`
+      // registered once in `app.module.ts` — added here for the same reason
+      // `market-data.module.spec.ts` adds it to its own isolated compile.
+      imports: [PortfolioModule, PrismaModule, EventEmitterModule.forRoot()],
     })
       .overrideProvider(PrismaService)
       .useValue({} as PrismaService)

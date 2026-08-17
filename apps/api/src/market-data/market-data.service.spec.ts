@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { MarketDataService } from './market-data.service';
+import { MarketDataService, MARKET_DATA_REFRESH_COMPLETED_EVENT } from './market-data.service';
 import { PriceProvider, PricePoint, Quote } from './providers/price-provider.interface';
 
 describe('MarketDataService', () => {
@@ -18,6 +19,7 @@ describe('MarketDataService', () => {
     benchmarkSnapshot: { createMany: jest.Mock };
   };
   let priceProvider: { getQuote: jest.Mock; getHistory: jest.Mock };
+  let eventEmitter: { emit: jest.Mock };
 
   const assets = [
     { id: 'asset-1', ticker: 'PETR4' },
@@ -67,10 +69,12 @@ describe('MarketDataService', () => {
       getQuote: jest.fn().mockResolvedValue(quotes),
       getHistory: jest.fn().mockResolvedValue(oneYearSeries),
     };
+    eventEmitter = { emit: jest.fn() };
 
     marketDataService = new MarketDataService(
       prisma as unknown as PrismaService,
       priceProvider as unknown as PriceProvider,
+      eventEmitter as unknown as EventEmitter2,
     );
   });
 
@@ -150,7 +154,16 @@ describe('MarketDataService', () => {
       expect(result).toEqual({ refreshed: 3 });
     });
 
-    it('leaves existing Asset prices untouched and logs the failure when the provider is unreachable', async () => {
+    it('emits market-data.refresh.completed with the refreshed count on success', async () => {
+      await marketDataService.refreshAllQuotes();
+
+      expect(eventEmitter.emit).toHaveBeenCalledTimes(1);
+      expect(eventEmitter.emit).toHaveBeenCalledWith(MARKET_DATA_REFRESH_COMPLETED_EVENT, {
+        refreshed: 3,
+      });
+    });
+
+    it('leaves existing Asset prices untouched, logs the failure, and does not emit when the provider is unreachable', async () => {
       const existingAsset = { id: 'asset-1', ticker: 'PETR4', currentPrice: 42 };
       prisma.asset.findMany.mockResolvedValue([existingAsset]);
       priceProvider.getQuote.mockRejectedValue(new Error('upstream unreachable'));
@@ -162,6 +175,7 @@ describe('MarketDataService', () => {
       expect(prisma.priceHistory.upsert).not.toHaveBeenCalled();
       expect(existingAsset.currentPrice).toBe(42);
       expect(errorSpy).toHaveBeenCalled();
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
 
       errorSpy.mockRestore();
     });

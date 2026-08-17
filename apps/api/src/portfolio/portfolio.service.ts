@@ -41,6 +41,12 @@ export interface PortfolioSummary {
   returnPct: number;
 }
 
+/** Today at UTC midnight, matching `PortfolioValueSnapshot.date`'s `@db.Date` column. */
+function todayAtUtcMidnight(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
 /**
  * Business logic for the `portfolio` module lives here per CONVENTIONS.md ->
  * "Module structure" (controllers stay thin).
@@ -365,5 +371,56 @@ export class PortfolioService {
     const returnPct = totalInvested === 0 ? 0 : (gainLoss / totalInvested) * 100;
 
     return { totalInvested, currentValue, gainLoss, returnPct };
+  }
+
+  /**
+   * Writes one `PortfolioValueSnapshot` row per user for today, computed
+   * from their current `Holding`s (spec.md -> Data Model,
+   * `specs/portfolio/tasks/PORTFOLIO_US-5_T-2-daily-snapshot.md`). Called
+   * from `PortfolioListener` once market-data signals that a price refresh
+   * actually completed — nothing else in this module writes these rows, so
+   * every metric in `GET /portfolio/performance` depends on this running.
+   *
+   * `totalValue` falls back to `avgPrice` when `Asset.currentPrice` is still
+   * `null` (a ticker not yet priced by market-data), per spec Behavior
+   * Notes. Upserts on `@@unique([userId, date])` so a re-run for the same
+   * day corrects the row instead of throwing, and one user's write failing
+   * doesn't prevent the next user's row from being written.
+   */
+  async snapshotAllUsers(): Promise<void> {
+    const holdings = await this.prisma.holding.findMany({ include: { asset: true } });
+
+    const holdingsByUser = new Map<string, typeof holdings>();
+    for (const holding of holdings) {
+      const userHoldings = holdingsByUser.get(holding.userId) ?? [];
+      userHoldings.push(holding);
+      holdingsByUser.set(holding.userId, userHoldings);
+    }
+
+    const date = todayAtUtcMidnight();
+
+    for (const [userId, userHoldings] of holdingsByUser) {
+      try {
+        const totalValue = userHoldings.reduce(
+          (sum, holding) =>
+            sum + holding.quantity * (holding.asset.currentPrice ?? holding.avgPrice),
+          0,
+        );
+        const totalInvested = userHoldings.reduce(
+          (sum, holding) => sum + holding.quantity * holding.avgPrice,
+          0,
+        );
+
+        await this.prisma.portfolioValueSnapshot.upsert({
+          where: { userId_date: { userId, date } },
+          update: { totalValue, totalInvested },
+          create: { userId, date, totalValue, totalInvested },
+        });
+      } catch (error) {
+        this.logger.error(
+          `snapshotAllUsers: failed to write PortfolioValueSnapshot for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
   }
 }

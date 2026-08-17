@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
 import { PortfolioService } from './portfolio.service';
@@ -13,7 +14,8 @@ describe('PortfolioService', () => {
   let service: PortfolioService;
   let prisma: {
     asset: { findUnique: jest.Mock; create: jest.Mock };
-    holding: { findUnique: jest.Mock; upsert: jest.Mock };
+    holding: { findUnique: jest.Mock; upsert: jest.Mock; findMany: jest.Mock };
+    portfolioValueSnapshot: { upsert: jest.Mock };
   };
   let marketDataService: { backfillHistory: jest.Mock };
 
@@ -44,7 +46,9 @@ describe('PortfolioService', () => {
                 avgPrice: args.create.avgPrice,
               }),
           ),
+        findMany: jest.fn(),
       },
+      portfolioValueSnapshot: { upsert: jest.fn().mockResolvedValue(undefined) },
     };
     marketDataService = { backfillHistory: jest.fn().mockResolvedValue(undefined) };
 
@@ -127,6 +131,93 @@ describe('PortfolioService', () => {
       await service.importHoldingsCsv(userId, csv);
 
       expect(prisma.asset.findUnique).toHaveBeenCalledWith({ where: { ticker: 'PETR4' } });
+    });
+  });
+
+  describe('snapshotAllUsers', () => {
+    it('writes one PortfolioValueSnapshot row per user, hand-computed from seeded holdings, falling back to avgPrice for an unpriced asset', async () => {
+      prisma.holding.findMany.mockResolvedValue([
+        // user-1: one priced asset, one unpriced (currentPrice: null) asset.
+        {
+          userId: 'user-1',
+          quantity: 100,
+          avgPrice: 30,
+          asset: { currentPrice: 38.5 },
+        },
+        {
+          userId: 'user-1',
+          quantity: 10,
+          avgPrice: 50,
+          asset: { currentPrice: null },
+        },
+        // user-2: single priced asset.
+        {
+          userId: 'user-2',
+          quantity: 5,
+          avgPrice: 100,
+          asset: { currentPrice: 120 },
+        },
+      ]);
+
+      await service.snapshotAllUsers();
+
+      expect(prisma.portfolioValueSnapshot.upsert).toHaveBeenCalledTimes(2);
+
+      // user-1: totalValue = 100*38.5 + 10*50 (?? avgPrice fallback) = 3850 + 500 = 4350
+      //         totalInvested = 100*30 + 10*50 = 3000 + 500 = 3500
+      expect(prisma.portfolioValueSnapshot.upsert).toHaveBeenCalledWith({
+        where: { userId_date: { userId: 'user-1', date: expect.any(Date) } },
+        update: { totalValue: 4350, totalInvested: 3500 },
+        create: {
+          userId: 'user-1',
+          date: expect.any(Date),
+          totalValue: 4350,
+          totalInvested: 3500,
+        },
+      });
+
+      // user-2: totalValue = 5*120 = 600, totalInvested = 5*100 = 500
+      expect(prisma.portfolioValueSnapshot.upsert).toHaveBeenCalledWith({
+        where: { userId_date: { userId: 'user-2', date: expect.any(Date) } },
+        update: { totalValue: 600, totalInvested: 500 },
+        create: {
+          userId: 'user-2',
+          date: expect.any(Date),
+          totalValue: 600,
+          totalInvested: 500,
+        },
+      });
+    });
+
+    it('upserts on (userId, date), so a second call for the same day updates rather than throwing', async () => {
+      prisma.holding.findMany.mockResolvedValue([
+        { userId: 'user-1', quantity: 10, avgPrice: 20, asset: { currentPrice: 25 } },
+      ]);
+
+      await service.snapshotAllUsers();
+      await expect(service.snapshotAllUsers()).resolves.not.toThrow();
+
+      expect(prisma.portfolioValueSnapshot.upsert).toHaveBeenCalledTimes(2);
+      const [firstCallArgs, secondCallArgs] = prisma.portfolioValueSnapshot.upsert.mock.calls;
+      expect(firstCallArgs[0].where).toEqual(secondCallArgs[0].where);
+    });
+
+    it("does not let one user's write failure prevent the next user's row from being written", async () => {
+      prisma.holding.findMany.mockResolvedValue([
+        { userId: 'user-1', quantity: 10, avgPrice: 20, asset: { currentPrice: 25 } },
+        { userId: 'user-2', quantity: 5, avgPrice: 100, asset: { currentPrice: 120 } },
+      ]);
+      prisma.portfolioValueSnapshot.upsert
+        .mockRejectedValueOnce(new Error('write failed for user-1'))
+        .mockResolvedValueOnce(undefined);
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      await expect(service.snapshotAllUsers()).resolves.not.toThrow();
+
+      expect(prisma.portfolioValueSnapshot.upsert).toHaveBeenCalledTimes(2);
+      expect(errorSpy).toHaveBeenCalled();
+
+      errorSpy.mockRestore();
     });
   });
 });
