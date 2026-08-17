@@ -589,3 +589,122 @@ describe('PortfolioController (e2e) - cross-user isolation (PORTFOLIO_US-1_T-5)'
     expect(listAsA.body).toEqual([expect.objectContaining({ id: holdingId })]);
   });
 });
+
+describe('PortfolioController (e2e) - POST /portfolio/holdings/upload-csv', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  // Stubs `MarketDataService` so `backfillHistory` never hits live Yahoo
+  // Finance (CONVENTIONS.md -> "Testing").
+  const marketDataServiceStub = {
+    backfillHistory: jest.fn().mockResolvedValue(undefined),
+  } as unknown as MarketDataService;
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(MarketDataService)
+      .useValue(marketDataServiceStub)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Scoped to rows this suite creates, rather than an unscoped `deleteMany()`
+  // — e2e suites run in parallel against the same test Postgres
+  // (CONVENTIONS.md -> "Testing").
+  afterEach(async () => {
+    await prisma.holding.deleteMany({
+      where: { asset: { ticker: { in: ['VALE3', 'ITUB4', 'BBDC4', 'PETR4'] } } },
+    });
+    await prisma.asset.deleteMany({
+      where: { ticker: { in: ['VALE3', 'ITUB4', 'BBDC4', 'PETR4'] } },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: ['portfolio-csv-e2e-1@example.com', 'portfolio-csv-e2e-2@example.com'],
+        },
+      },
+    });
+  });
+
+  /** Registers + logs in a user, returning the `access_token` cookie array. */
+  async function authCookies(email: string): Promise<string[]> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  }
+
+  it('returns 401 when no auth cookie is sent', async () => {
+    const csv = ['ticker,quantity,avgPrice', 'VALE3,50,60'].join('\n');
+
+    const response = await request(app.getHttpServer())
+      .post('/portfolio/holdings/upload-csv')
+      .attach('file', Buffer.from(csv, 'utf-8'), 'holdings.csv');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('returns 400, not 500, when no file is attached', async () => {
+    const cookies = await authCookies('portfolio-csv-e2e-1@example.com');
+
+    const response = await request(app.getHttpServer())
+      .post('/portfolio/holdings/upload-csv')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(400);
+  });
+
+  it(
+    'spec AC-3, through the real multipart path: a CSV with 3 valid rows and 1 malformed row ' +
+      'returns 200 with created: 3 and 1 reported error, and the holdings are actually persisted',
+    async () => {
+      const cookies = await authCookies('portfolio-csv-e2e-2@example.com');
+
+      const csv = [
+        'ticker,quantity,avgPrice',
+        'VALE3,50,60',
+        'ITUB4,200,25',
+        'BBDC4,10,15',
+        'PETR4,abc,30',
+      ].join('\n');
+
+      const response = await request(app.getHttpServer())
+        .post('/portfolio/holdings/upload-csv')
+        .set('Cookie', cookies)
+        .attach('file', Buffer.from(csv, 'utf-8'), 'holdings.csv');
+
+      expect(response.status).toBe(200);
+      expect(response.body.created).toBe(3);
+      expect(response.body.errors).toHaveLength(1);
+
+      // Spec AC-3 end-to-end: the 3 valid rows were actually persisted, not
+      // just reported as created. Verified directly against the DB rather
+      // than through `GET /portfolio/holdings` — that endpoint belongs to a
+      // different, still-unmerged task (PORTFOLIO_US-1_T-2) that this task
+      // doesn't depend on.
+      const holdings = await prisma.holding.findMany({
+        where: { asset: { ticker: { in: ['VALE3', 'ITUB4', 'BBDC4'] } } },
+      });
+      expect(holdings).toHaveLength(3);
+    },
+  );
+});
