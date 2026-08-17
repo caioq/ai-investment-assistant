@@ -56,6 +56,9 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ## Shared package (`packages/shared`)
 
+### Allocation math
+- `computeAllocation` (`packages/shared/src/allocation.ts`, `PORTFOLIO_US-3_T-1`) groups `{ label, value }[]` by label (`null` → `"Unclassified"`), returning `{ label, value, pct, color }[]` sorted by `value` descending — the exact shape `GET /portfolio/allocation` returns. `color` is derived from the label via a deterministic string hash into the exported `ALLOCATION_COLOR_PALETTE`, not from the slice's array index — index-based color would reshuffle every label's color across renders since slices are sorted by value. Both `apps/api`'s allocation endpoint and dashboard-ui's `AllocationDonut` should consume this rather than reimplementing grouping/coloring.
+
 ### Testing
 - Vitest (`"test": "vitest run"` in `packages/shared/package.json`), specs colocated as `*.test.ts` next to the code they test — same colocation convention as `apps/web`. No `vitest.config.ts` needed here (plain Node/TS, no jsdom/React), unlike `apps/web/vitest.config.ts`.
 - `packages/shared/tsconfig.json` (the config `build`/`typecheck` both run via `tsc -p tsconfig.json`) has `"exclude": ["src/**/*.test.ts"]` so test files never end up in `dist/` (which `apps/api`/`apps/web` consume as the package's compiled output) — vitest itself compiles test files on the fly and doesn't need them in `include`. One side effect: `pnpm --filter @ai-investment-assistant/shared typecheck` doesn't typecheck test files as a result; vitest still catches real type errors in them at test-run time.

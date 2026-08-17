@@ -7,7 +7,7 @@ As an investor, I want my portfolio broken down by sector, stock, style, and ris
 
 ## Tasks
 
-- [ ] [T-1: computeAllocation in packages/shared](../tasks/PORTFOLIO_US-3_T-1-allocation-shared.md)
+- [x] [T-1: computeAllocation in packages/shared](../tasks/PORTFOLIO_US-3_T-1-allocation-shared.md)
 - [ ] [T-2: GET /portfolio/allocation](../tasks/PORTFOLIO_US-3_T-2-allocation-endpoint.md)
 
 ## Notes
