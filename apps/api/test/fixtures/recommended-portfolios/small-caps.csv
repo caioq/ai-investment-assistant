@@ -1,0 +1,5 @@
+EMPRESA,SETOR,PRECO_ATUAL,PRECO_TETO,VARIACAO,CODIGO,RECOMENDACAO,MARGEM_DE_SEGURANCA,DY_2025,RISCO
+Alfa Tecnologia SA,Tecnologia,"R$ 12,45","R$ 16,00","3,80%",RPSA3,COMPRA,"28,51%","2,10%",C
+Bravo Educacao SA,Educacao,"R$ 7,88","R$ 7,20","-2,15%",RPSB4,VENDA,"-8,63%","1,45%",C
+Ceres Varejo SA,Varejo,"R$ 21,60","R$ 25,90","1,05%",RPSC3,COMPRA,"19,91%","3,30%",B
+Delta Industria SA,Bens Industriais,"R$ 1.480,00","R$ 1.520,00","0,42%",RPSD11,NEUTRO,"2,70%","4,05%",B
