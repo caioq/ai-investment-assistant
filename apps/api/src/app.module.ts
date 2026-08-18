@@ -7,6 +7,7 @@ import { SharedInfoService } from './health/shared-info.service';
 import { MarketDataModule } from './market-data/market-data.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RecommendedPortfoliosModule } from './recommended-portfolios/recommended-portfolios.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     MarketDataModule,
     PortfolioModule,
+    RecommendedPortfoliosModule,
   ],
   controllers: [HealthController],
   providers: [SharedInfoService],
