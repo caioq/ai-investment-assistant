@@ -1,7 +1,7 @@
 # RECOMMENDED_PORTFOLIOS_SHARED_T-1: RecommendedPortfolio + RecommendedHolding schema + migration
 
 **Shared by:** US-1, US-2, US-3
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #140 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 

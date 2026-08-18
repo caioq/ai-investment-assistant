@@ -20,6 +20,7 @@ model User {
   createdAt               DateTime                  @default(now()) @map("created_at")
   holdings                Holding[]
   portfolioValueSnapshots PortfolioValueSnapshot[]
+  recommendedPortfolios   RecommendedPortfolio[]
 
   @@map("users")
 }
@@ -87,6 +88,8 @@ model Asset {
   priceHistory     PriceHistory[]
   holdings         Holding[]
 
+  recommendedHoldings RecommendedHolding[]
+
   @@map("assets")
 }
 
@@ -145,4 +148,63 @@ model PortfolioValueSnapshot {
   @@unique([userId, date])
   @@index([userId, date])
   @@map("portfolio_value_snapshots")
+}
+
+enum WalletType {
+  DIVIDENDS
+  OVERALL_RECOMMENDED
+  SMALL_CAPS
+}
+
+/// The research house's call on a position, normalised from the CSV's
+/// Portuguese `RECOMENDACAO` (COMPRA/NEUTRO/VENDA).
+enum Recommendation {
+  BUY
+  NEUTRAL
+  SELL
+}
+
+model RecommendedPortfolio {
+  id            String     @id @default(uuid(7)) @db.Uuid
+  userId        String     @map("user_id") @db.Uuid
+  user          User       @relation(fields: [userId], references: [id])
+  walletType    WalletType @map("wallet_type")
+  sourceName    String?    @map("source_name") // e.g. "XP"
+  effectiveDate DateTime   @map("effective_date") @db.Date
+  uploadedAt    DateTime   @default(now()) @map("uploaded_at")
+
+  holdings RecommendedHolding[]
+
+  @@index([userId, walletType, effectiveDate])
+  @@map("recommended_portfolios")
+}
+
+model RecommendedHolding {
+  id                     String               @id @default(uuid(7)) @db.Uuid
+  recommendedPortfolioId String               @map("recommended_portfolio_id") @db.Uuid
+  recommendedPortfolio   RecommendedPortfolio @relation(fields: [recommendedPortfolioId], references: [id], onDelete: Cascade)
+
+  /// Null for a published row that isn't a tradable B3 ticker — e.g. the
+  /// Overall wallet's "Renda Fixa - LFT Tesouro" line, which carries a real
+  /// allocation weight but no `CODIGO`. See Behavior Notes.
+  assetId String? @map("asset_id") @db.Uuid
+  asset   Asset?  @relation(fields: [assetId], references: [id])
+
+  /// The row's `EMPRESA` value as published. Always present — it is the only
+  /// identifier a non-ticker row has, and it preserves the research house's
+  /// own naming for display.
+  label String
+
+  /// Only the Overall Recommended wallet publishes `ALOCACAO_SUGERIDA`;
+  /// null for Dividends and Small Caps, which are selections, not allocations.
+  targetWeightPct Float? @map("target_weight_pct")
+
+  /// `PRECO_TETO`. Null on a row that publishes no ceiling price.
+  limitPrice Float? @map("limit_price")
+
+  recommendation    Recommendation?
+  dividendYieldPct  Float?          @map("dividend_yield_pct")
+  marginOfSafetyPct Float?          @map("margin_of_safety_pct")
+
+  @@map("recommended_holdings")
 }
