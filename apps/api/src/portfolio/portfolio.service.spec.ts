@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
 import { PortfolioService } from './portfolio.service';
@@ -60,6 +61,72 @@ describe('PortfolioService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe('createHolding — concurrent creation of the same new Asset', () => {
+    const userId = 'user-1';
+
+    /**
+     * Find-or-create on `Asset.ticker` is two statements, so two requests for
+     * the same brand-new ticker can both see `null` from `findUnique` and both
+     * attempt `create`. Postgres lets exactly one win; the other comes back
+     * with Prisma's P2002 unique-constraint error. Real triggers: two users
+     * adding the same new ticker at once, a double-clicked "Add", or a CSV
+     * import racing another upload (`importHoldingsCsv` shares this path).
+     */
+    const uniqueViolation = () =>
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed on the fields: (`ticker`)', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['ticker'] },
+      });
+
+    it('recovers when it loses the race: re-reads the winner’s Asset instead of surfacing a 500', async () => {
+      const winnersAsset = { id: 'vale3-asset-id', ticker: 'VALE3' };
+      // Lost the race: nothing found, create rejects, and the row now exists.
+      prisma.asset.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(winnersAsset);
+      prisma.asset.create.mockRejectedValueOnce(uniqueViolation());
+
+      const holding = await service.createHolding(userId, 'VALE3', 100, 30);
+
+      expect(holding.assetId).toBe(winnersAsset.id);
+      expect(prisma.holding.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fire backfillHistory when it lost the race — the winner already triggered it', async () => {
+      prisma.asset.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'vale3-asset-id', ticker: 'VALE3' });
+      prisma.asset.create.mockRejectedValueOnce(uniqueViolation());
+
+      await service.createHolding(userId, 'VALE3', 100, 30);
+
+      // Double-backfilling would issue a second 1y Yahoo Finance fetch for a
+      // ticker that already has its history, against a rate-limited upstream.
+      expect(marketDataService.backfillHistory).not.toHaveBeenCalled();
+    });
+
+    it('still fires backfillHistory exactly once when it wins the race', async () => {
+      prisma.asset.findUnique.mockResolvedValueOnce(null);
+
+      await service.createHolding(userId, 'VALE3', 100, 30);
+
+      expect(marketDataService.backfillHistory).toHaveBeenCalledTimes(1);
+    });
+
+    it('rethrows a non-P2002 Prisma failure rather than masking it as a lost race', async () => {
+      prisma.asset.findUnique.mockResolvedValueOnce(null);
+      prisma.asset.create.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Connection pool timeout', {
+          code: 'P2024',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(service.createHolding(userId, 'VALE3', 100, 30)).rejects.toMatchObject({
+        code: 'P2024',
+      });
+    });
   });
 
   describe('importHoldingsCsv', () => {

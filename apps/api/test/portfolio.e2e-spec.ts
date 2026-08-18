@@ -47,10 +47,10 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
   // (CONVENTIONS.md -> "Testing").
   afterEach(async () => {
     await prisma.holding.deleteMany({
-      where: { asset: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4', 'BBDC4'] } } },
+      where: { asset: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'RACE3'] } } },
     });
     await prisma.asset.deleteMany({
-      where: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4', 'BBDC4'] } },
+      where: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'RACE3'] } },
     });
     await prisma.user.deleteMany({
       where: {
@@ -157,6 +157,45 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
 
     const assets = await prisma.asset.findMany({ where: { ticker: 'VALE3' } });
     expect(assets).toHaveLength(1);
+  });
+
+  it('survives concurrent requests creating the same brand-new Asset, without a 500 or a duplicate', async () => {
+    // The regression this guards: find-or-create on `Asset.ticker` is two
+    // statements, so parallel requests for an unseen ticker could both see
+    // `null` and both INSERT. `ticker` is `@unique`, so one lost with Prisma
+    // P2002 and — unhandled — returned a 500 for an ordinary request (two
+    // users adding the same ticker at once, or a double-clicked "Add").
+    //
+    // Real parallelism matters here: awaiting these in sequence passes even
+    // with the bug present, because the second call would find the first's
+    // committed row.
+    const [cookiesA, cookiesB] = await Promise.all([
+      authCookies('portfolio-e2e-5@example.com'),
+      authCookies('portfolio-e2e-6@example.com'),
+    ]);
+
+    const responses = await Promise.all([
+      request(app.getHttpServer())
+        .post('/portfolio/holdings')
+        .set('Cookie', cookiesA)
+        .send({ ticker: 'RACE3', quantity: 100, avgPrice: 30 }),
+      request(app.getHttpServer())
+        .post('/portfolio/holdings')
+        .set('Cookie', cookiesB)
+        .send({ ticker: 'RACE3', quantity: 50, avgPrice: 31 }),
+    ]);
+
+    for (const response of responses) {
+      expect(response.status).toBeGreaterThanOrEqual(200);
+      expect(response.status).toBeLessThan(300);
+    }
+
+    // Exactly one Asset, and both users got their own Holding against it.
+    const assets = await prisma.asset.findMany({ where: { ticker: 'RACE3' } });
+    expect(assets).toHaveLength(1);
+
+    const holdings = await prisma.holding.findMany({ where: { assetId: assets[0].id } });
+    expect(holdings).toHaveLength(2);
   });
 
   it('still persists the Holding and returns 2xx when backfillHistory rejects', async () => {
