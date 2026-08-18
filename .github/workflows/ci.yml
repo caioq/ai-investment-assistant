@@ -7,6 +7,34 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # Mirrors the `db-test` service in docker-compose.yml (same image,
+    # credentials and database name) so `pnpm --filter api test:e2e` runs
+    # against the same Postgres it does locally. Exposed on 5433 to match the
+    # local port, so DATABASE_URL is identical in both places.
+    services:
+      db-test:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: investment_assistant_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5433/investment_assistant_test?schema=public
+      # e2e boots the real AppModule, so anything read at bootstrap must be
+      # set: JwtStrategy throws "requires a secret or key" without JWT_SECRET,
+      # and configureApp reads FRONTEND_URL for CORS. Test-only values.
+      JWT_SECRET: ci-test-secret
+      FRONTEND_URL: http://localhost:3000
+
     steps:
       - uses: actions/checkout@v4
 
@@ -33,3 +61,19 @@ jobs:
 
       - name: Build web
         run: pnpm --filter web build
+
+      # Unit tests across every workspace package (api Jest, web + shared
+      # Vitest). Runs after the builds so `packages/shared/dist` and the
+      # generated Prisma client already exist — `apps/api`'s `pretest` would
+      # otherwise regenerate them here.
+      - name: Unit tests
+        run: pnpm test
+
+      # e2e needs the schema present, not just the client generated.
+      # `migrate deploy` (not `migrate dev`) applies committed migrations
+      # without prompting or trying to author new ones.
+      - name: Apply migrations to test database
+        run: pnpm --filter api exec prisma migrate deploy
+
+      - name: e2e tests
+        run: pnpm --filter api test:e2e

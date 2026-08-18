@@ -26,8 +26,28 @@ describe('AuthController (e2e)', () => {
     await app.close();
   });
 
+  // Scoped to the emails this suite registers, rather than an unscoped
+  // `deleteMany()` — jest e2e suites run in parallel workers against the same
+  // test Postgres (CONVENTIONS.md -> "Testing"). An unscoped delete here wipes
+  // every user in the database mid-run, including ones another suite has just
+  // registered, so that suite's next write fails a foreign key and 500s. This
+  // suite predates that convention and was the source of a ~50%-reproducible
+  // flake in `portfolio.e2e-spec.ts`.
   afterEach(async () => {
-    await prisma.user.deleteMany();
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: [
+            'jane@example.com',
+            'dupe@example.com',
+            'me@example.com',
+            'logout@example.com',
+            'wrongpass@example.com',
+            'never-registered@example.com',
+          ],
+        },
+      },
+    });
   });
 
   describe('POST /auth/register', () => {
