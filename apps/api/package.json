@@ -10,6 +10,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
+    "pretest": "pnpm --filter @ai-investment-assistant/shared build && prisma generate",
     "test": "jest",
     "pretest:e2e": "prisma generate",
     "test:e2e": "jest --config ./test/jest-e2e.json",

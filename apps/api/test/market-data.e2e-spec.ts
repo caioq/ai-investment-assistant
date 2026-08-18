@@ -15,7 +15,7 @@ describe('MarketDataController (e2e)', () => {
   // doesn't depend on a live network request — see MARKET_DATA_US-4_T-1's
   // `getOrRefreshPrice`, which this endpoint delegates to.
   const priceProviderStub: PriceProvider = {
-    getQuote: jest.fn().mockResolvedValue([{ ticker: 'PETR4', price: 38.5, changePct: 1.2 }]),
+    getQuote: jest.fn().mockResolvedValue([{ ticker: 'MDTA4', price: 38.5, changePct: 1.2 }]),
     getHistory: jest.fn(),
   };
 
@@ -44,7 +44,7 @@ describe('MarketDataController (e2e)', () => {
   // `auth.e2e-spec.ts` concurrently reads/writes the `user` table too; a
   // blanket delete here would race with it.
   afterEach(async () => {
-    await prisma.asset.deleteMany({ where: { ticker: { in: ['PETR4', 'UNKNOWN4'] } } });
+    await prisma.asset.deleteMany({ where: { ticker: { in: ['MDTA4', 'UNKNOWN4'] } } });
     await prisma.user.deleteMany({ where: { email: 'market-data-e2e@example.com' } });
   });
 
@@ -60,22 +60,22 @@ describe('MarketDataController (e2e)', () => {
 
   describe('GET /market-data/quote/:ticker', () => {
     it('returns 401 when no cookie is sent', async () => {
-      const response = await request(app.getHttpServer()).get('/market-data/quote/PETR4');
+      const response = await request(app.getHttpServer()).get('/market-data/quote/MDTA4');
 
       expect(response.status).toBe(401);
     });
 
     it('returns 200 with the quote for a seeded Asset ticker', async () => {
       const cookies = await authCookies();
-      await prisma.asset.create({ data: { ticker: 'PETR4', name: 'Petrobras PN' } });
+      await prisma.asset.create({ data: { ticker: 'MDTA4', name: 'Market Data Test Asset' } });
 
       const response = await request(app.getHttpServer())
-        .get('/market-data/quote/PETR4')
+        .get('/market-data/quote/MDTA4')
         .set('Cookie', cookies);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
-        ticker: 'PETR4',
+        ticker: 'MDTA4',
         price: 38.5,
         changePct: 1.2,
         updatedAt: expect.any(String),

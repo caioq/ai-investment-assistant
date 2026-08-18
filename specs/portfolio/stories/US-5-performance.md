@@ -1,6 +1,6 @@
 # US-5: Track performance against a benchmark
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Compute portfolio summary … and performance over time, including comparison against a benchmark." / spec API Contract `GET /portfolio/performance` / spec Behavior Note "`cagr`/`volatility`/`maxDrawdown` are computed from `PortfolioValueSnapshot` (and `BenchmarkSnapshot` for `vsBenchmarkPct`); these are pure functions and should live in `packages/shared`…" (in `../spec.md`)
 
 As an investor, I want my portfolio's value over time next to Ibovespa or CDI, so "am I actually doing well?" has an answer better than the raw gain number.
