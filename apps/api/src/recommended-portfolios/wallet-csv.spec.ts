@@ -2,6 +2,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import { parseWalletCsv } from './wallet-csv';
+import { normalizeWalletRow } from './wallet-row';
+import type { RawWalletRow } from './wallet-csv';
 
 /**
  * RECOMMENDED_PORTFOLIOS_US-1_T-2 — header-driven column resolution.
@@ -79,5 +81,126 @@ describe('parseWalletCsv', () => {
     const csvWithoutPrecoTeto = 'EMPRESA,CODIGO\nAlfa Energia Participacoes,RPFA3\n';
 
     expect(() => parseWalletCsv(csvWithoutPrecoTeto)).toThrow();
+  });
+});
+
+/**
+ * RECOMMENDED_PORTFOLIOS_US-1_T-3 — row normalisation.
+ *
+ * Maps a `RawWalletRow` (RECOMMENDED_PORTFOLIOS_US-1_T-2) onto the
+ * `RecommendedHolding` shape, using `parseBrazilianNumber`
+ * (RECOMMENDED_PORTFOLIOS_US-1_T-1) for every numeric field.
+ */
+describe('normalizeWalletRow', () => {
+  it('maps PRECO_TETO to limitPrice and ALOCACAO_SUGERIDA to targetWeightPct (spec AC-3)', () => {
+    const overall = parseWalletCsv(readFixture('overall-recommended.csv'));
+
+    // Alfa Energia Participacoes: PRECO_TETO "R$ 52,00", ALOCACAO_SUGERIDA "25,00%".
+    const normalized = normalizeWalletRow(overall[0]);
+
+    expect(normalized.limitPrice).toBe(52);
+    expect(normalized.targetWeightPct).toBe(25);
+  });
+
+  it('maps a negative MARGEM_DE_SEGURANCA to marginOfSafetyPct (spec AC-3)', () => {
+    const smallCaps = parseWalletCsv(readFixture('small-caps.csv'));
+
+    // Bravo Educacao SA: MARGEM_DE_SEGURANCA "-8,63%".
+    const normalized = normalizeWalletRow(smallCaps[1]);
+
+    expect(normalized.marginOfSafetyPct).toBe(-8.63);
+  });
+
+  it('normalises COMPRA/NEUTRO/VENDA to BUY/NEUTRAL/SELL (spec AC-4)', () => {
+    const overall = parseWalletCsv(readFixture('overall-recommended.csv'));
+    const smallCaps = parseWalletCsv(readFixture('small-caps.csv'));
+
+    expect(normalizeWalletRow(overall[0]).recommendation).toBe('BUY'); // COMPRA
+    expect(normalizeWalletRow(overall[2]).recommendation).toBe('NEUTRAL'); // NEUTRO
+    expect(normalizeWalletRow(smallCaps[1]).recommendation).toBe('SELL'); // VENDA
+  });
+
+  it('produces a row error, not null, for an unrecognised RECOMENDACAO value (spec AC-4)', () => {
+    const row: RawWalletRow = {
+      CODIGO: 'RPFA3',
+      EMPRESA: 'Alfa Energia Participacoes',
+      PRECO_TETO: 'R$ 52,00',
+      ALOCACAO_SUGERIDA: '25,00%',
+      RECOMENDACAO: 'MANTER',
+      MARGEM_DE_SEGURANCA: undefined,
+      DY: undefined,
+    };
+
+    expect(() => normalizeWalletRow(row)).toThrow();
+  });
+
+  it("normalises the tickerless row to assetId-less shape and keeps it (spec AC-1)", () => {
+    const overall = parseWalletCsv(readFixture('overall-recommended.csv'));
+
+    // The fixture's final row: "Renda Fixa - LFT Tesouro" carries no CODIGO.
+    const normalized = overall.map(normalizeWalletRow);
+
+    expect(normalized).toHaveLength(overall.length);
+    const tickerless = normalized[normalized.length - 1];
+    expect(tickerless.ticker).toBeNull();
+    expect(tickerless.label).toBe('Renda Fixa - LFT Tesouro');
+    expect(tickerless.targetWeightPct).toBe(15);
+  });
+
+  it('leaves targetWeightPct null (not 0) for every Dividends and Small Caps row (spec AC-2)', () => {
+    const dividends = parseWalletCsv(readFixture('dividends.csv')).map(
+      normalizeWalletRow,
+    );
+    const smallCaps = parseWalletCsv(readFixture('small-caps.csv')).map(
+      normalizeWalletRow,
+    );
+
+    expect(dividends.every((row) => row.targetWeightPct === null)).toBe(true);
+    expect(smallCaps.every((row) => row.targetWeightPct === null)).toBe(true);
+  });
+
+  it('never carries RISCO, SETOR, CATEGORIA, PRECO_ATUAL, VARIACAO or PRECO_TETO_2 (spec AC-7)', () => {
+    const expectedKeys = [
+      'dividendYieldPct',
+      'label',
+      'limitPrice',
+      'marginOfSafetyPct',
+      'recommendation',
+      'targetWeightPct',
+      'ticker',
+    ];
+
+    const allRows = [
+      ...parseWalletCsv(readFixture('overall-recommended.csv')),
+      ...parseWalletCsv(readFixture('dividends.csv')),
+      ...parseWalletCsv(readFixture('small-caps.csv')),
+    ];
+
+    for (const row of allRows) {
+      expect(Object.keys(normalizeWalletRow(row)).sort()).toEqual(expectedKeys);
+    }
+  });
+
+  it('maps limitPrice from PRECO_TETO, not the disagreeing PRECO_TETO_2 (spec AC-6)', () => {
+    const dividends = parseWalletCsv(readFixture('dividends.csv'));
+
+    // Bravo Saneamento SA: PRECO_TETO "R$ 39,80" vs PRECO_TETO_2 "R$ 40,80".
+    const normalized = normalizeWalletRow(dividends[1]);
+
+    expect(normalized.limitPrice).toBe(39.8);
+  });
+
+  it("uppercases a lowercase CODIGO, matching findOrCreateAsset's normalisation", () => {
+    const row: RawWalletRow = {
+      CODIGO: 'rpfa3',
+      EMPRESA: 'Alfa Energia Participacoes',
+      PRECO_TETO: 'R$ 52,00',
+      ALOCACAO_SUGERIDA: '25,00%',
+      RECOMENDACAO: 'COMPRA',
+      MARGEM_DE_SEGURANCA: undefined,
+      DY: undefined,
+    };
+
+    expect(normalizeWalletRow(row).ticker).toBe('RPFA3');
   });
 });
