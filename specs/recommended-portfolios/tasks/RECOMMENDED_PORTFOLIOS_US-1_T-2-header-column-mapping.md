@@ -1,7 +1,7 @@
 # RECOMMENDED_PORTFOLIOS_US-1_T-2: header-driven column resolution
 
 **Story:** [../stories/US-1-ingest-wallet-export.md](../stories/US-1-ingest-wallet-export.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #144 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** RECOMMENDED_PORTFOLIOS_SHARED_T-2, RECOMMENDED_PORTFOLIOS_SHARED_T-3
 
