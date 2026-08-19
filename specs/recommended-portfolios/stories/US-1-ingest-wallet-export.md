@@ -7,7 +7,7 @@ As someone following a research house, I want to upload their wallet export exac
 
 ## Tasks
 
-- [ ] [T-1: Brazilian number parsing](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-1-brazilian-number-parsing.md)
+- [x] [T-1: Brazilian number parsing](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-1-brazilian-number-parsing.md)
 - [ ] [T-2: header-driven column resolution](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-2-header-column-mapping.md)
 - [ ] [T-3: row normalisation](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-3-row-normalisation.md)
 - [ ] [T-4: whole-file validation](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-4-whole-file-validation.md)
