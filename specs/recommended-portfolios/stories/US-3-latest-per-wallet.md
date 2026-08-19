@@ -1,13 +1,13 @@
 # US-3: Read the current wallet per type
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Expose the latest snapshot per wallet type for the Advisor to consume." / AC "…`GET .../latest` returns only the newer one for that wallet." / AC "Two uploads … with the same `effectiveDate` both persist, and `GET .../latest` returns the more recently uploaded one." / AC "`GET .../latest` returns at most one entry per `walletType`, even after multiple uploads across all three types, and omits a wallet type never uploaded." (in `../spec.md`)
 
 As the AI Advisor, I want the current model portfolio for each wallet type in one call, so I can compare the user's holdings against today's recommendations without knowing anything about how versions are stored.
 
 ## Tasks
 
-- [ ] [T-1: GET /advisor/recommended-portfolios/latest](../tasks/RECOMMENDED_PORTFOLIOS_US-3_T-1-latest-endpoint.md)
+- [x] [T-1: GET /advisor/recommended-portfolios/latest](../tasks/RECOMMENDED_PORTFOLIOS_US-3_T-1-latest-endpoint.md)
 
 ## Notes
 

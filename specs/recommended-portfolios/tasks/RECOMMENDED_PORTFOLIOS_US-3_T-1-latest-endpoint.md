@@ -1,7 +1,7 @@
 # RECOMMENDED_PORTFOLIOS_US-3_T-1: GET /advisor/recommended-portfolios/latest
 
 **Story:** [../stories/US-3-latest-per-wallet.md](../stories/US-3-latest-per-wallet.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #150 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** RECOMMENDED_PORTFOLIOS_SHARED_T-1, RECOMMENDED_PORTFOLIOS_SHARED_T-2
 

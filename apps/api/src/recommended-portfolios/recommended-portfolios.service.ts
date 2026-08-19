@@ -1,10 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
-import { WalletType } from '../../generated/prisma/client';
-import type { RecommendedHolding, RecommendedPortfolio } from '../../generated/prisma/client';
+import {
+  RecommendedHolding,
+  RecommendedPortfolio,
+  WalletType,
+} from '../../generated/prisma/client';
 import { parseWalletCsv } from './wallet-csv';
 import { validateWalletRows } from './wallet-validation';
+
+export type RecommendedPortfolioWithHoldings = RecommendedPortfolio & {
+  holdings: RecommendedHolding[];
+};
 
 /**
  * Owns `RecommendedPortfolio`/`RecommendedHolding` (spec.md -> Data Model).
@@ -77,5 +84,35 @@ export class RecommendedPortfoliosService {
       },
       include: { holdings: true },
     });
+  }
+
+  /**
+   * Latest `RecommendedPortfolio` per `walletType` for `userId`, with its
+   * `holdings` included (spec.md -> API Contract, RECOMMENDED_PORTFOLIOS_US-3_T-1).
+   *
+   * Fetches everything for the user ordered by `effectiveDate` desc, then
+   * `uploadedAt` desc (spec.md -> Behavior Notes: the tie-break is
+   * load-bearing since `effectiveDate` defaults to today and history is
+   * additive, so two same-day uploads are common), and keeps only the
+   * first row seen per `walletType` in JS rather than relying on Prisma's
+   * `distinct` (whose SQL translation isn't guaranteed to honor multi-field
+   * ordering the same way across drivers) — explicit and easy to verify
+   * against the spec's own wording.
+   */
+  async getLatestPerWallet(userId: string): Promise<RecommendedPortfolioWithHoldings[]> {
+    const portfolios = await this.prisma.recommendedPortfolio.findMany({
+      where: { userId },
+      orderBy: [{ effectiveDate: 'desc' }, { uploadedAt: 'desc' }],
+      include: { holdings: true },
+    });
+
+    const latestByWallet = new Map<WalletType, RecommendedPortfolioWithHoldings>();
+    for (const portfolio of portfolios) {
+      if (!latestByWallet.has(portfolio.walletType)) {
+        latestByWallet.set(portfolio.walletType, portfolio);
+      }
+    }
+
+    return Array.from(latestByWallet.values());
   }
 }

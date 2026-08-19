@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   Post,
   Query,
@@ -17,7 +18,10 @@ import { RecommendedHolding, RecommendedPortfolio } from '../../generated/prisma
 import { UploadWalletBodyDto } from './dto/upload-wallet-body.dto';
 import { UploadWalletQueryDto } from './dto/upload-wallet-query.dto';
 import { parseEffectiveDate } from './wallet-date';
-import { RecommendedPortfoliosService } from './recommended-portfolios.service';
+import {
+  RecommendedPortfoliosService,
+  RecommendedPortfolioWithHoldings,
+} from './recommended-portfolios.service';
 
 /** 1 MB — far beyond any realistic wallet export CSV; caps the in-memory
  * upload so an authenticated endpoint can't be used to exhaust process
@@ -87,5 +91,19 @@ export class RecommendedPortfoliosController {
       effectiveDate: parseEffectiveDate(body.effectiveDate),
       sourceName: body.sourceName,
     });
+  }
+
+  /**
+   * `GET /advisor/recommended-portfolios/latest` (spec.md -> API Contract,
+   * RECOMMENDED_PORTFOLIOS_US-3_T-1). Scoped to `req.user.id` — no
+   * `userId` is ever accepted from the client (CONVENTIONS.md -> "Auth").
+   * A user with nothing uploaded gets `200` and `[]`, not `404` — "no
+   * recommendations yet" is a normal state for a new account.
+   */
+  @Get('latest')
+  async getLatest(@Req() req: Request): Promise<RecommendedPortfolioWithHoldings[]> {
+    const userId = (req.user as { id: string }).id;
+
+    return this.recommendedPortfoliosService.getLatestPerWallet(userId);
   }
 }
