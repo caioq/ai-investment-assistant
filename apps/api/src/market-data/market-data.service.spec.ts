@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService, MARKET_DATA_REFRESH_COMPLETED_EVENT } from './market-data.service';
 import { PriceProvider, PricePoint, Quote } from './providers/price-provider.interface';
@@ -11,6 +12,8 @@ describe('MarketDataService', () => {
       findMany: jest.Mock;
       update: jest.Mock;
       findUniqueOrThrow: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
     };
     priceHistory: {
       upsert: jest.Mock;
@@ -56,6 +59,12 @@ describe('MarketDataService', () => {
         findMany: jest.fn().mockResolvedValue(assets),
         update: jest.fn(),
         findUniqueOrThrow: jest.fn().mockResolvedValue({ id: assetId, ticker }),
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest
+          .fn()
+          .mockImplementation((args: { data: { ticker: string } }) =>
+            Promise.resolve({ id: `${args.data.ticker}-asset-id`, ticker: args.data.ticker }),
+          ),
       },
       priceHistory: {
         upsert: jest.fn(),
@@ -373,6 +382,85 @@ describe('MarketDataService', () => {
         price: 39.9,
         changePct: 2.1,
         updatedAt: now,
+      });
+    });
+  });
+
+  /**
+   * Moved from `PortfolioService.upsertHolding`'s private find-or-create
+   * (RECOMMENDED_PORTFOLIOS_US-1_T-5) — market-data owns the `Asset` model.
+   * `portfolio.service.spec.ts` keeps its own concurrent-creation and
+   * lowercase-normalisation cases, asserting `PortfolioService` still
+   * delegates here rather than duplicating the find-or-create logic itself.
+   */
+  describe('findOrCreateAsset', () => {
+    it('returns an existing ticker with wasCreated: false and issues no create', async () => {
+      const existingAsset = { id: 'petr4-asset-id', ticker: 'PETR4' };
+      prisma.asset.findUnique.mockResolvedValue(existingAsset);
+
+      const result = await marketDataService.findOrCreateAsset('PETR4');
+
+      expect(result).toEqual({ asset: existingAsset, wasCreated: false });
+      expect(prisma.asset.create).not.toHaveBeenCalled();
+    });
+
+    it('creates an unseen ticker and returns wasCreated: true', async () => {
+      prisma.asset.findUnique.mockResolvedValue(null);
+
+      const result = await marketDataService.findOrCreateAsset('VALE3');
+
+      expect(prisma.asset.create).toHaveBeenCalledWith({
+        data: { ticker: 'VALE3', name: 'VALE3' },
+      });
+      expect(result).toEqual({ asset: { id: 'VALE3-asset-id', ticker: 'VALE3' }, wasCreated: true });
+    });
+
+    it('resolves a lowercase ticker to the same uppercase Asset', async () => {
+      prisma.asset.findUnique.mockResolvedValue(null);
+
+      await marketDataService.findOrCreateAsset('petr4');
+
+      expect(prisma.asset.findUnique).toHaveBeenCalledWith({ where: { ticker: 'PETR4' } });
+      expect(prisma.asset.create).toHaveBeenCalledWith({
+        data: { ticker: 'PETR4', name: 'PETR4' },
+      });
+    });
+
+    /**
+     * Find-or-create is two statements, so two requests for the same
+     * brand-new ticker can both see `null` from `findUnique` and both
+     * attempt `create`. Postgres lets exactly one win; the other comes back
+     * with Prisma's P2002 unique-constraint error, which must resolve with
+     * the winner's row rather than surfacing a 500 — and `wasCreated: false`
+     * so the loser doesn't re-trigger a backfill.
+     */
+    it('recovers when it loses the race: re-reads the winner’s Asset instead of surfacing an error', async () => {
+      const winnersAsset = { id: 'vale3-asset-id', ticker: 'VALE3' };
+      prisma.asset.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(winnersAsset);
+      prisma.asset.create.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed on the fields: (`ticker`)', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { target: ['ticker'] },
+        }),
+      );
+
+      const result = await marketDataService.findOrCreateAsset('VALE3');
+
+      expect(result).toEqual({ asset: winnersAsset, wasCreated: false });
+    });
+
+    it('rethrows a non-P2002 Prisma failure rather than masking it as a lost race', async () => {
+      prisma.asset.findUnique.mockResolvedValueOnce(null);
+      prisma.asset.create.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('Connection pool timeout', {
+          code: 'P2024',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(marketDataService.findOrCreateAsset('VALE3')).rejects.toMatchObject({
+        code: 'P2024',
       });
     });
   });

@@ -15,23 +15,27 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
   // Stubs `MarketDataService` so `backfillHistory` never hits live Yahoo
   // Finance (CONVENTIONS.md -> "Testing"), and so the test can assert on
   // whether/how often it was called without a real network dependency.
-  const marketDataServiceStub = {
-    backfillHistory: jest.fn().mockResolvedValue(undefined),
-  } as unknown as MarketDataService;
+  // `findOrCreateAsset` (RECOMMENDED_PORTFOLIOS_US-1_T-5) now lives on
+  // `MarketDataService`; it's exercised for real below (it only touches the
+  // real `PrismaService` this suite already uses). Only `backfillHistory` is
+  // stubbed, via `jest.spyOn` on the real DI instance in `beforeAll`, so
+  // seeding holdings never hits live Yahoo Finance (CONVENTIONS.md ->
+  // "Testing"), while the suite can still assert on whether/how often it
+  // was called.
+  let marketDataServiceStub: MarketDataService;
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideProvider(MarketDataService)
-      .useValue(marketDataServiceStub)
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
+    marketDataServiceStub = moduleFixture.get(MarketDataService);
+    jest.spyOn(marketDataServiceStub, 'backfillHistory').mockResolvedValue(undefined);
   });
 
   afterAll(async () => {
@@ -284,23 +288,27 @@ describe('PortfolioController (e2e) - GET /portfolio/holdings', () => {
   // Same reasoning as the POST describe above (CONVENTIONS.md -> "Testing"):
   // stub `backfillHistory` so seeding holdings via POST doesn't hit live
   // Yahoo Finance.
-  const marketDataServiceStub = {
-    backfillHistory: jest.fn().mockResolvedValue(undefined),
-  } as unknown as MarketDataService;
+  // `findOrCreateAsset` (RECOMMENDED_PORTFOLIOS_US-1_T-5) now lives on
+  // `MarketDataService`; it's exercised for real below (it only touches the
+  // real `PrismaService` this suite already uses). Only `backfillHistory` is
+  // stubbed, via `jest.spyOn` on the real DI instance in `beforeAll`, so
+  // seeding holdings never hits live Yahoo Finance (CONVENTIONS.md ->
+  // "Testing"), while the suite can still assert on whether/how often it
+  // was called.
+  let marketDataServiceStub: MarketDataService;
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideProvider(MarketDataService)
-      .useValue(marketDataServiceStub)
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
+    marketDataServiceStub = moduleFixture.get(MarketDataService);
+    jest.spyOn(marketDataServiceStub, 'backfillHistory').mockResolvedValue(undefined);
   });
 
   afterAll(async () => {
@@ -392,23 +400,27 @@ describe('PortfolioController (e2e) - DELETE /portfolio/holdings/:id', () => {
   // Stubs `MarketDataService` so `backfillHistory` (triggered by the seeding
   // `POST /portfolio/holdings` calls below) never hits live Yahoo Finance
   // (CONVENTIONS.md -> "Testing").
-  const marketDataServiceStub = {
-    backfillHistory: jest.fn().mockResolvedValue(undefined),
-  } as unknown as MarketDataService;
+  // `findOrCreateAsset` (RECOMMENDED_PORTFOLIOS_US-1_T-5) now lives on
+  // `MarketDataService`; it's exercised for real below (it only touches the
+  // real `PrismaService` this suite already uses). Only `backfillHistory` is
+  // stubbed, via `jest.spyOn` on the real DI instance in `beforeAll`, so
+  // seeding holdings never hits live Yahoo Finance (CONVENTIONS.md ->
+  // "Testing"), while the suite can still assert on whether/how often it
+  // was called.
+  let marketDataServiceStub: MarketDataService;
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideProvider(MarketDataService)
-      .useValue(marketDataServiceStub)
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
+    marketDataServiceStub = moduleFixture.get(MarketDataService);
+    jest.spyOn(marketDataServiceStub, 'backfillHistory').mockResolvedValue(undefined);
   });
 
   afterAll(async () => {
@@ -500,23 +512,27 @@ describe('PortfolioController (e2e) - cross-user isolation (PORTFOLIO_US-1_T-5)'
 
   // Stubs `MarketDataService` so the seeding `POST /portfolio/holdings` call
   // below never hits live Yahoo Finance (CONVENTIONS.md -> "Testing").
-  const marketDataServiceStub = {
-    backfillHistory: jest.fn().mockResolvedValue(undefined),
-  } as unknown as MarketDataService;
+  // `findOrCreateAsset` (RECOMMENDED_PORTFOLIOS_US-1_T-5) now lives on
+  // `MarketDataService`; it's exercised for real below (it only touches the
+  // real `PrismaService` this suite already uses). Only `backfillHistory` is
+  // stubbed, via `jest.spyOn` on the real DI instance in `beforeAll`, so
+  // seeding holdings never hits live Yahoo Finance (CONVENTIONS.md ->
+  // "Testing"), while the suite can still assert on whether/how often it
+  // was called.
+  let marketDataServiceStub: MarketDataService;
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideProvider(MarketDataService)
-      .useValue(marketDataServiceStub)
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
+    marketDataServiceStub = moduleFixture.get(MarketDataService);
+    jest.spyOn(marketDataServiceStub, 'backfillHistory').mockResolvedValue(undefined);
   });
 
   afterAll(async () => {
@@ -637,23 +653,27 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings/upload-csv', () =
 
   // Stubs `MarketDataService` so `backfillHistory` never hits live Yahoo
   // Finance (CONVENTIONS.md -> "Testing").
-  const marketDataServiceStub = {
-    backfillHistory: jest.fn().mockResolvedValue(undefined),
-  } as unknown as MarketDataService;
+  // `findOrCreateAsset` (RECOMMENDED_PORTFOLIOS_US-1_T-5) now lives on
+  // `MarketDataService`; it's exercised for real below (it only touches the
+  // real `PrismaService` this suite already uses). Only `backfillHistory` is
+  // stubbed, via `jest.spyOn` on the real DI instance in `beforeAll`, so
+  // seeding holdings never hits live Yahoo Finance (CONVENTIONS.md ->
+  // "Testing"), while the suite can still assert on whether/how often it
+  // was called.
+  let marketDataServiceStub: MarketDataService;
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideProvider(MarketDataService)
-      .useValue(marketDataServiceStub)
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
+    marketDataServiceStub = moduleFixture.get(MarketDataService);
+    jest.spyOn(marketDataServiceStub, 'backfillHistory').mockResolvedValue(undefined);
   });
 
   afterAll(async () => {

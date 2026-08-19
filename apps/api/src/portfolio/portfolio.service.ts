@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
-import { Asset, Benchmark, Holding, Prisma } from '../../generated/prisma/client';
+import { Asset, Benchmark, Holding } from '../../generated/prisma/client';
 import { AllocationBy } from './dto/allocation-query.dto';
 import { PerformanceBenchmark, PerformanceRange } from './dto/performance-query.dto';
 import {
@@ -14,9 +14,6 @@ import {
   PortfolioValuePoint,
   volatility,
 } from '@ai-investment-assistant/shared';
-
-/** Prisma's error code for a unique-constraint violation (matches `auth.service.ts`). */
-const PRISMA_UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 /** Response body of `POST /portfolio/holdings/upload-csv` (spec.md -> API Contract). */
 export interface ImportHoldingsCsvResult {
@@ -257,9 +254,11 @@ export class PortfolioService {
   /**
    * Shared by `createHolding` and `importHoldingsCsv`. Three things happen:
    *
-   * 1. Find-or-create the `Asset` by ticker, normalised to uppercase before
-   *    lookup — `Asset.ticker` is `@unique`, so `petr4` vs `PETR4` would
-   *    otherwise create two rows and silently split one position in two.
+   * 1. Find-or-create the `Asset` by ticker, delegated to
+   *    `MarketDataService.findOrCreateAsset` (RECOMMENDED_PORTFOLIOS_US-1_T-5)
+   *    — `market-data` owns the `Asset` model and its uppercase-
+   *    normalisation + P2002 race-recovery subtleties, so this no longer
+   *    keeps its own copy.
    * 2. Upsert the `Holding` on `@@unique([userId, assetId])`: re-adding a
    *    held ticker updates `quantity`/`avgPrice` rather than inserting a
    *    duplicate (spec AC-2). Whether the holding already existed is
@@ -271,7 +270,11 @@ export class PortfolioService {
    *    Yahoo Finance (unofficial, rate-limited) and has no internal
    *    `try`/`catch`, so it must never be able to fail the caller's request.
    *    Its own `.catch()` here logs at `error` level instead, degrading to
-   *    "the chart starts flat" rather than "I can't add stocks."
+   *    "the chart starts flat" rather than "I can't add stocks." This
+   *    backfill decision stays here, in `portfolio` — `findOrCreateAsset`
+   *    deliberately doesn't trigger it itself, since `recommended-portfolios`
+   *    shares the same method but must not backfill (its spec's Behavior
+   *    Notes: no performance chart, needs only `currentPrice`).
    */
   private async upsertHolding(
     userId: string,
@@ -279,48 +282,7 @@ export class PortfolioService {
     quantity: number,
     avgPrice: number,
   ): Promise<{ holding: Holding; wasCreated: boolean }> {
-    const normalizedTicker = ticker.toUpperCase();
-
-    let asset = await this.prisma.asset.findUnique({ where: { ticker: normalizedTicker } });
-    let isNewAsset = false;
-
-    if (!asset) {
-      // find-or-create is two statements, so two requests for the same
-      // brand-new ticker can both see `null` above and both attempt `create`.
-      // `Asset.ticker` is `@unique`, so Postgres lets exactly one win and the
-      // other comes back with P2002 — which, unhandled, surfaced as a 500 on a
-      // perfectly ordinary request (two users adding the same new ticker at
-      // once, a double-clicked "Add", or a CSV import racing another upload,
-      // since `importHoldingsCsv` shares this path).
-      try {
-        asset = await this.prisma.asset.create({
-          data: { ticker: normalizedTicker, name: normalizedTicker },
-        });
-        isNewAsset = true;
-      } catch (error) {
-        if (
-          !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-          error.code !== PRISMA_UNIQUE_CONSTRAINT_VIOLATION
-        ) {
-          throw error;
-        }
-
-        // Lost the race — the winner's row is committed, so re-read it and
-        // carry on. `isNewAsset` deliberately stays `false`: the winner
-        // already triggered the backfill, and firing it again would issue a
-        // second 1y fetch against a rate-limited upstream for history that
-        // already exists. This is why the fix isn't a plain `upsert`, which
-        // can't report whether it inserted.
-        asset = await this.prisma.asset.findUnique({ where: { ticker: normalizedTicker } });
-
-        // A P2002 on `ticker` with no such row afterwards shouldn't be
-        // reachable; rethrowing the original beats returning a confusing
-        // "asset is null" further down.
-        if (!asset) {
-          throw error;
-        }
-      }
-    }
+    const { asset, wasCreated: isNewAsset } = await this.marketDataService.findOrCreateAsset(ticker);
 
     const existingHolding = await this.prisma.holding.findUnique({
       where: { userId_assetId: { userId, assetId: asset.id } },
@@ -335,7 +297,7 @@ export class PortfolioService {
     if (isNewAsset) {
       this.marketDataService.backfillHistory(asset.id).catch((error: unknown) => {
         this.logger.error(
-          `backfillHistory failed for newly-created asset ${asset!.ticker} (${asset!.id}): ${
+          `backfillHistory failed for newly-created asset ${asset.ticker} (${asset.id}): ${
             error instanceof Error ? error.message : String(error)
           }`,
         );

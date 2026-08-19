@@ -2,7 +2,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { PriceProvider, PRICE_PROVIDER, Quote } from './providers/price-provider.interface';
-import { Benchmark } from '../../generated/prisma/client';
+import { Asset, Benchmark, Prisma } from '../../generated/prisma/client';
+
+/** Prisma's error code for a unique-constraint violation (matches `auth.service.ts`/`portfolio.service.ts`). */
+const PRISMA_UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 /**
  * Fired after `refreshAllQuotes()` succeeds — see spec.md's Goals ("signals
@@ -72,6 +75,63 @@ export class MarketDataService {
     @Inject(PRICE_PROVIDER) private readonly priceProvider: PriceProvider,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * Find-or-create an `Asset` by ticker, normalised to uppercase before
+   * lookup — `Asset.ticker` is `@unique`, so `petr4` vs `PETR4` would
+   * otherwise create two rows and silently split one position in two.
+   *
+   * Moved here from `PortfolioService.upsertHolding`'s private copy
+   * (RECOMMENDED_PORTFOLIOS_US-1_T-5) — `market-data` owns the `Asset`
+   * model, and `portfolio` already depends on `MarketDataService`. Callers
+   * decide whether `wasCreated` should trigger a backfill; this method
+   * deliberately doesn't call `backfillHistory` itself — see this module's
+   * spec.md -> Behavior Notes: recommended wallets have no performance
+   * chart and don't need a 1-year backfill per new ticker, unlike
+   * `portfolio`'s holdings.
+   *
+   * Find-or-create is two statements, so two concurrent requests for the
+   * same brand-new ticker can both see `null` from `findUnique` and both
+   * attempt `create`. Postgres lets exactly one win; the other comes back
+   * with a P2002 unique-constraint violation, which — unhandled — would
+   * surface as a 500 on a perfectly ordinary request (two uploads racing
+   * the same new ticker). On that race, re-read and return the winner's row
+   * with `wasCreated: false`, so the loser doesn't re-trigger whatever the
+   * caller does with a newly-created asset.
+   */
+  async findOrCreateAsset(ticker: string): Promise<{ asset: Asset; wasCreated: boolean }> {
+    const normalizedTicker = ticker.toUpperCase();
+
+    let asset = await this.prisma.asset.findUnique({ where: { ticker: normalizedTicker } });
+    if (asset) {
+      return { asset, wasCreated: false };
+    }
+
+    try {
+      asset = await this.prisma.asset.create({
+        data: { ticker: normalizedTicker, name: normalizedTicker },
+      });
+      return { asset, wasCreated: true };
+    } catch (error) {
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== PRISMA_UNIQUE_CONSTRAINT_VIOLATION
+      ) {
+        throw error;
+      }
+
+      // Lost the race — the winner's row is committed, so re-read it and
+      // carry on. A P2002 on `ticker` with no such row afterwards shouldn't
+      // be reachable; rethrowing the original beats returning a confusing
+      // "asset is null" further down.
+      asset = await this.prisma.asset.findUnique({ where: { ticker: normalizedTicker } });
+      if (!asset) {
+        throw error;
+      }
+
+      return { asset, wasCreated: false };
+    }
+  }
 
   /**
    * Refreshes `currentPrice`/`currentChangePct`/`priceUpdatedAt` for every
