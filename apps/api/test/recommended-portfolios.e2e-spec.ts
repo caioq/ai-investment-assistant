@@ -1,0 +1,286 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import * as request from 'supertest';
+import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/configure-app';
+import { MarketDataService } from '../src/market-data/market-data.service';
+import { PrismaService } from '../src/prisma/prisma.service';
+
+/**
+ * RECOMMENDED_PORTFOLIOS_US-1_T-6 — `POST /advisor/recommended-portfolios/upload`.
+ *
+ * Full-app e2e per CONVENTIONS.md -> "Testing": `Test.createTestingModule`
+ * with the real `AppModule`, `configureApp(app)` before `.init()` so the
+ * cookie-guarded route actually works, and the fixtures from
+ * RECOMMENDED_PORTFOLIOS_SHARED_T-3 uploaded through supertest's `.attach()`
+ * rather than calling the service directly — this is what proves the whole
+ * HTTP path (multipart parsing, query/body DTO validation, the
+ * `AuthGuard`), not just the service layer already covered by
+ * `recommended-portfolios.service.spec.ts`.
+ */
+
+const FIXTURE_DIR = join(__dirname, 'fixtures', 'recommended-portfolios');
+
+function readFixture(name: string): string {
+  return readFileSync(join(FIXTURE_DIR, name), 'utf8');
+}
+
+// Namespaced to this suite (per CONVENTIONS.md -> "Testing" — e2e suites run
+// in parallel against one test Postgres, and reusing another suite's ticker
+// makes the two suites delete each other's rows). Matches every `CODIGO`
+// across the three fixtures (see their own README.md).
+const SUITE_TICKERS = [
+  'RPFA3',
+  'RPFB4',
+  'RPFC3',
+  'RPFD11',
+  'RPFE3',
+  'RPDA3',
+  'RPDB4',
+  'RPDC4',
+  'RPDD3',
+  'RPSA3',
+  'RPSB4',
+  'RPSC3',
+  'RPSD11',
+];
+
+const SUITE_EMAILS = [
+  'recommended-portfolios-e2e-1@example.com',
+  'recommended-portfolios-e2e-2@example.com',
+  'recommended-portfolios-e2e-3@example.com',
+  'recommended-portfolios-e2e-4@example.com',
+];
+
+describe('RecommendedPortfoliosController (e2e) - POST /advisor/recommended-portfolios/upload', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  // Stubs `MarketDataService.backfillHistory` so nothing reaches live Yahoo
+  // Finance (CONVENTIONS.md -> "Testing"). `findOrCreateAsset`
+  // (RECOMMENDED_PORTFOLIOS_US-1_T-5/T-6) is exercised for real below — it
+  // only touches the real `PrismaService` this suite already uses — via
+  // `jest.spyOn` on the real DI instance, same pattern as
+  // `portfolio.e2e-spec.ts`'s upload-csv suite.
+  let marketDataServiceStub: MarketDataService;
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+    marketDataServiceStub = moduleFixture.get(MarketDataService);
+    jest.spyOn(marketDataServiceStub, 'backfillHistory').mockResolvedValue(undefined);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Scoped to rows this suite creates, rather than an unscoped `deleteMany()`
+  // — e2e suites run in parallel against the same test Postgres
+  // (CONVENTIONS.md -> "Testing"). `recommendedPortfolio` is deleted first —
+  // its `holdings` cascade (`onDelete: Cascade`) — so the `asset` delete that
+  // follows isn't blocked by a still-referencing `RecommendedHolding.assetId`.
+  afterEach(async () => {
+    await prisma.recommendedPortfolio.deleteMany({
+      where: { user: { email: { in: SUITE_EMAILS } } },
+    });
+    await prisma.asset.deleteMany({ where: { ticker: { in: SUITE_TICKERS } } });
+    await prisma.user.deleteMany({ where: { email: { in: SUITE_EMAILS } } });
+  });
+
+  /** Registers a user, returning the `access_token` cookie array (register
+   * itself sets the cookie — see `auth.e2e-spec.ts`). */
+  async function authCookies(email: string): Promise<string[]> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  }
+
+  function uploadRequest(cookies: string[], wallet: string) {
+    return request(app.getHttpServer())
+      .post('/advisor/recommended-portfolios/upload')
+      .set('Cookie', cookies)
+      .query({ wallet });
+  }
+
+  it(
+    'spec AC-1/AC-2/AC-9: uploading the real Overall Recommended export persists every row, ' +
+      'the tickerless row lands with assetId: null, and a not-yet-seen ticker creates its Asset ' +
+      'and links it on the holding',
+    async () => {
+      const cookies = await authCookies(SUITE_EMAILS[0]);
+
+      const response = await uploadRequest(cookies, 'OVERALL_RECOMMENDED').attach(
+        'file',
+        Buffer.from(readFixture('overall-recommended.csv'), 'utf-8'),
+        'overall-recommended.csv',
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.walletType).toBe('OVERALL_RECOMMENDED');
+      expect(response.body.holdings).toHaveLength(6);
+
+      // AC-2: Overall's rows carry targetWeightPct.
+      for (const holding of response.body.holdings) {
+        expect(holding.targetWeightPct).not.toBeNull();
+      }
+
+      // AC-1: the tickerless "Renda Fixa - LFT Tesouro" row is not dropped.
+      const tickerless = response.body.holdings.find(
+        (h: { label: string }) => h.label === 'Renda Fixa - LFT Tesouro',
+      );
+      expect(tickerless).toBeDefined();
+      expect(tickerless.assetId).toBeNull();
+      expect(tickerless.targetWeightPct).toBe(15);
+
+      // AC-9: a ticker not previously seen (RPFA3) created its Asset, and the
+      // join is real — not merely that some Asset row now exists.
+      const rpfa3Holding = response.body.holdings.find(
+        (h: { limitPrice: number }) => h.limitPrice === 52,
+      );
+      expect(rpfa3Holding.assetId).not.toBeNull();
+
+      const asset = await prisma.asset.findUnique({ where: { id: rpfa3Holding.assetId } });
+      expect(asset?.ticker).toBe('RPFA3');
+    },
+  );
+
+  it('spec AC-2: after uploading Dividends or Small Caps, every row has targetWeightPct: null (not 0)', async () => {
+    const cookies = await authCookies(SUITE_EMAILS[1]);
+
+    const dividendsResponse = await uploadRequest(cookies, 'DIVIDENDS').attach(
+      'file',
+      Buffer.from(readFixture('dividends.csv'), 'utf-8'),
+      'dividends.csv',
+    );
+    expect(dividendsResponse.status).toBe(200);
+    for (const holding of dividendsResponse.body.holdings) {
+      expect(holding.targetWeightPct).toBeNull();
+    }
+
+    const smallCapsResponse = await uploadRequest(cookies, 'SMALL_CAPS').attach(
+      'file',
+      Buffer.from(readFixture('small-caps.csv'), 'utf-8'),
+      'small-caps.csv',
+    );
+    expect(smallCapsResponse.status).toBe(200);
+    for (const holding of smallCapsResponse.body.holdings) {
+      expect(holding.targetWeightPct).toBeNull();
+    }
+  });
+
+  it('spec AC-7: no Asset touched by any of the three wallets gets a riskRating or sector', async () => {
+    const cookies = await authCookies(SUITE_EMAILS[2]);
+
+    await uploadRequest(cookies, 'OVERALL_RECOMMENDED')
+      .attach('file', Buffer.from(readFixture('overall-recommended.csv'), 'utf-8'), 'overall.csv')
+      .expect(200);
+    await uploadRequest(cookies, 'DIVIDENDS')
+      .attach('file', Buffer.from(readFixture('dividends.csv'), 'utf-8'), 'dividends.csv')
+      .expect(200);
+    await uploadRequest(cookies, 'SMALL_CAPS')
+      .attach('file', Buffer.from(readFixture('small-caps.csv'), 'utf-8'), 'small-caps.csv')
+      .expect(200);
+
+    const assets = await prisma.asset.findMany({ where: { ticker: { in: SUITE_TICKERS } } });
+    expect(assets.length).toBeGreaterThan(0);
+    for (const asset of assets) {
+      expect(asset.riskRating).toBeNull();
+      expect(asset.sector).toBeNull();
+    }
+  });
+
+  it('spec AC-8, end-to-end: a targetWeightPct of 150% rejects the whole upload with 400 and persists nothing', async () => {
+    const cookies = await authCookies(SUITE_EMAILS[3]);
+
+    const badCsv = readFixture('overall-recommended.csv').replace('"25,00%"', '"150,00%"');
+
+    const response = await uploadRequest(cookies, 'OVERALL_RECOMMENDED').attach(
+      'file',
+      Buffer.from(badCsv, 'utf-8'),
+      'overall-recommended.csv',
+    );
+
+    expect(response.status).toBe(400);
+
+    const portfolios = await prisma.recommendedPortfolio.findMany({
+      where: { user: { email: SUITE_EMAILS[3] } },
+    });
+    expect(portfolios).toHaveLength(0);
+  });
+
+  it('returns 400 for an unrecognised ?wallet= value', async () => {
+    const cookies = await authCookies(SUITE_EMAILS[0]);
+
+    const response = await uploadRequest(cookies, 'BOGUS').attach(
+      'file',
+      Buffer.from(readFixture('overall-recommended.csv'), 'utf-8'),
+      'overall-recommended.csv',
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 400, not 500, when no file is attached', async () => {
+    const cookies = await authCookies(SUITE_EMAILS[0]);
+
+    const response = await uploadRequest(cookies, 'OVERALL_RECOMMENDED');
+
+    expect(response.status).toBe(400);
+  });
+
+  it('defaults effectiveDate to today at UTC midnight when omitted, and uses a supplied one otherwise', async () => {
+    const cookies = await authCookies(SUITE_EMAILS[0]);
+
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    ).toISOString();
+
+    const defaultedResponse = await uploadRequest(cookies, 'SMALL_CAPS').attach(
+      'file',
+      Buffer.from(readFixture('small-caps.csv'), 'utf-8'),
+      'small-caps.csv',
+    );
+    expect(defaultedResponse.status).toBe(200);
+    expect(defaultedResponse.body.effectiveDate).toBe(today);
+
+    const explicitResponse = await request(app.getHttpServer())
+      .post('/advisor/recommended-portfolios/upload')
+      .set('Cookie', cookies)
+      .query({ wallet: 'DIVIDENDS' })
+      .field('effectiveDate', '2020-05-01')
+      .field('sourceName', 'XP')
+      .attach('file', Buffer.from(readFixture('dividends.csv'), 'utf-8'), 'dividends.csv');
+
+    expect(explicitResponse.status).toBe(200);
+    expect(explicitResponse.body.effectiveDate).toBe('2020-05-01T00:00:00.000Z');
+    expect(explicitResponse.body.sourceName).toBe('XP');
+  });
+
+  it('returns 401 when no auth cookie is sent', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/advisor/recommended-portfolios/upload')
+      .query({ wallet: 'OVERALL_RECOMMENDED' })
+      .attach('file', Buffer.from(readFixture('overall-recommended.csv'), 'utf-8'), 'overall.csv');
+
+    expect(response.status).toBe(401);
+  });
+});

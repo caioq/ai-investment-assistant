@@ -1,6 +1,6 @@
 # US-1: Upload a research house's wallet export
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Ingest a research-house CSV per wallet type. Three exist today — Overall Recommended, Dividends, Small Caps — and adding a fourth must not require new parsing code." / Goal "Normalise the published columns into a common shape…" / ACs 1–9 (in `../spec.md`)
 
 As someone following a research house, I want to upload their wallet export exactly as they publish it, so the AI Advisor gets structured recommendations without me reformatting a spreadsheet first.
@@ -12,7 +12,7 @@ As someone following a research house, I want to upload their wallet export exac
 - [x] [T-3: row normalisation](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-3-row-normalisation.md)
 - [x] [T-4: whole-file validation](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-4-whole-file-validation.md)
 - [x] [T-5: extract findOrCreateAsset to MarketDataService](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-5-find-or-create-asset.md)
-- [ ] [T-6: POST /advisor/recommended-portfolios/upload](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-6-upload-endpoint.md)
+- [x] [T-6: POST /advisor/recommended-portfolios/upload](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-6-upload-endpoint.md)
 
 ## Notes
 
