@@ -1,7 +1,7 @@
 # RECOMMENDED_PORTFOLIOS_US-1_T-4: whole-file validation
 
 **Story:** [../stories/US-1-ingest-wallet-export.md](../stories/US-1-ingest-wallet-export.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #146 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** RECOMMENDED_PORTFOLIOS_US-1_T-3
 
