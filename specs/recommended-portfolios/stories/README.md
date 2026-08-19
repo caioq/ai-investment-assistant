@@ -7,7 +7,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 | Story | Title | Status | Tasks |
 |---|---|---|---|
 | [US-1](./US-1-ingest-wallet-export.md) | Upload a research house's wallet export | Done | T-1..T-6 in `../tasks/` |
-| [US-2](./US-2-version-history.md) | Keep every version of every wallet | Ready | T-1 in `../tasks/` |
+| [US-2](./US-2-version-history.md) | Keep every version of every wallet | Done | T-1 in `../tasks/` |
 | [US-3](./US-3-latest-per-wallet.md) | Read the current wallet per type | Ready | T-1 in `../tasks/` |
 
 ## Cross-cutting tasks

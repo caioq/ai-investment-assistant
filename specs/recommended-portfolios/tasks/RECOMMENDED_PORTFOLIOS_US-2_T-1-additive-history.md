@@ -1,7 +1,7 @@
 # RECOMMENDED_PORTFOLIOS_US-2_T-1: every upload is additive
 
 **Story:** [../stories/US-2-version-history.md](../stories/US-2-version-history.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #149 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** RECOMMENDED_PORTFOLIOS_US-1_T-6
 
