@@ -11,7 +11,7 @@ As someone following a research house, I want to upload their wallet export exac
 - [x] [T-2: header-driven column resolution](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-2-header-column-mapping.md)
 - [x] [T-3: row normalisation](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-3-row-normalisation.md)
 - [x] [T-4: whole-file validation](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-4-whole-file-validation.md)
-- [ ] [T-5: extract findOrCreateAsset to MarketDataService](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-5-find-or-create-asset.md)
+- [x] [T-5: extract findOrCreateAsset to MarketDataService](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-5-find-or-create-asset.md)
 - [ ] [T-6: POST /advisor/recommended-portfolios/upload](../tasks/RECOMMENDED_PORTFOLIOS_US-1_T-6-upload-endpoint.md)
 
 ## Notes

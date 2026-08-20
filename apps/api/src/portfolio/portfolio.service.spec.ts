@@ -51,12 +51,27 @@ describe('PortfolioService', () => {
       },
       portfolioValueSnapshot: { upsert: jest.fn().mockResolvedValue(undefined) },
     };
-    marketDataService = { backfillHistory: jest.fn().mockResolvedValue(undefined) };
-
-    service = new PortfolioService(
+    // `findOrCreateAsset` (RECOMMENDED_PORTFOLIOS_US-1_T-5) now lives on
+    // `MarketDataService`, so this suite wires a *real* `MarketDataService`
+    // instance backed by the same mocked `prisma` above, rather than
+    // reimplementing its find-or-create + P2002-race logic a second time as
+    // a test double (that logic and its own tests now live in
+    // `market-data.service.spec.ts`). Only `backfillHistory` — the one
+    // method that would otherwise reach out to a real `PriceProvider` — is
+    // stubbed. This is what lets the concurrent-creation cases below keep
+    // asserting directly against `prisma.asset`, unchanged from before the
+    // refactor.
+    const realMarketDataService = new MarketDataService(
       prisma as unknown as PrismaService,
-      marketDataService as unknown as MarketDataService,
+      {} as never,
+      { emit: jest.fn() } as never,
     );
+    const backfillHistorySpy = jest
+      .spyOn(realMarketDataService, 'backfillHistory')
+      .mockResolvedValue(undefined) as unknown as jest.Mock;
+    marketDataService = { backfillHistory: backfillHistorySpy };
+
+    service = new PortfolioService(prisma as unknown as PrismaService, realMarketDataService);
   });
 
   afterEach(() => {
