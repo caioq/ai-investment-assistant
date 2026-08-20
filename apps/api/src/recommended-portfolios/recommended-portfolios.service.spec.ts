@@ -3,6 +3,7 @@ import { join } from 'path';
 import { BadRequestException } from '@nestjs/common';
 import { WalletType } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MarketDataService } from '../market-data/market-data.service';
 import { RecommendedPortfoliosService } from './recommended-portfolios.service';
 
 /**
@@ -42,6 +43,7 @@ const OVERALL_ROW_2 =
 describe('RecommendedPortfoliosService', () => {
   let service: RecommendedPortfoliosService;
   let prisma: { recommendedPortfolio: { create: jest.Mock } };
+  let marketDataService: { findOrCreateAsset: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -49,7 +51,21 @@ describe('RecommendedPortfoliosService', () => {
         create: jest.fn().mockResolvedValue({ id: 'portfolio-id', holdings: [] }),
       },
     };
-    service = new RecommendedPortfoliosService(prisma as unknown as PrismaService);
+    // `findOrCreateAsset` (RECOMMENDED_PORTFOLIOS_US-1_T-5/T-6) is mocked
+    // here — a unit test mocks `PrismaService` (CONVENTIONS.md -> "Testing"),
+    // and asset resolution against a real DB is covered end-to-end by
+    // `recommended-portfolios.e2e-spec.ts` instead (spec AC-9).
+    marketDataService = {
+      findOrCreateAsset: jest
+        .fn()
+        .mockImplementation((ticker: string) =>
+          Promise.resolve({ asset: { id: `asset-${ticker}` }, wasCreated: false }),
+        ),
+    };
+    service = new RecommendedPortfoliosService(
+      prisma as unknown as PrismaService,
+      marketDataService as unknown as MarketDataService,
+    );
   });
 
   function upload(csvText: string) {
