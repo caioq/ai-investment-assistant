@@ -52,6 +52,9 @@ const SUITE_EMAILS = [
   'recommended-portfolios-e2e-2@example.com',
   'recommended-portfolios-e2e-3@example.com',
   'recommended-portfolios-e2e-4@example.com',
+  'recommended-portfolios-e2e-5@example.com',
+  'recommended-portfolios-e2e-6@example.com',
+  'recommended-portfolios-e2e-7@example.com',
 ];
 
 describe('RecommendedPortfoliosController (e2e) - POST /advisor/recommended-portfolios/upload', () => {
@@ -282,5 +285,143 @@ describe('RecommendedPortfoliosController (e2e) - POST /advisor/recommended-port
       .attach('file', Buffer.from(readFixture('overall-recommended.csv'), 'utf-8'), 'overall.csv');
 
     expect(response.status).toBe(401);
+  });
+
+  /**
+   * RECOMMENDED_PORTFOLIOS_US-2_T-1 — pins the version-history guarantee
+   * itself (spec Behavior Notes: "Uploading never deletes or mutates a
+   * prior RecommendedPortfolio"; AC-10/AC-11), rather than inferring it from
+   * `GET .../latest` happening to return the right row. `GET .../latest`
+   * isn't implemented yet (that's a later task), so these read straight from
+   * `PrismaService` — the same escape hatch every other test in this file
+   * already uses to verify persisted state beyond the upload response body.
+   *
+   * The failure mode this guards against is an upsert keyed on
+   * `(userId, walletType)` or `(walletType, effectiveDate)` — either looks
+   * correct, passes every US-1 upload test, and silently overwrites a prior
+   * snapshot. A row-count assertion alone would pass an implementation that
+   * adds a row *and* mutates the old one, so case 1 below also varies a
+   * value (PRECO_TETO/RECOMENDACAO) between the two uploads and asserts the
+   * first snapshot kept its original values.
+   */
+  describe('additive history (RECOMMENDED_PORTFOLIOS_US-2_T-1)', () => {
+    it(
+      'spec AC-10: uploading DIVIDENDS twice with different effectiveDates leaves exactly 2 rows, ' +
+        'and the first snapshot is untouched by the second upload',
+      async () => {
+        const cookies = await authCookies(SUITE_EMAILS[4]);
+
+        const firstResponse = await request(app.getHttpServer())
+          .post('/advisor/recommended-portfolios/upload')
+          .set('Cookie', cookies)
+          .query({ wallet: 'DIVIDENDS' })
+          .field('effectiveDate', '2024-01-01')
+          .attach('file', Buffer.from(readFixture('dividends.csv'), 'utf-8'), 'dividends.csv');
+        expect(firstResponse.status).toBe(200);
+
+        const firstAlfaHolding = firstResponse.body.holdings.find(
+          (h: { label: string }) => h.label === 'Alfa Energia Participacoes',
+        );
+        expect(firstAlfaHolding.limitPrice).toBe(50);
+        expect(firstAlfaHolding.recommendation).toBe('BUY');
+
+        // Vary PRECO_TETO and RECOMENDACAO for the same row between uploads,
+        // per the task's "Test" note — a row-count assertion alone can't
+        // distinguish "added a row" from "added a row and mutated the old one".
+        const modifiedCsv = readFixture('dividends.csv')
+          .replace('"R$ 50,00"', '"R$ 99,00"')
+          .replace(',RPDA3,COMPRA,', ',RPDA3,VENDA,');
+
+        const secondResponse = await request(app.getHttpServer())
+          .post('/advisor/recommended-portfolios/upload')
+          .set('Cookie', cookies)
+          .query({ wallet: 'DIVIDENDS' })
+          .field('effectiveDate', '2024-02-01')
+          .attach('file', Buffer.from(modifiedCsv, 'utf-8'), 'dividends-modified.csv');
+        expect(secondResponse.status).toBe(200);
+
+        const portfolios = await prisma.recommendedPortfolio.findMany({
+          where: { user: { email: SUITE_EMAILS[4] }, walletType: 'DIVIDENDS' },
+          include: { holdings: true },
+        });
+        expect(portfolios).toHaveLength(2);
+
+        const firstPortfolio = portfolios.find((p) => p.id === firstResponse.body.id);
+        expect(firstPortfolio).toBeDefined();
+        expect(firstPortfolio!.effectiveDate.toISOString()).toBe('2024-01-01T00:00:00.000Z');
+
+        const untouchedAlfaHolding = firstPortfolio!.holdings.find(
+          (h) => h.label === 'Alfa Energia Participacoes',
+        );
+        expect(untouchedAlfaHolding?.limitPrice).toBe(50);
+        expect(untouchedAlfaHolding?.recommendation).toBe('BUY');
+      },
+    );
+
+    it('spec AC-11: uploading DIVIDENDS twice with the same effectiveDate also yields 2 rows', async () => {
+      const cookies = await authCookies(SUITE_EMAILS[5]);
+
+      const firstResponse = await request(app.getHttpServer())
+        .post('/advisor/recommended-portfolios/upload')
+        .set('Cookie', cookies)
+        .query({ wallet: 'DIVIDENDS' })
+        .field('effectiveDate', '2024-03-01')
+        .attach('file', Buffer.from(readFixture('dividends.csv'), 'utf-8'), 'dividends.csv');
+      expect(firstResponse.status).toBe(200);
+
+      const secondResponse = await request(app.getHttpServer())
+        .post('/advisor/recommended-portfolios/upload')
+        .set('Cookie', cookies)
+        .query({ wallet: 'DIVIDENDS' })
+        .field('effectiveDate', '2024-03-01')
+        .attach('file', Buffer.from(readFixture('dividends.csv'), 'utf-8'), 'dividends.csv');
+      expect(secondResponse.status).toBe(200);
+      expect(secondResponse.body.id).not.toBe(firstResponse.body.id);
+
+      const portfolios = await prisma.recommendedPortfolio.findMany({
+        where: { user: { email: SUITE_EMAILS[5] }, walletType: 'DIVIDENDS' },
+      });
+      expect(portfolios).toHaveLength(2);
+    });
+
+    it('uploading a different wallet type leaves the DIVIDENDS snapshots untouched', async () => {
+      const cookies = await authCookies(SUITE_EMAILS[6]);
+
+      await request(app.getHttpServer())
+        .post('/advisor/recommended-portfolios/upload')
+        .set('Cookie', cookies)
+        .query({ wallet: 'DIVIDENDS' })
+        .field('effectiveDate', '2024-04-01')
+        .attach('file', Buffer.from(readFixture('dividends.csv'), 'utf-8'), 'dividends.csv')
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/advisor/recommended-portfolios/upload')
+        .set('Cookie', cookies)
+        .query({ wallet: 'DIVIDENDS' })
+        .field('effectiveDate', '2024-05-01')
+        .attach('file', Buffer.from(readFixture('dividends.csv'), 'utf-8'), 'dividends.csv')
+        .expect(200);
+
+      const dividendsBefore = await prisma.recommendedPortfolio.findMany({
+        where: { user: { email: SUITE_EMAILS[6] }, walletType: 'DIVIDENDS' },
+      });
+      expect(dividendsBefore).toHaveLength(2);
+
+      await request(app.getHttpServer())
+        .post('/advisor/recommended-portfolios/upload')
+        .set('Cookie', cookies)
+        .query({ wallet: 'SMALL_CAPS' })
+        .attach('file', Buffer.from(readFixture('small-caps.csv'), 'utf-8'), 'small-caps.csv')
+        .expect(200);
+
+      const dividendsAfter = await prisma.recommendedPortfolio.findMany({
+        where: { user: { email: SUITE_EMAILS[6] }, walletType: 'DIVIDENDS' },
+        include: { holdings: true },
+      });
+      expect(dividendsAfter).toHaveLength(2);
+      expect(new Set(dividendsAfter.map((p) => p.id))).toEqual(
+        new Set(dividendsBefore.map((p) => p.id)),
+      );
+    });
   });
 });

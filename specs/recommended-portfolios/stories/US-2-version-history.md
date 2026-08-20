@@ -1,13 +1,13 @@
 # US-2: Keep every version of every wallet
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Keep a full version history — every upload creates a new snapshot rather than overwriting the previous one, so past AI analyses stay reproducible against the exact wallet version they used." / AC "Uploading for `DIVIDENDS` twice (different `effectiveDate`) results in 2 `RecommendedPortfolio` rows, the first one unmodified…" / AC "Two uploads for the same wallet with the **same** `effectiveDate` both persist…" (in `../spec.md`)
 
 As the AI Advisor, I want every wallet upload preserved rather than overwritten, so an analysis I produced three months ago can still be traced to the exact recommendations it reasoned over.
 
 ## Tasks
 
-- [ ] [T-1: every upload is additive](../tasks/RECOMMENDED_PORTFOLIOS_US-2_T-1-additive-history.md)
+- [x] [T-1: every upload is additive](../tasks/RECOMMENDED_PORTFOLIOS_US-2_T-1-additive-history.md)
 
 ## Notes
 
