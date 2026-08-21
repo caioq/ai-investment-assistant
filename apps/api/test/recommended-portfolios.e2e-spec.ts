@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/configure-app';
 import { MarketDataService } from '../src/market-data/market-data.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { RecommendedPortfolio, WalletType } from '../generated/prisma/client';
 
 /**
  * RECOMMENDED_PORTFOLIOS_US-1_T-6 — `POST /advisor/recommended-portfolios/upload`.
@@ -423,5 +424,274 @@ describe('RecommendedPortfoliosController (e2e) - POST /advisor/recommended-port
         new Set(dividendsBefore.map((p) => p.id)),
       );
     });
+  });
+});
+
+/**
+ * RECOMMENDED_PORTFOLIOS_US-3_T-1 — `GET /advisor/recommended-portfolios/latest`.
+ *
+ * Full-app e2e per CONVENTIONS.md -> "Testing". Unlike the upload suite
+ * (RECOMMENDED_PORTFOLIOS_US-1_T-6), this endpoint only reads snapshots, so
+ * fixtures are seeded **directly via Prisma** rather than through the
+ * upload path — the task's own `Test:` field calls this out explicitly:
+ * this endpoint's behaviour must not depend on the upload path working.
+ */
+
+// Namespaced to this suite (per CONVENTIONS.md -> "Testing" — e2e suites run
+// in parallel against one test Postgres, and reusing another suite's fixture
+// values makes the two suites delete each other's rows).
+const LATEST_SUITE_EMAILS = [
+  'recommended-portfolios-latest-e2e-a@example.com',
+  'recommended-portfolios-latest-e2e-b@example.com',
+  'recommended-portfolios-latest-e2e-c@example.com',
+  'recommended-portfolios-latest-e2e-d@example.com',
+  'recommended-portfolios-latest-e2e-e@example.com',
+  'recommended-portfolios-latest-e2e-f@example.com',
+  'recommended-portfolios-latest-e2e-g@example.com',
+];
+
+describe('RecommendedPortfoliosController (e2e) - GET /advisor/recommended-portfolios/latest', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // Scoped to rows this suite creates, rather than an unscoped `deleteMany()`
+  // — e2e suites run in parallel against the same test Postgres
+  // (CONVENTIONS.md -> "Testing"). `recommendedPortfolio` is deleted first —
+  // its `holdings` cascade (`onDelete: Cascade`) — before the owning `user`
+  // rows are removed.
+  afterEach(async () => {
+    await prisma.recommendedPortfolio.deleteMany({
+      where: { user: { email: { in: LATEST_SUITE_EMAILS } } },
+    });
+    await prisma.user.deleteMany({ where: { email: { in: LATEST_SUITE_EMAILS } } });
+  });
+
+  /** Registers a user, returning the `access_token` cookie array (register
+   * itself sets the cookie — see `auth.e2e-spec.ts`). */
+  async function authCookies(email: string): Promise<string[]> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  }
+
+  /** Seeds one `RecommendedPortfolio` + a single `RecommendedHolding`
+   * directly via Prisma — this endpoint reads snapshots and must not depend
+   * on the upload path working. `assetId: null` keeps fixtures self
+   * contained (no `Asset` row needed) — `RecommendedHolding.label` is
+   * always present regardless. */
+  async function seedPortfolio(
+    userId: string,
+    walletType: WalletType,
+    effectiveDate: string,
+    uploadedAt: Date,
+    label: string,
+  ): Promise<RecommendedPortfolio> {
+    return prisma.recommendedPortfolio.create({
+      data: {
+        userId,
+        walletType,
+        effectiveDate: new Date(effectiveDate),
+        uploadedAt,
+        holdings: {
+          create: [{ label, assetId: null }],
+        },
+      },
+    });
+  }
+
+  function getLatest(cookies: string[]) {
+    return request(app.getHttpServer())
+      .get('/advisor/recommended-portfolios/latest')
+      .set('Cookie', cookies);
+  }
+
+  it('spec AC-10: two DIVIDENDS snapshots with different effectiveDates - only the newer one comes back, with holdings', async () => {
+    const cookies = await authCookies(LATEST_SUITE_EMAILS[0]);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: LATEST_SUITE_EMAILS[0] } });
+
+    await seedPortfolio(
+      user.id,
+      'DIVIDENDS',
+      '2026-08-01',
+      new Date('2026-08-01T10:00:00Z'),
+      'Older',
+    );
+    const newer = await seedPortfolio(
+      user.id,
+      'DIVIDENDS',
+      '2026-08-15',
+      new Date('2026-08-15T10:00:00Z'),
+      'Newer',
+    );
+
+    const response = await getLatest(cookies);
+
+    expect(response.status).toBe(200);
+    const dividendsEntries = response.body.filter(
+      (entry: { walletType: string }) => entry.walletType === 'DIVIDENDS',
+    );
+    expect(dividendsEntries).toHaveLength(1);
+    expect(dividendsEntries[0].id).toBe(newer.id);
+    expect(dividendsEntries[0].holdings).toHaveLength(1);
+    expect(dividendsEntries[0].holdings[0].label).toBe('Newer');
+  });
+
+  it('spec AC-12: 3/2/1 versions across the three wallet types - exactly 3 entries, one per type', async () => {
+    const cookies = await authCookies(LATEST_SUITE_EMAILS[1]);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: LATEST_SUITE_EMAILS[1] } });
+
+    // 3 DIVIDENDS versions - a "take the first 3 by effectiveDate"
+    // implementation would return all three of these and nothing else.
+    await seedPortfolio(user.id, 'DIVIDENDS', '2026-08-01', new Date('2026-08-01T10:00:00Z'), 'D1');
+    await seedPortfolio(user.id, 'DIVIDENDS', '2026-08-02', new Date('2026-08-02T10:00:00Z'), 'D2');
+    const dividendsLatest = await seedPortfolio(
+      user.id,
+      'DIVIDENDS',
+      '2026-08-03',
+      new Date('2026-08-03T10:00:00Z'),
+      'D3',
+    );
+
+    // 2 OVERALL_RECOMMENDED versions.
+    await seedPortfolio(
+      user.id,
+      'OVERALL_RECOMMENDED',
+      '2026-08-01',
+      new Date('2026-08-01T10:00:00Z'),
+      'O1',
+    );
+    const overallLatest = await seedPortfolio(
+      user.id,
+      'OVERALL_RECOMMENDED',
+      '2026-08-02',
+      new Date('2026-08-02T10:00:00Z'),
+      'O2',
+    );
+
+    // 1 SMALL_CAPS version.
+    const smallCapsLatest = await seedPortfolio(
+      user.id,
+      'SMALL_CAPS',
+      '2026-08-01',
+      new Date('2026-08-01T10:00:00Z'),
+      'S1',
+    );
+
+    const response = await getLatest(cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(3);
+
+    const byType = new Map(
+      response.body.map((entry: { walletType: string; id: string }) => [
+        entry.walletType,
+        entry.id,
+      ]),
+    );
+    expect(byType.get('DIVIDENDS')).toBe(dividendsLatest.id);
+    expect(byType.get('OVERALL_RECOMMENDED')).toBe(overallLatest.id);
+    expect(byType.get('SMALL_CAPS')).toBe(smallCapsLatest.id);
+  });
+
+  it('spec AC-11: two DIVIDENDS snapshots sharing effectiveDate but differing uploadedAt - the later-uploaded one wins', async () => {
+    const cookies = await authCookies(LATEST_SUITE_EMAILS[2]);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: LATEST_SUITE_EMAILS[2] } });
+
+    await seedPortfolio(
+      user.id,
+      'DIVIDENDS',
+      '2026-08-10',
+      new Date('2026-08-10T08:00:00Z'),
+      'First upload',
+    );
+    const laterUpload = await seedPortfolio(
+      user.id,
+      'DIVIDENDS',
+      '2026-08-10',
+      new Date('2026-08-10T18:00:00Z'),
+      'Corrected upload',
+    );
+
+    const response = await getLatest(cookies);
+
+    expect(response.status).toBe(200);
+    const dividendsEntries = response.body.filter(
+      (entry: { walletType: string }) => entry.walletType === 'DIVIDENDS',
+    );
+    expect(dividendsEntries).toHaveLength(1);
+    expect(dividendsEntries[0].id).toBe(laterUpload.id);
+  });
+
+  it('a wallet type with no uploads is absent from the response, not present with a null payload', async () => {
+    const cookies = await authCookies(LATEST_SUITE_EMAILS[3]);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: LATEST_SUITE_EMAILS[3] } });
+
+    await seedPortfolio(user.id, 'DIVIDENDS', '2026-08-01', new Date('2026-08-01T10:00:00Z'), 'D1');
+
+    const response = await getLatest(cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+    expect(response.body.every((entry: unknown) => entry !== null)).toBe(true);
+    expect(
+      response.body.some((entry: { walletType: string }) => entry.walletType === 'SMALL_CAPS'),
+    ).toBe(false);
+  });
+
+  it('a user with no snapshots gets 200 and []', async () => {
+    const cookies = await authCookies(LATEST_SUITE_EMAILS[4]);
+
+    const response = await getLatest(cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  it("snapshots belonging to another user never appear in this user's response", async () => {
+    const cookiesA = await authCookies(LATEST_SUITE_EMAILS[5]);
+    const userB = await prisma.user.create({
+      data: { email: LATEST_SUITE_EMAILS[6], passwordHash: 'not-a-real-hash' },
+    });
+
+    await seedPortfolio(
+      userB.id,
+      'DIVIDENDS',
+      '2026-08-01',
+      new Date('2026-08-01T10:00:00Z'),
+      'B1',
+    );
+
+    const response = await getLatest(cookiesA);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  it('returns 401 when no auth cookie is sent', async () => {
+    const response = await request(app.getHttpServer()).get(
+      '/advisor/recommended-portfolios/latest',
+    );
+
+    expect(response.status).toBe(401);
   });
 });
