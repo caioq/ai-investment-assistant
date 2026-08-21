@@ -90,29 +90,41 @@ export class RecommendedPortfoliosService {
    * Latest `RecommendedPortfolio` per `walletType` for `userId`, with its
    * `holdings` included (spec.md -> API Contract, RECOMMENDED_PORTFOLIOS_US-3_T-1).
    *
-   * Fetches everything for the user ordered by `effectiveDate` desc, then
-   * `uploadedAt` desc (spec.md -> Behavior Notes: the tie-break is
-   * load-bearing since `effectiveDate` defaults to today and history is
-   * additive, so two same-day uploads are common), and keeps only the
-   * first row seen per `walletType` in JS rather than relying on Prisma's
-   * `distinct` (whose SQL translation isn't guaranteed to honor multi-field
-   * ordering the same way across drivers) — explicit and easy to verify
-   * against the spec's own wording.
+   * Two queries rather than one, on purpose: history is additive (spec.md ->
+   * Behavior Notes) — old uploads are never deleted — so a single
+   * `findMany({ include: { holdings: true } })` over every row the user has
+   * ever uploaded would pull an ever-growing amount of holdings data just to
+   * discard all but 3 rows in JS. The first query fetches only `id`/
+   * `walletType` (no join) ordered by `effectiveDate` desc, then
+   * `uploadedAt` desc (the tie-break is load-bearing since `effectiveDate`
+   * defaults to today and two same-day uploads are common) to pick the
+   * winning id per wallet type in JS — still not Prisma's `distinct`, whose
+   * SQL translation isn't guaranteed to honor multi-field ordering the same
+   * way across drivers. The second query then fetches full rows + holdings
+   * for only those (at most 3) ids, so the holdings join is never larger
+   * than what's actually returned.
    */
   async getLatestPerWallet(userId: string): Promise<RecommendedPortfolioWithHoldings[]> {
     const portfolios = await this.prisma.recommendedPortfolio.findMany({
       where: { userId },
       orderBy: [{ effectiveDate: 'desc' }, { uploadedAt: 'desc' }],
-      include: { holdings: true },
+      select: { id: true, walletType: true },
     });
 
-    const latestByWallet = new Map<WalletType, RecommendedPortfolioWithHoldings>();
+    const latestIdByWallet = new Map<WalletType, string>();
     for (const portfolio of portfolios) {
-      if (!latestByWallet.has(portfolio.walletType)) {
-        latestByWallet.set(portfolio.walletType, portfolio);
+      if (!latestIdByWallet.has(portfolio.walletType)) {
+        latestIdByWallet.set(portfolio.walletType, portfolio.id);
       }
     }
 
-    return Array.from(latestByWallet.values());
+    if (latestIdByWallet.size === 0) {
+      return [];
+    }
+
+    return this.prisma.recommendedPortfolio.findMany({
+      where: { id: { in: [...latestIdByWallet.values()] } },
+      include: { holdings: true },
+    });
   }
 }
