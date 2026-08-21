@@ -36,13 +36,13 @@ Two things the spec leaves open. Both are called out here rather than silently c
 Surfaced while breaking this spec down; neither is portfolio work, so neither became a task here:
 
 - **CI runs no tests.** `.github/workflows/ci.yml` runs lint, typecheck, and the two builds — there is no test step, so none of the repo's ~55 existing tests gate a PR. `CONVENTIONS.md` → "CI" says a test step would be "added once the first feature module lands its own tests", which happened back in `auth`; the trigger has been met and missed. Every task in this breakdown is specified red-green, and none of that is enforced on merge until this is fixed.
-- **No endpoint writes `Asset.investmentStyle`/`riskRating`.** The spec says they're "edited from the holdings UI even though they're stored on `Asset`", but its API Contract defines no endpoint that sets them, and market-data never writes them either — so today they are permanently `null`, which makes `?by=investmentStyle` and `?by=riskRating` return a single `"Unclassified"` slice. Adding an endpoint would be feature work outside the approved spec, so this wants a `/spec portfolio` pass first.
+- ~~**No endpoint writes `Asset.investmentStyle`/`riskRating`.**~~ **Resolved.** All four classification fields (`sector`, `subSector`, `investmentStyle`, `riskRating`) moved from `Asset` to `Holding` and are now supplied by the holdings CSV — see the spec's "Classification is per-user" note. `?by=investmentStyle` and `?by=riskRating` return real slices once a classified CSV is uploaded. **The tasks below predate that change**: `US-2_T-1`/`T-2` describe a fixed three-column CSV, and `US-3_T-2` maps `by=` to `asset.*` rather than `holding.*`. A `/user-stories portfolio` refinement pass is needed to add the tasks that implement the move.
 
 ## Out of scope for this pass
 
 - **Multiple portfolios per user**, **brokerage integration**, and **dividend tracking** — all explicit spec Non-Goals. In particular there is no `Portfolio` entity: a user's portfolio *is* their set of `Holding` rows, which is why every endpoint scopes on `userId` rather than a `portfolioId`.
 - **Any UI.** This module ends at the JSON API; rendering belongs to [dashboard-ui](../../dashboard-ui/spec.md).
-- **Editing `investmentStyle`/`riskRating`.** The spec notes these are "edited from the holdings UI even though they're stored on `Asset`" — but they're `Asset` columns owned by [market-data](../../market-data/spec.md), and no endpoint in this module's API Contract writes them. Flagged rather than assumed: if the holdings UI needs to set them, that needs an endpoint the spec doesn't currently define, so it wants a spec pass first.
+- **Editing `investmentStyle`/`riskRating` from the UI.** They are now `Holding` columns owned by this module and are set by re-uploading the holdings CSV (the spec's Non-Goal "a correction means uploading a new CSV" applies here too). A per-holding edit endpoint is still undefined — `PATCH /portfolio/holdings/:id` accepts only `quantity`/`avgPrice` — so an inline UI editor would need a spec pass.
 
 ## Notes on module boundaries
 
