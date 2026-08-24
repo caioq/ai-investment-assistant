@@ -23,12 +23,16 @@ The user needs to record which B3 stocks they hold (ticker, quantity, average pr
 ## Data Model
 
 ```prisma
+// Normalised from the holdings CSV's Portuguese `Classificacao` column.
+// `ETF` is in the list because the user's sheet classifies SMAL11 that way —
+// the enum follows the source data rather than a tidier taxonomy.
 enum InvestmentStyle {
   SMALL_CAP
   MICRO_CAP
   DIVIDENDS
   VALUE_INVESTING
   TURNAROUND
+  ETF
 }
 
 // Standard S&P / Fitch long-term scale (identical notation between the two
@@ -71,7 +75,10 @@ model Holding {
   avgPrice  Float    @map("avg_price")
 
   /// The user's own classification of this position, supplied by the holdings
-  /// CSV (all four optional — a CSV may omit the columns entirely).
+  /// CSV (all five optional — a CSV may omit the columns entirely).
+  /// `assetType` reuses market-data's `AssetType` enum; the CSV's `Tipo` value
+  /// `Acao` (stock) normalises to `EQUITY`.
+  assetType       AssetType?       @map("asset_type")
   sector          String?
   subSector       String?          @map("sub_sector")
   investmentStyle InvestmentStyle? @map("investment_style")
@@ -122,7 +129,7 @@ All endpoints scoped to `req.user.id` (see [auth](../auth/spec.md)); no `portfol
 |---|---|---|---|
 | GET | `/portfolio/holdings` | — | `Holding[]` joined with `Asset` |
 | POST | `/portfolio/holdings` | `{ ticker, quantity, avgPrice }` | created `Holding` (creates the `Asset` row if the ticker is new) |
-| POST | `/portfolio/holdings/upload-csv` | multipart CSV, header-driven: `ticker`, `quantity`, `avgPrice` required; `sector`, `subSector`, `investmentStyle`, `riskRating` optional | `{ created, updated, errors[] }` |
+| POST | `/portfolio/holdings/upload-csv` | multipart CSV, resolved by header name: `Ticker`, `Quantidade`, `Preco Médio` required; `Grupo`, `Setor`, `Classificacao`, `Risco`, `Tipo` optional | `{ created, updated, errors[] }` |
 | PATCH | `/portfolio/holdings/:id` | `{ quantity?, avgPrice? }` | updated `Holding` |
 | DELETE | `/portfolio/holdings/:id` | — | `204` |
 | GET | `/portfolio/summary` | — | `{ totalInvested, currentValue, gainLoss, returnPct }` |
@@ -134,9 +141,26 @@ All endpoints scoped to `req.user.id` (see [auth](../auth/spec.md)); no `portfol
 - Adding a holding for a ticker not yet in `Asset` creates the `Asset` row (see [market-data](../market-data/spec.md) for how it then gets priced).
 - `avgPrice` is used as a fallback current price only until [market-data](../market-data/spec.md) populates `Asset.currentPrice` for that ticker.
 - CSV upload is row-by-row upsert on `(userId, assetId)` — a ticker already held gets its `quantity`/`avgPrice` updated, not duplicated; malformed rows are collected in `errors[]` and don't fail the whole batch.
-- **The holdings CSV is parsed by header name, not column position**, so the four classification columns are genuinely optional and may appear in any order. A file with only `ticker,quantity,avgPrice` — the original format — must keep working unchanged, leaving all four classification fields `null`. This mirrors the header-driven parser [recommended-portfolios](../recommended-portfolios/spec.md) uses for its three differently-shaped wallet exports; positional parsing cannot express "optional column".
-- **An omitted column and an empty cell are not the same thing.** A column absent from the header leaves the existing stored value untouched on re-upload (the user simply isn't saying anything about it); an empty cell in a present column clears that field to `null` (the user is explicitly saying "unclassified"). Without this distinction, re-importing a positions-only export would silently wipe classifications the user had already supplied.
-- `investmentStyle` and `riskRating` are validated against their enums; an unrecognised value is a row error, not a silent `null`, so a typo surfaces rather than disappearing. `sector`/`subSector` are free text. Per the row-level rule above, a bad classification value fails only its own row.
+- **The holdings CSV is a spreadsheet export, and the parser must resolve columns by header name, not position.** The real file is a 23-column sheet — 17 named columns plus 6 unnamed trailing ones — so positional parsing reads the wrong field. Column mapping:
+
+  | CSV column | Field | Notes |
+  |---|---|---|
+  | `Ticker` | ticker | Required |
+  | `Quantidade` | `quantity` | Required |
+  | `Preco Médio` | `avgPrice` | Required. Note the accent and the space |
+  | `Grupo` | `sector` | The **broad** grouping (`FINANCIAL`, `UTILITIES`, `MATERIAL`, …) |
+  | `Setor` | `subSector` | The **narrow** one (`BANCOS`, `MINERAÇÃO`, `ENERGIA`, …) |
+  | `Classificacao` | `investmentStyle` | Portuguese → enum, below. Unaccented in the file |
+  | `Risco` | `riskRating` | `A`/`AAA`/`B`/`C` — already valid `RiskRating` members |
+  | `Tipo` | `assetType` | `Acao` (stock) → `EQUITY` |
+
+  `Grupo` → `sector` and `Setor` → `subSector` is deliberately **not** a literal name match: `Grupo` is the broader of the two (`FINANCIAL` contains `BANCOS`), which is what `sector`/`subSector` mean everywhere else in this spec.
+
+- **Every other column is ignored**, including the six unnamed trailing ones. `Preco`, `Posicao`, `Posicao (%)`, `Rent. (%)` and `Rent. (R$)` are values the sheet *computes* — current price is market-data's ([`Asset.currentPrice`](../market-data/spec.md)), and position and return are derived by `GET /portfolio/summary`. Importing them would create a second, immediately-stale copy of numbers this system already owns. Some rows also carry a **second** `Preco Teto`/`Status` pair in the unnamed columns (e.g. `CXSE3`, `TAEE11`) with no way to tell which is authoritative — the same ambiguity `PRECO_TETO_2` has in [recommended-portfolios](../recommended-portfolios/spec.md), resolved the same way: ignore it.
+- **A row with an empty `Ticker` is skipped silently, not reported as an error.** The export ends with ~10 spreadsheet-furniture rows — blank separators, `DY Medio`, `Posicao Total`, `Rentabilidade`, and a target-allocation block keyed by `Grupo`. They are not malformed holdings; they are not holdings at all. Erroring on them would report ten failures on a perfectly good file.
+- **Values arrive in Brazilian format** — `"R$ 23,68"`, `"9,37"`, `"10,32%"`, and thousands-separated `"R$ 589.394,17"`. Strip `R$`/`%`/whitespace, drop `.` thousands groups, convert `,` to `.`. This is the same parsing [recommended-portfolios](../recommended-portfolios/spec.md) already specifies; the two modules must share one implementation rather than growing a second copy.
+- **`Classificacao` normalises to English enum values**: `DIVIDENDOS` → `DIVIDENDS`, `SMALL CAPS` → `SMALL_CAP`, `MICRO CAPS` → `MICRO_CAP`, `VALUE INVESTING` → `VALUE_INVESTING`, `TURNAROUND` → `TURNAROUND`, `ETF` → `ETF`. An unrecognised value is a row error, not a silent `null`, so a typo or a newly-invented category surfaces instead of disappearing. `Risco` maps to `RiskRating` directly. `Grupo`/`Setor` are free text and pass through unchanged.
+- **An omitted column and an empty cell are not the same thing.** A column absent from the header leaves the existing stored value untouched on re-upload (the user simply isn't saying anything about it); an empty cell in a present column clears that field to `null` (the user is explicitly saying "unclassified"). Without this distinction, re-importing a positions-only export would silently wipe classifications the user had already supplied. Note the real file exercises this: `BRBI11`, `RECV3`, `LREN3` and `AMOB3` have an empty `DY`, and several rows have an empty `*`.
 - `cagr`/`volatility`/`maxDrawdown` are computed from `PortfolioValueSnapshot` (and `BenchmarkSnapshot` for `vsBenchmarkPct`); these are pure functions and should live in `packages/shared` so they're testable in isolation and usable from both API and any future export/report feature.
 
 ## Acceptance Criteria
@@ -148,9 +172,14 @@ All endpoints scoped to `req.user.id` (see [auth](../auth/spec.md)); no `portfol
 - [ ] `GET /portfolio/summary` matches a hand-computed value for a seeded set of holdings with known prices.
 - [ ] Deleting a holding removes it from `GET /portfolio/holdings` and from subsequent allocation/summary calculations.
 - [ ] A user can never read or modify another user's holdings (covered by an auth-guard test, not just manual check).
-- [ ] A CSV with only `ticker,quantity,avgPrice` — the original three-column format — still imports successfully, leaving all four classification fields `null`.
-- [ ] A CSV carrying `sector`, `subSector`, `investmentStyle`, and `riskRating` populates them on the caller's `Holding` rows, and `GET /portfolio/allocation?by=investmentStyle` (and `?by=riskRating`) returns real slices rather than a single `"Unclassified"` one.
+- [ ] The real export (`Carteira - RendaVariavel.csv`, 23 columns) imports **31 holdings** and reports **zero** errors — the ~10 trailing furniture rows with an empty `Ticker` are skipped silently, not counted as failures.
+- [ ] A CSV with only `ticker,quantity,avgPrice` — the original three-column format — still imports successfully, leaving all five classification fields `null`.
+- [ ] `BBAS3` from that file imports as `sector: "FINANCIAL"` (from `Grupo`), `subSector: "BANCOS"` (from `Setor`), `investmentStyle: DIVIDENDS`, `riskRating: A`, `assetType: EQUITY`, `quantity: 3300`, `avgPrice: 23.68` — proving the `Grupo`/`Setor` mapping is not reversed and `"R$ 23,68"` parsed correctly.
+- [ ] `SMAL11` imports with `investmentStyle: ETF` rather than erroring or landing `null`.
+- [ ] A value with a thousands separator (`"R$ 589.394,17"`) parses as `589394.17`, not `589.39` or `NaN`.
+- [ ] `GET /portfolio/allocation?by=investmentStyle` and `?by=riskRating` return real slices after that import, rather than a single `"Unclassified"` one.
+- [ ] The columns the sheet computes — `Preco`, `Posicao`, `Posicao (%)`, `Rent. (%)`, `Rent. (R$)` — are not persisted anywhere, and neither are the six unnamed trailing columns (including the second `Preco Teto`/`Status` pair some rows carry).
 - [ ] Uploading classifications as one user leaves another user's holdings for the same ticker completely untouched, including their `sector` and `riskRating`.
 - [ ] Re-uploading a positions-only CSV (no classification columns) does **not** clear classifications set by an earlier upload; an explicitly empty cell in a present column does clear that one field.
-- [ ] A CSV row with an unrecognised `riskRating` (e.g. `Z`) or `investmentStyle` is reported in `errors[]` and does not import that row, while the file's other rows still import.
+- [ ] A row with an unrecognised `Risco` (e.g. `Z`) or `Classificacao` is reported in `errors[]` and does not import that row, while the file's other rows still import.
 - [ ] `Asset` has no `sector`, `subSector`, `investmentStyle`, or `riskRating` column, and no code path writes classification data to the `assets` table.
