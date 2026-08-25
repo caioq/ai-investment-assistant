@@ -12,6 +12,7 @@ Holdings need real, current B3 prices (and history) to compute portfolio value, 
 - Fetch current price + daily change for every ticker the app tracks, via Yahoo Finance's public quote/chart endpoints.
 - Backfill 1y of daily history for a ticker the first time it's added.
 - Fetch benchmark series (Ibovespa, CDI) for performance comparison.
+- Maintain each asset's analytical classification — sector, sub-sector, investment style, risk rating — from a user-supplied **assets CSV**, so [portfolio](../portfolio/spec.md)'s allocation views and the [advisor](../advisor/spec.md)'s prompt can group by them.
 - Signal that a price refresh has completed, so each user's daily `PortfolioValueSnapshot` can be recomputed off it. The recompute itself (`Σ holding.quantity * asset.currentPrice`) reads `Holding` and writes `PortfolioValueSnapshot` — both owned by [portfolio](../portfolio/spec.md) — so it is implemented there, subscribing to this module's signal. The dependency must not run the other way. See "Module boundary" under Behavior Notes.
 
 ## Non-Goals
@@ -19,6 +20,8 @@ Holdings need real, current B3 prices (and history) to compute portfolio value, 
 - Fixed income / crypto price providers — the `PriceProvider` interface is designed to support them later, but only `B3YahooProvider` (equities) is implemented now.
 - Real-time/intraday prices — daily granularity is enough for this use case.
 - Any UI in this module — it's a backend-only integration; the dashboard reads the `Asset`/`PriceHistory`/`BenchmarkSnapshot` rows this module maintains.
+- **A per-asset admin CRUD for classification.** Re-uploading the assets CSV is the only way to change these fields for now. A CRUD for admin users is planned future work; it writes the same four columns and needs no data-model change, so deferring it costs nothing.
+- **Deriving classification from an upstream API.** Yahoo Finance publishes a sector/industry pair on its `quoteSummary` `assetProfile` module, but in English (`Basic Materials`, `Utilities`) against the CSV's Portuguese/uppercase vocabulary (`MATERIAL`, `UTILITIES`). Mixing the two sources would split one sector into two allocation slices, so any future backfill needs a normalisation map rather than a passthrough.
 
 ## Data Model
 
@@ -29,6 +32,48 @@ enum AssetType {
   CRYPTO       // not implemented yet
 }
 
+// Normalised from the assets CSV's Portuguese `Classificacao` column.
+// `ETF` is in the list because the user's sheet classifies SMAL11 that way —
+// the enum follows the source data rather than a tidier taxonomy.
+enum InvestmentStyle {
+  SMALL_CAP
+  MICRO_CAP
+  DIVIDENDS
+  VALUE_INVESTING
+  TURNAROUND
+  ETF
+}
+
+// Standard S&P / Fitch long-term scale (identical notation between the two
+// agencies), declared best-credit → worst so Postgres' enum ordering sorts
+// low-risk → high-risk natively. Declared complete on purpose — see the note
+// below the schema. Prisma identifiers can't contain +/-, hence the @map.
+enum RiskRating {
+  AAA
+  AA_PLUS   @map("AA+")
+  AA
+  AA_MINUS  @map("AA-")
+  A_PLUS    @map("A+")
+  A
+  A_MINUS   @map("A-")
+  BBB_PLUS  @map("BBB+")
+  BBB
+  BBB_MINUS @map("BBB-")
+  // ── investment grade ends here; below is speculative / high-yield ──
+  BB_PLUS   @map("BB+")
+  BB
+  BB_MINUS  @map("BB-")
+  B_PLUS    @map("B+")
+  B
+  B_MINUS   @map("B-")
+  CCC_PLUS  @map("CCC+")
+  CCC
+  CCC_MINUS @map("CCC-")
+  CC
+  C
+  D
+}
+
 model Asset {
   id               String    @id @default(uuid(7)) @db.Uuid
   ticker           String    @unique
@@ -36,6 +81,16 @@ model Asset {
   assetType        AssetType @default(EQUITY) @map("asset_type")
   currency         String    @default("BRL")
   exchange         String    @default("B3")
+
+  /// Analytical classification, maintained solely by the assets CSV import
+  /// (see API Contract). All four are nullable: an `Asset` row created by a
+  /// holding or a recommended wallet is unclassified until an assets CSV
+  /// covers its ticker.
+  sector          String?
+  subSector       String?          @map("sub_sector")
+  investmentStyle InvestmentStyle? @map("investment_style")
+  riskRating      RiskRating?      @map("risk_rating")
+
   currentPrice     Float?    @map("current_price")
   currentChangePct Float?    @map("current_change_pct")
   priceUpdatedAt   DateTime? @map("price_updated_at")
@@ -72,7 +127,20 @@ model BenchmarkSnapshot {
 }
 ```
 
-**`Asset` carries no analytical classification.** Sector, sub-sector, investment style, and risk rating are *the user's own* read on a position, not market data — Yahoo Finance publishes none of them. They live on `Holding` (per-user), owned by [portfolio](../portfolio/spec.md), and arrive through that module's holdings CSV. They were on `Asset` in an earlier revision; the move was deliberate. `Asset` is shared master data across every user, so a classification written from one user's upload would silently rewrite what every other user sees — the same objection that keeps `RISCO` out of [recommended-portfolios](../recommended-portfolios/spec.md). Do not add these columns back here.
+**`Asset` is the single source of truth for classification, and one CSV maintains it.** `sector`, `subSector`, `investmentStyle`, and `riskRating` are attributes of the *instrument*, so they live here rather than being copied per user onto `Holding`.
+
+Two earlier revisions got this wrong and are worth recording so they aren't re-proposed:
+
+- **Classification on `Holding`, fed by the holdings CSV.** [recommended-portfolios](../recommended-portfolios/spec.md)'s `RecommendedHolding` points at `Asset`, not `Holding` — so a recommended ticker the user doesn't hold has no row to read classification from. That is precisely the buy-candidate case the [advisor](../advisor/spec.md) needs in order to compare actual against suggested allocation.
+- **A shared `Asset` default with a per-user `Holding` override, written by whichever CSV arrives first.** Three files carry three vocabularies: the small-caps wallet's `SETOR` is title-case (`Construção`, `Locadora`) against the holdings sheet's uppercase (`CONSTRUÇÃO`, `LOCAÇÃO`), and the dividends wallet's `CATEGORIA` partitions companies differently again — splitting energy into `GERAÇÃO`/`TRANSMISSÃO`/`DISTRIBUIÇÃO` while merging `BANCOS E SEGURADORAS`. Reconciling them requires a hand-maintained alias table plus a precedence rule, and still lets upload order decide which slice a company lands in.
+
+A dedicated assets CSV avoids both: it is the only source that can classify **any** ticker, held or not, recommended or not, under one vocabulary. Consequently **no other module writes these four columns** — not the price cron (Yahoo publishes none of them), not [portfolio](../portfolio/spec.md)'s holdings CSV, and not a [recommended-portfolios](../recommended-portfolios/spec.md) upload, whose `RISCO`/`SETOR`/`CATEGORIA` are a research house's opinion rather than the user's own taxonomy.
+
+The accepted trade-off is that classification is **global**: it is not scoped per user, so in a multi-user deployment one upload changes what everyone sees. That is fine for a single-user personal app, and the escape hatch is purely additive — adding override columns to `Holding` later needs no data migration, since existing `Asset` values stay valid and reads simply become `holding.x ?? asset.x`.
+
+**`RiskRating` ordering is load-bearing.** Postgres sorts an enum column by the order its values are *declared*, not alphabetically — so `ORDER BY risk_rating` yields safest-first and `... DESC` riskiest-first, with no `CASE` expression, join, or denormalized rank column to keep in sync. (Alphabetical would give `A, AA, AAA, B, BB…`, which is wrong.) Because the column is nullable, always sort with `NULLS LAST`. Two consequences for whoever edits this enum: **never reorder or insert values in the middle** — the S&P/Fitch scale is deliberately declared complete so no mid-scale insert is ever needed, and appending a value (Postgres' default) would silently place it after `D` and corrupt every risk-ordered query. This is also why `riskRating` is an enum rather than a `String`. The guard is `apps/api/test/risk-rating-order.e2e-spec.ts`, which asserts the order against `pg_enum`.
+
+The scale is borrowed notation, not an agency rating: S&P/Fitch grades measure an issuer's default risk on *debt*, whereas these are the user's own risk tiers for *equities*. The letters are used because the ranking is well understood, not to assert a bond rating exists for the ticker.
 
 `BenchmarkSnapshot.value` is always an **index level**, never a rate — a value whose ratio between two dates is the return over that window. This matters because the two benchmarks arrive in different units: Ibovespa is already a level, while CDI is published as a daily interest rate in percent and must be compounded into a level before storage (see Behavior Notes). Storing CDI's raw daily percentage would make `value` mean something different per benchmark and silently corrupt any consumer comparing the two series — notably `vsBenchmarkPct` in [portfolio](../portfolio/spec.md)'s `GET /portfolio/performance`.
 
@@ -80,15 +148,38 @@ When [portfolio](../portfolio/spec.md)'s `Holding` model lands it adds a `holdin
 
 ## API Contract
 
-This module has no required public REST surface — it runs as a scheduled job and is consumed internally by [portfolio](../portfolio/spec.md) and [advisor](../advisor/spec.md). One optional debug endpoint:
+This module is mostly a scheduled job consumed internally by [portfolio](../portfolio/spec.md) and [advisor](../advisor/spec.md). It exposes one upload endpoint — the sole writer of asset classification — plus one optional debug endpoint:
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/market-data/quote/:ticker` | `{ ticker, price, changePct, updatedAt }` — for manual/debug use, not called by the frontend |
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/market-data/assets/import` | multipart CSV, field `file` | `{ created, updated, errors: string[] }` |
+| GET | `/market-data/quote/:ticker` | — | `{ ticker, price, changePct, updatedAt }` — for manual/debug use, not called by the frontend |
+
+`errors[]` reports per-row failures without failing the file, matching the partial-success shape [portfolio](../portfolio/spec.md)'s holdings upload and [recommended-portfolios](../recommended-portfolios/spec.md) already return.
 
 ## Behavior Notes
 
 - **Module boundary:** this module owns `Asset`, `PriceHistory`, and `BenchmarkSnapshot` and is built **before** [portfolio](../portfolio/spec.md), which owns `Holding` and `PortfolioValueSnapshot`. Nothing here may read or write those two tables — the dependency runs one way, portfolio → market-data (its `Holding.asset` relation needs `Asset`). Anything phrased below in terms of "tickers the app tracks" therefore means **`Asset` rows**, which is equivalent in practice: per portfolio's own Behavior Notes, adding a holding for an unknown ticker creates the `Asset` row, so every held ticker has one by construction.
+- **The assets CSV** is the only writer of `sector`, `subSector`, `investmentStyle`, and `riskRating`. Its column set is the user's holdings sheet **minus the position columns**, so the file is produced by deleting columns from an export they already maintain, and the mapping is the one that sheet already uses:
+
+  | CSV column | `Asset` field | Notes |
+  |---|---|---|
+  | `Ticker` | `ticker` | Required — the match key. A row with an empty `Ticker` is skipped silently |
+  | `Grupo` | `sector` | The **broad** grouping (`FINANCIAL`, `UTILITIES`, `MATERIAL`, …) |
+  | `Setor` | `subSector` | The **narrow** one (`BANCOS`, `MINERAÇÃO`, `ENERGIA`, …) |
+  | `Classificacao` | `investmentStyle` | Portuguese → enum (below). Unaccented in the file |
+  | `Risco` | `riskRating` | `A`/`AAA`/`B`/`C` — already valid `RiskRating` members |
+  | `Tipo` | `assetType` | `Acao` (stock) → `EQUITY` |
+
+  `Grupo` → `sector` and `Setor` → `subSector` is deliberately **not** a literal name match: `Grupo` is the broader of the two (`FINANCIAL` contains `BANCOS`), which is what `sector`/`subSector` mean everywhere else.
+
+  `Classificacao` normalises as `DIVIDENDOS`→`DIVIDENDS`, `SMALL CAPS`→`SMALL_CAP`, `MICRO CAPS`→`MICRO_CAP`, `VALUE INVESTING`→`VALUE_INVESTING`, `TURNAROUND`→`TURNAROUND`, `ETF`→`ETF`.
+- **Assets CSV parsing rules**, all of which the real export requires:
+  - **Columns are resolved by header name, not position.** The source sheet carries unnamed trailing columns, so positional parsing reads the wrong field.
+  - **Any column may be absent**, including every classification column — a file of just `Ticker` is valid and changes nothing.
+  - **A ticker not yet in `Asset` creates the row** (`name` defaults to the ticker, as the price cron already does). Classifying a ticker *before* buying it is the point of a separate file — it is what lets a recommended-but-unheld ticker carry a sector.
+  - **Last upload wins.** A present column overwrites the stored value outright; there is a single source of truth, so authoritative replacement is more predictable than fill-if-null. A column **absent** from the file leaves that field untouched; a column present with an **empty cell** clears that one field.
+  - An unrecognised `Classificacao` or `Risco` value is reported in `errors[]` and that row is not applied; the file's other rows still import.
 - **Batching is mandatory:** the daily cron collects every distinct ticker in `Asset` and makes **one** batched call — `GET https://query1.finance.yahoo.com/v7/finance/spark?symbols={T1}.SA,{T2}.SA,...&range=1d&interval=1d` — never one request per ticker. This is what keeps request volume low against an API with no published quota and no SLA (see "Why Yahoo Finance" below).
 - Cron runs once daily after B3 close (`@nestjs/schedule`, e.g. 18:30 BRT weekdays — set the timezone explicitly rather than relying on the host clock, which is UTC in CI and in container deploys), updates `Asset.currentPrice/currentChangePct/priceUpdatedAt`, and upserts today's `PriceHistory` row per asset. Recomputing `PortfolioValueSnapshot` is triggered after this completes but implemented in [portfolio](../portfolio/spec.md), per "Module boundary" above.
 - When a ticker is added to a holding for the first time, a one-off fetch (`range=1y&interval=1d`) backfills `PriceHistory` so the performance chart isn't empty. This module exposes the backfill as a callable method; the call site (holding creation) lives in [portfolio](../portfolio/spec.md). It must be idempotent against `@@unique([assetId, date])`, so a repeated trigger can't double-insert.
@@ -107,3 +198,10 @@ This module has no required public REST surface — it runs as a scheduled job a
 - [ ] If Yahoo Finance is unreachable, the cron logs the failure and leaves existing `Asset.currentPrice` values untouched rather than nulling them out or crashing the process.
 - [ ] `BenchmarkSnapshot` has daily rows for both `IBOVESPA` and `CDI` covering at least the last year after the benchmark job runs once, with `CDI` stored as a compounded index level rather than a raw daily rate.
 - [ ] A second `getOrRefreshPrice` call for the same asset within 15 minutes makes no Yahoo Finance request and returns the stored price.
+- [ ] Importing an assets CSV containing a ticker with **no `Holding` and no `RecommendedHolding`** creates the `Asset` row and stores all four classification fields — the case neither the holdings CSV nor a wallet upload can reach.
+- [ ] `BBAS3` imports as `sector: "FINANCIAL"` (from `Grupo`), `subSector: "BANCOS"` (from `Setor`), `investmentStyle: DIVIDENDS`, `riskRating: A`, `assetType: EQUITY` — proving the `Grupo`/`Setor` mapping is not reversed.
+- [ ] `SMAL11` imports with `investmentStyle: ETF` rather than erroring or landing `null`.
+- [ ] Re-importing the same ticker with a changed `Risco` overwrites the stored `riskRating`; re-importing a file that **omits** the `Risco` column leaves the previously stored value intact; a present-but-empty `Risco` cell clears it.
+- [ ] A row whose `Risco` is unrecognised (e.g. `Z`) is reported in `errors[]` and leaves that asset's stored classification unchanged, while every other row in the file still imports.
+- [ ] Neither the price cron nor a [recommended-portfolios](../recommended-portfolios/spec.md) wallet upload ever writes `sector`, `subSector`, `investmentStyle`, or `riskRating` — guarded for the wallet path by `apps/api/test/recommended-portfolios.e2e-spec.ts`.
+- [ ] After an assets CSV import, [portfolio](../portfolio/spec.md)'s `GET /portfolio/allocation?by=investmentStyle` and `?by=riskRating` return real slices rather than a single `"Unclassified"` one, with no change to the holdings data.
