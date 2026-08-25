@@ -32,7 +32,7 @@ enum AssetType {
   CRYPTO       // not implemented yet
 }
 
-// Normalised from the assets CSV's Portuguese `Classificacao` column.
+// The assets CSV's `investmentStyle` column carries these values verbatim.
 // `ETF` is in the list because the user's sheet classifies SMAL11 that way —
 // the enum follows the source data rather than a tidier taxonomy.
 enum InvestmentStyle {
@@ -160,26 +160,27 @@ This module is mostly a scheduled job consumed internally by [portfolio](../port
 ## Behavior Notes
 
 - **Module boundary:** this module owns `Asset`, `PriceHistory`, and `BenchmarkSnapshot` and is built **before** [portfolio](../portfolio/spec.md), which owns `Holding` and `PortfolioValueSnapshot`. Nothing here may read or write those two tables — the dependency runs one way, portfolio → market-data (its `Holding.asset` relation needs `Asset`). Anything phrased below in terms of "tickers the app tracks" therefore means **`Asset` rows**, which is equivalent in practice: per portfolio's own Behavior Notes, adding a holding for an unknown ticker creates the `Asset` row, so every held ticker has one by construction.
-- **The assets CSV** is the only writer of `sector`, `subSector`, `investmentStyle`, and `riskRating`. Its column set is the user's holdings sheet **minus the position columns**, so the file is produced by deleting columns from an export they already maintain, and the mapping is the one that sheet already uses:
+- **The assets CSV uses English column names matching the `Asset` field they set** — `ticker`, `sector`, `subSector`, `investmentStyle`, `riskRating`, `assetType`. This is a file the user maintains for this app rather than a broker or research-house export, so there is no foreign header to accommodate, and matching the field names means the mapping needs no lookup table and no translation step to review:
 
-  | CSV column | `Asset` field | Notes |
+  | CSV column | `Asset` field | Accepted values |
   |---|---|---|
-  | `Ticker` | `ticker` | Required — the match key. A row with an empty `Ticker` is skipped silently |
-  | `Grupo` | `sector` | The **broad** grouping (`FINANCIAL`, `UTILITIES`, `MATERIAL`, …) |
-  | `Setor` | `subSector` | The **narrow** one (`BANCOS`, `MINERAÇÃO`, `ENERGIA`, …) |
-  | `Classificacao` | `investmentStyle` | Portuguese → enum (below). Unaccented in the file |
-  | `Risco` | `riskRating` | `A`/`AAA`/`B`/`C` — already valid `RiskRating` members |
-  | `Tipo` | `assetType` | `Acao` (stock) → `EQUITY` |
+  | `ticker` | `ticker` | Required — the match key. A row with an empty `ticker` is skipped silently |
+  | `sector` | `sector` | Free text — the **broad** grouping (`FINANCIAL`, `UTILITIES`, `MATERIAL`, …) |
+  | `subSector` | `subSector` | Free text — the **narrow** one (`BANCOS`, `MINERAÇÃO`, `ENERGIA`, …) |
+  | `investmentStyle` | `investmentStyle` | An `InvestmentStyle` member: `SMALL_CAP`, `MICRO_CAP`, `DIVIDENDS`, `VALUE_INVESTING`, `TURNAROUND`, `ETF` |
+  | `riskRating` | `riskRating` | A `RiskRating` member — `A`, `AAA`, `B`, `C` are the ones the user's data uses |
+  | `assetType` | `assetType` | An `AssetType` member: `EQUITY`, `FIXED_INCOME`, `CRYPTO` |
 
-  `Grupo` → `sector` and `Setor` → `subSector` is deliberately **not** a literal name match: `Grupo` is the broader of the two (`FINANCIAL` contains `BANCOS`), which is what `sector`/`subSector` mean everywhere else.
+  `sector` is the **broader** of the two levels and `subSector` the narrower (`FINANCIAL` contains `BANCOS`). Both are free text and pass through unchanged — they are the user's own labels, and the values in their sheet are a mix of English (`FINANCIAL`, `REAL ESTATE`) and Portuguese (`BANCOS`, `MINERAÇÃO`). Only the three enum columns are validated.
 
-  `Classificacao` normalises as `DIVIDENDOS`→`DIVIDENDS`, `SMALL CAPS`→`SMALL_CAP`, `MICRO CAPS`→`MICRO_CAP`, `VALUE INVESTING`→`VALUE_INVESTING`, `TURNAROUND`→`TURNAROUND`, `ETF`→`ETF`.
+  The user's existing holdings sheet expresses the same six columns in Portuguese (`Ticker`, `Grupo`→`sector`, `Setor`→`subSector`, `Classificacao`, `Risco`, `Tipo`) with Portuguese values (`DIVIDENDOS`, `SMALL CAPS`, `Acao`). **The importer does not accept those.** Building the first assets CSV is a one-off rename of six headers and a find-and-replace on two columns; teaching the parser a second vocabulary would mean maintaining a translation table forever to save that once. Note that `Grupo`→`sector` and `Setor`→`subSector` is not a literal name match, so the rename is not mechanical — `Grupo` is the broad level despite `Setor` looking like the cognate of `sector`.
+
 - **Assets CSV parsing rules**, all of which the real export requires:
   - **Columns are resolved by header name, not position.** The source sheet carries unnamed trailing columns, so positional parsing reads the wrong field.
   - **Any column may be absent**, including every classification column — a file of just `Ticker` is valid and changes nothing.
   - **A ticker not yet in `Asset` creates the row** (`name` defaults to the ticker, as the price cron already does). Classifying a ticker *before* buying it is the point of a separate file — it is what lets a recommended-but-unheld ticker carry a sector.
   - **Last upload wins.** A present column overwrites the stored value outright; there is a single source of truth, so authoritative replacement is more predictable than fill-if-null. A column **absent** from the file leaves that field untouched; a column present with an **empty cell** clears that one field.
-  - An unrecognised `Classificacao` or `Risco` value is reported in `errors[]` and that row is not applied; the file's other rows still import.
+  - An unrecognised `investmentStyle`, `riskRating`, or `assetType` value is reported in `errors[]` and that row is not applied; the file's other rows still import. A Portuguese value left over from the holdings sheet (`DIVIDENDOS`, `Acao`) therefore surfaces as a row error rather than a silent `null` — which is the intended way for a half-renamed file to fail.
 - **Batching is mandatory:** the daily cron collects every distinct ticker in `Asset` and makes **one** batched call — `GET https://query1.finance.yahoo.com/v7/finance/spark?symbols={T1}.SA,{T2}.SA,...&range=1d&interval=1d` — never one request per ticker. This is what keeps request volume low against an API with no published quota and no SLA (see "Why Yahoo Finance" below).
 - Cron runs once daily after B3 close (`@nestjs/schedule`, e.g. 18:30 BRT weekdays — set the timezone explicitly rather than relying on the host clock, which is UTC in CI and in container deploys), updates `Asset.currentPrice/currentChangePct/priceUpdatedAt`, and upserts today's `PriceHistory` row per asset. Recomputing `PortfolioValueSnapshot` is triggered after this completes but implemented in [portfolio](../portfolio/spec.md), per "Module boundary" above.
 - When a ticker is added to a holding for the first time, a one-off fetch (`range=1y&interval=1d`) backfills `PriceHistory` so the performance chart isn't empty. This module exposes the backfill as a callable method; the call site (holding creation) lives in [portfolio](../portfolio/spec.md). It must be idempotent against `@@unique([assetId, date])`, so a repeated trigger can't double-insert.
@@ -199,9 +200,9 @@ This module is mostly a scheduled job consumed internally by [portfolio](../port
 - [ ] `BenchmarkSnapshot` has daily rows for both `IBOVESPA` and `CDI` covering at least the last year after the benchmark job runs once, with `CDI` stored as a compounded index level rather than a raw daily rate.
 - [ ] A second `getOrRefreshPrice` call for the same asset within 15 minutes makes no Yahoo Finance request and returns the stored price.
 - [ ] Importing an assets CSV containing a ticker with **no `Holding` and no `RecommendedHolding`** creates the `Asset` row and stores all four classification fields — the case neither the holdings CSV nor a wallet upload can reach.
-- [ ] `BBAS3` imports as `sector: "FINANCIAL"` (from `Grupo`), `subSector: "BANCOS"` (from `Setor`), `investmentStyle: DIVIDENDS`, `riskRating: A`, `assetType: EQUITY` — proving the `Grupo`/`Setor` mapping is not reversed.
+- [ ] `BBAS3` imports as `sector: "FINANCIAL"`, `subSector: "BANCOS"`, `investmentStyle: DIVIDENDS`, `riskRating: A`, `assetType: EQUITY` — every column landing in the field of the same name.
 - [ ] `SMAL11` imports with `investmentStyle: ETF` rather than erroring or landing `null`.
-- [ ] Re-importing the same ticker with a changed `Risco` overwrites the stored `riskRating`; re-importing a file that **omits** the `Risco` column leaves the previously stored value intact; a present-but-empty `Risco` cell clears it.
-- [ ] A row whose `Risco` is unrecognised (e.g. `Z`) is reported in `errors[]` and leaves that asset's stored classification unchanged, while every other row in the file still imports.
+- [ ] Re-importing the same ticker with a changed `riskRating` overwrites the stored value; re-importing a file that **omits** the `riskRating` column leaves it intact; a present-but-empty `riskRating` cell clears it.
+- [ ] A row whose `riskRating` is unrecognised (e.g. `Z`), or whose `investmentStyle` is still the Portuguese `DIVIDENDOS` rather than `DIVIDENDS`, is reported in `errors[]` and leaves that asset's stored classification unchanged, while every other row in the file still imports.
 - [ ] Neither the price cron nor a [recommended-portfolios](../recommended-portfolios/spec.md) wallet upload ever writes `sector`, `subSector`, `investmentStyle`, or `riskRating` — guarded for the wallet path by `apps/api/test/recommended-portfolios.e2e-spec.ts`.
 - [ ] After an assets CSV import, [portfolio](../portfolio/spec.md)'s `GET /portfolio/allocation?by=investmentStyle` and `?by=riskRating` return real slices rather than a single `"Unclassified"` one, with no change to the holdings data.
