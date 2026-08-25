@@ -1,6 +1,6 @@
 # US-1: Daily price refresh
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Fetch current price + daily change for every ticker the app tracks, via Yahoo Finance's public quote/chart endpoints." / AC "With 5 distinct tickers in `Asset`, one cron run results in exactly 1 Yahoo Finance request, not 5." / AC "After the cron runs, every `Asset` has a non-null `currentPrice` and a `PriceHistory` row for that day." / AC "If Yahoo Finance is unreachable, the cron logs the failure and leaves existing `Asset.currentPrice` values untouched rather than nulling them out or crashing the process." (in `../spec.md`)
 
 As the platform, I want every tracked B3 ticker's current price and daily change refreshed once a day in a single batched request, so portfolio value and performance are computed from real prices without tripping any informal rate limiting on an unofficial API.
