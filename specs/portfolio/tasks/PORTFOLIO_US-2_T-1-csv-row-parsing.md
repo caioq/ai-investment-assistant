@@ -7,6 +7,8 @@
 
 Add `PortfolioService.importHoldingsCsv(userId, csv: string)` returning `{ created: number, updated: number, errors: string[] }` — the response body of `POST /portfolio/holdings/upload-csv` (`PORTFOLIO_US-2_T-2` is the thin multipart wrapper over this).
 
+<!-- PARTIALLY SUPERSEDED by PORTFOLIO_US-2_T-4/T-5: the spec now describes the real 23-column export, so columns resolve by header name and values parse as Brazilian-formatted. The per-row errors[] loop and the (userId, assetId) upsert this task built are unchanged and still correct, which is why Status stays Done. -->
+
 Parse a `ticker,quantity,avgPrice` CSV with a header row and process **each row independently**, reusing the same find-or-create-`Asset` + upsert-on-`(userId, assetId)` logic as `PORTFOLIO_US-1_T-1` (extract it to a shared private method rather than duplicating it — the ticker-uppercasing rule in particular must not diverge between the two entry points, or the same file imported two ways produces different `Asset` rows). Count an upsert that inserted toward `created` and one that updated an existing holding toward `updated`.
 
 **A malformed row must not stop the batch, and must not roll back the good rows.** Spec AC-3 requires 3 valid + 1 malformed to yield 3 holdings *and* 1 error, without a 500 — which rules out both validating the file up front and refusing it, and wrapping all rows in one transaction. Collect each failure into `errors[]` with the row number and reason (`"row 3: quantity must be a positive number"`) so the user can fix the file, and continue.
