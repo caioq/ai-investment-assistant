@@ -9,7 +9,7 @@ As someone whose portfolio and recommended wallets are full of bare tickers, I w
 
 - [x] [T-1: assets CSV test fixtures](../tasks/MARKET_DATA_US-5_T-1-assets-csv-fixtures.md)
 - [x] [T-2: parseAssetsCsv, resolved by header name](../tasks/MARKET_DATA_US-5_T-2-parse-assets-csv.md)
-- [ ] [T-3: normalizeAssetRow enum mapping](../tasks/MARKET_DATA_US-5_T-3-normalize-asset-row.md)
+- [x] [T-3: normalizeAssetRow enum mapping](../tasks/MARKET_DATA_US-5_T-3-normalize-asset-row.md)
 - [ ] [T-4: MarketDataService.importAssetsCsv](../tasks/MARKET_DATA_US-5_T-4-import-assets-csv-service.md)
 - [ ] [T-5: POST /market-data/assets/import](../tasks/MARKET_DATA_US-5_T-5-assets-import-endpoint.md)
 
