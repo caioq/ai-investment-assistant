@@ -30,11 +30,7 @@ import {
 } from './portfolio.service';
 import { Asset, Holding } from '../../generated/prisma/client';
 import { AllocationSlice } from '@ai-investment-assistant/shared';
-
-/** 1 MB — far beyond any realistic holdings CSV; caps the in-memory upload
- * so an authenticated endpoint can't be used to exhaust process memory
- * (see task PORTFOLIO_US-2_T-2). */
-const MAX_CSV_UPLOAD_BYTES = 1024 * 1024;
+import { MAX_CSV_UPLOAD_BYTES } from '../common/file-upload.constants';
 
 /**
  * `AuthGuard` (CONVENTIONS.md -> "Auth") is applied once here, at the
