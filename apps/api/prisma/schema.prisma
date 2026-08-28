@@ -37,6 +37,7 @@ enum InvestmentStyle {
   DIVIDENDS
   VALUE_INVESTING
   TURNAROUND
+  ETF
 }
 
 // Standard S&P / Fitch long-term scale, declared best-credit -> worst.

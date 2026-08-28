@@ -3,6 +3,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { PriceProvider, PRICE_PROVIDER, Quote } from './providers/price-provider.interface';
 import { Asset, Benchmark, Prisma } from '../../generated/prisma/client';
+import { normalizeAssetRow } from './asset-row';
+import { parseAssetsCsv } from './assets-csv';
 
 /** Prisma's error code for a unique-constraint violation (matches `auth.service.ts`/`portfolio.service.ts`). */
 const PRISMA_UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
@@ -57,6 +59,13 @@ export interface AssetQuote {
   price: number;
   changePct: number;
   updatedAt: Date;
+}
+
+/** Response shape for `importAssetsCsv`, matching `POST /market-data/assets/import`'s contract (spec.md -> API Contract). */
+export interface ImportAssetsCsvResult {
+  created: number;
+  updated: number;
+  errors: string[];
 }
 
 /**
@@ -131,6 +140,86 @@ export class MarketDataService {
 
       return { asset, wasCreated: false };
     }
+  }
+
+  /**
+   * `POST /market-data/assets/import` (MARKET_DATA_US-5_T-4) — the sole
+   * writer of `Asset.sector`/`subSector`/`investmentStyle`/`riskRating`
+   * (spec.md -> Data Model). Follows the partial-success pattern of
+   * `PortfolioService.importHoldingsCsv` (CONVENTIONS.md -> "CSV parsing"):
+   * each row is processed independently, a bad row is collected into
+   * `errors[]`, and the rest of the file still imports.
+   *
+   * A row is validated (`normalizeAssetRow`, which throws on an
+   * unrecognised enum value) *before* any write happens for it, so a bad
+   * row can't leave a partially-applied update — the asset's existing
+   * classification, if any, is left exactly as it was (spec AC "A row
+   * whose riskRating is unrecognised...").
+   *
+   * Resolves the ticker via `findOrCreateAsset` rather than a bespoke
+   * find-then-create (CONVENTIONS.md -> "Find-or-create master data"), but
+   * — unlike `PortfolioService.upsertHolding` — never triggers
+   * `backfillHistory` on `wasCreated: true`: classifying a ticker is not
+   * the same as taking a position in it, and firing a year of history
+   * fetches for every row of a large assets CSV would hammer the upstream
+   * this module exists to protect (spec.md -> Non-Goals).
+   *
+   * The Prisma `update` payload is built from `normalizeAssetRow`'s own
+   * returned keys (minus `ticker`, which only identifies the row) rather
+   * than a fixed six-key literal — a key the normalizer omitted (column
+   * absent from the CSV) must not appear in `data` at all, or it would
+   * silently clear a field that column was never meant to touch (spec's
+   * "Last upload wins" / absent-vs-empty rule).
+   */
+  async importAssetsCsv(csvText: string): Promise<ImportAssetsCsvResult> {
+    const rows = parseAssetsCsv(csvText);
+
+    let created = 0;
+    let updated = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowNumber = i + 1;
+      const row = rows[i];
+
+      // A row with an empty ticker is spreadsheet furniture (e.g. a notes
+      // line), not a malformed row — skipped silently, not counted, not
+      // reported in errors[] (spec's ticker column rule).
+      const rawTicker = (row.ticker ?? '').trim();
+      if (!rawTicker) continue;
+
+      try {
+        const normalized = normalizeAssetRow(row);
+        const { ticker, ...updateData } = normalized;
+        const { asset, wasCreated } = await this.findOrCreateAsset(ticker);
+
+        if (Object.keys(updateData).length > 0) {
+          // Cast: `NormalizedAssetRow.assetType` is typed `AssetType | null`
+          // like the other enum columns (asset-row.ts's shared
+          // absent/empty/value handling), but `Asset.assetType` is
+          // non-nullable in the schema (`@default(EQUITY)`). A CSV row
+          // that actually clears `assetType` to empty is a genuine schema
+          // violation, not a silent no-op — it throws here and is caught
+          // below into this row's errors[] entry, same as any other bad
+          // row, rather than being special-cased out of the generic
+          // apply-only-the-returned-keys update below.
+          await this.prisma.asset.update({
+            where: { id: asset.id },
+            data: updateData as Prisma.AssetUpdateInput,
+          });
+        }
+
+        if (wasCreated) {
+          created++;
+        } else {
+          updated++;
+        }
+      } catch (error) {
+        errors.push(`row ${rowNumber}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    return { created, updated, errors };
   }
 
   /**
