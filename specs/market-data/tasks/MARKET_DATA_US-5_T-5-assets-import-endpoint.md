@@ -1,7 +1,7 @@
 # MARKET_DATA_US-5_T-5: POST /market-data/assets/import
 
 **Story:** [../stories/US-5-asset-classification-import.md](../stories/US-5-asset-classification-import.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #170 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** MARKET_DATA_US-5_T-4
 

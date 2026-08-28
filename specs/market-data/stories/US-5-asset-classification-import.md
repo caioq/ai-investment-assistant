@@ -1,6 +1,6 @@
 # US-5: Classify assets from an assets CSV
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Maintain each asset's analytical classification — sector, sub-sector, investment style, risk rating — from a user-supplied **assets CSV**" / spec API Contract `POST /market-data/assets/import` / spec ACs "Importing an assets CSV containing a ticker with no `Holding` and no `RecommendedHolding` creates the `Asset` row and stores all four classification fields", "`BBAS3` imports as …", "`SMAL11` imports with `investmentStyle: ETF`", "Re-importing the same ticker with a changed `riskRating` overwrites the stored value…", "A row whose `riskRating` is unrecognised…", "Neither the price cron nor a recommended-portfolios wallet upload ever writes…" (in `../spec.md`)
 
 As someone whose portfolio and recommended wallets are full of bare tickers, I want to upload one CSV that says what each ticker *is* — its sector, sub-sector, investment style and risk rating — so that allocation views and the AI Advisor can group by those dimensions instead of showing a single "Unclassified" slice.
@@ -11,7 +11,7 @@ As someone whose portfolio and recommended wallets are full of bare tickers, I w
 - [x] [T-2: parseAssetsCsv, resolved by header name](../tasks/MARKET_DATA_US-5_T-2-parse-assets-csv.md)
 - [x] [T-3: normalizeAssetRow enum mapping](../tasks/MARKET_DATA_US-5_T-3-normalize-asset-row.md)
 - [x] [T-4: MarketDataService.importAssetsCsv](../tasks/MARKET_DATA_US-5_T-4-import-assets-csv-service.md)
-- [ ] [T-5: POST /market-data/assets/import](../tasks/MARKET_DATA_US-5_T-5-assets-import-endpoint.md)
+- [x] [T-5: POST /market-data/assets/import](../tasks/MARKET_DATA_US-5_T-5-assets-import-endpoint.md)
 
 ## Notes
 

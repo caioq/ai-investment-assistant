@@ -2,10 +2,17 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/configure-app';
 import { MarketDataService } from '../src/market-data/market-data.service';
 import { PRICE_PROVIDER, PriceProvider } from '../src/market-data/providers/price-provider.interface';
 import { PrismaService } from '../src/prisma/prisma.service';
+
+/** Fixed email for the HTTP-level `POST /market-data/assets/import` cases
+ * below (MARKET_DATA_US-5_T-5) — cleaned up in this suite's shared
+ * `afterEach` alongside the MDAS* Asset rows. */
+const IMPORT_ENDPOINT_TEST_EMAIL = 'market-data-assets-import-e2e@example.com';
 
 const FIXTURE_DIR = join(__dirname, 'fixtures', 'market-data');
 
@@ -61,6 +68,7 @@ describe('MarketDataService.importAssetsCsv (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    configureApp(app);
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
@@ -72,12 +80,31 @@ describe('MarketDataService.importAssetsCsv (e2e)', () => {
   });
 
   afterEach(async () => {
+    // Holdings created by the HTTP-level allocation case below reference
+    // both a MDAS* Asset and the test user — deleted first, since
+    // Asset.deleteMany/user.deleteMany would otherwise violate holdings' FKs.
+    await prisma.holding.deleteMany({ where: { asset: { ticker: { in: MDAS_TICKERS } } } });
     // (8) exercises refreshAllQuotes(), which upserts a PriceHistory row per
     // asset — deleted first, since Asset.deleteMany would otherwise violate
     // price_history's FK to assets.
     await prisma.priceHistory.deleteMany({ where: { asset: { ticker: { in: MDAS_TICKERS } } } });
     await prisma.asset.deleteMany({ where: { ticker: { in: MDAS_TICKERS } } });
+    await prisma.user.deleteMany({ where: { email: IMPORT_ENDPOINT_TEST_EMAIL } });
   });
+
+  /** Registers + logs in a user, returning the `access_token` cookie array and the user's id. */
+  async function registerUser(email: string): Promise<{ cookies: string[]; userId: string }> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+
+    return { cookies, userId: user.id };
+  }
 
   it(
     'creates assets from a full import, skips the empty-ticker row, stores ETF ' +
@@ -251,4 +278,89 @@ describe('MarketDataService.importAssetsCsv (e2e)', () => {
       });
     },
   );
+
+  // HTTP-level cases for `POST /market-data/assets/import` (MARKET_DATA_US-5_T-5),
+  // in the same suite/afterEach as the service-level cases above so they
+  // don't race each other over the MDAS* tickers.
+
+  it('(1) POST /market-data/assets/import returns 401 without an auth cookie', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/market-data/assets/import')
+      .attach('file', Buffer.from(readFixture('assets-full.csv')), 'assets-full.csv');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('(2) imports assets-full.csv over HTTP and returns created count with no errors', async () => {
+    const { cookies } = await registerUser(IMPORT_ENDPOINT_TEST_EMAIL);
+
+    const response = await request(app.getHttpServer())
+      .post('/market-data/assets/import')
+      .set('Cookie', cookies)
+      .attach('file', Buffer.from(readFixture('assets-full.csv')), 'assets-full.csv');
+
+    expect(response.status).toBe(200);
+    // 5 non-empty-ticker rows in assets-full.csv (MDAS1..MDAS5).
+    expect(response.body).toEqual({ created: 5, updated: 0, errors: [] });
+  });
+
+  it('(3) returns 400, not 500, when no file is attached', async () => {
+    const { cookies } = await registerUser(IMPORT_ENDPOINT_TEST_EMAIL);
+
+    const response = await request(app.getHttpServer())
+      .post('/market-data/assets/import')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(400);
+  });
+
+  it('(4) returns 200 with a non-empty errors[] for assets-bad-values.csv (partial success, not an HTTP error)', async () => {
+    const { cookies } = await registerUser(IMPORT_ENDPOINT_TEST_EMAIL);
+
+    const response = await request(app.getHttpServer())
+      .post('/market-data/assets/import')
+      .set('Cookie', cookies)
+      .attach('file', Buffer.from(readFixture('assets-bad-values.csv')), 'assets-bad-values.csv');
+
+    expect(response.status).toBe(200);
+    expect(response.body.errors.length).toBeGreaterThan(0);
+  });
+
+  it('(5) after a successful import, GET /portfolio/allocation?by=investmentStyle returns real slices for a held ticker', async () => {
+    const { cookies } = await registerUser(IMPORT_ENDPOINT_TEST_EMAIL);
+
+    const importResponse = await request(app.getHttpServer())
+      .post('/market-data/assets/import')
+      .set('Cookie', cookies)
+      .attach('file', Buffer.from(readFixture('assets-full.csv')), 'assets-full.csv');
+    expect(importResponse.status).toBe(200);
+
+    // MDAS1 is classified investmentStyle: DIVIDENDS by assets-full.csv.
+    // Since the import above already created the Asset, this holding
+    // creation resolves an existing Asset (wasCreated: false), so it doesn't
+    // trigger a live backfillHistory call.
+    const holdingResponse = await request(app.getHttpServer())
+      .post('/portfolio/holdings')
+      .set('Cookie', cookies)
+      .send({ ticker: 'MDAS1', quantity: 10, avgPrice: 20 });
+    expect(holdingResponse.status).toBeGreaterThanOrEqual(200);
+    expect(holdingResponse.status).toBeLessThan(300);
+
+    const allocationResponse = await request(app.getHttpServer())
+      .get('/portfolio/allocation')
+      .set('Cookie', cookies)
+      .query({ by: 'investmentStyle' });
+
+    expect(allocationResponse.status).toBe(200);
+    // Real slices, not a single "Unclassified" one — the spec AC this
+    // whole story exists to satisfy.
+    expect(allocationResponse.body).not.toEqual([
+      expect.objectContaining({ label: 'Unclassified' }),
+    ]);
+    expect(
+      allocationResponse.body.some(
+        (slice: { label: string }) => slice.label === 'DIVIDENDS',
+      ),
+    ).toBe(true);
+  });
 });

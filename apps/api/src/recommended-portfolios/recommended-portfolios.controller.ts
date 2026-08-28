@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
+import { MAX_CSV_UPLOAD_BYTES } from '../common/file-upload.constants';
 import { RecommendedHolding, RecommendedPortfolio } from '../../generated/prisma/client';
 import { UploadWalletBodyDto } from './dto/upload-wallet-body.dto';
 import { UploadWalletQueryDto } from './dto/upload-wallet-query.dto';
@@ -22,12 +23,6 @@ import {
   RecommendedPortfoliosService,
   RecommendedPortfolioWithHoldings,
 } from './recommended-portfolios.service';
-
-/** 1 MB — far beyond any realistic wallet export CSV; caps the in-memory
- * upload so an authenticated endpoint can't be used to exhaust process
- * memory (same rationale/limit as `PortfolioController.uploadHoldingsCsv`,
- * CONVENTIONS.md -> "File uploads"). */
-const MAX_CSV_UPLOAD_BYTES = 1024 * 1024;
 
 /**
  * Route prefix is `advisor/recommended-portfolios`, not
