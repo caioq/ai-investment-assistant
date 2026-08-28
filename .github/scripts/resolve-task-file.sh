@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Resolve the specs/**/tasks/*.md file a pull request implements, so the Codex
+# Resolve the specs/**/tasks/*.md file a pull request implements, so the AI
 # review can be scoped to that task's own acceptance criteria rather than being
 # a generic "review this code" pass.
 #

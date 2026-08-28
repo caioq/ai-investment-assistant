@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Block until this commit's CI `build` job has concluded, so the Codex review
+# Block until this commit's CI `build` job has concluded, so the AI review
 # only spends tokens on a PR whose tests actually pass.
 #
 # Why poll check-runs instead of `gh pr checks --watch`: the review workflow is
