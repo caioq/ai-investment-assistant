@@ -21,6 +21,8 @@ model User {
   holdings                Holding[]
   portfolioValueSnapshots PortfolioValueSnapshot[]
   recommendedPortfolios   RecommendedPortfolio[]
+  advisorReports          AdvisorReport[]
+  advisorAnalyses         AdvisorAnalysis[]
 
   @@map("users")
 }
@@ -208,4 +210,40 @@ model RecommendedHolding {
   marginOfSafetyPct Float?          @map("margin_of_safety_pct")
 
   @@map("recommended_holdings")
+}
+
+model AdvisorReport {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+  sourceName String?  @map("source_name")
+  fileName   String?  @map("file_name")
+  rawText    String   @map("raw_text") @db.Text
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  analyses AdvisorAnalysis[]
+
+  @@map("advisor_reports")
+}
+
+model AdvisorAnalysis {
+  id                      String         @id @default(uuid(7)) @db.Uuid
+  userId                  String         @map("user_id") @db.Uuid
+  user                    User           @relation(fields: [userId], references: [id])
+  advisorReportId         String?        @map("advisor_report_id") @db.Uuid
+  advisorReport           AdvisorReport? @relation(fields: [advisorReportId], references: [id])
+  recommendedPortfolioIds Json           @map("recommended_portfolio_ids") // string[] — which RecommendedPortfolio snapshots were in the prompt
+
+  score           Float
+  summary         String @db.Text
+  strengths       Json   // string[]
+  risks           Json   // string[]
+  recommendations Json   // string[]
+  impactMetrics   Json   @map("impact_metrics") // { label: string, value: string }[]
+
+  model     String   // which Claude model generated this, for audit
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("advisor_analyses")
 }
