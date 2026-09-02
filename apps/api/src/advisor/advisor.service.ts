@@ -1,9 +1,10 @@
-import { Injectable, NotImplementedException } from '@nestjs/common';
+import { Inject, Injectable, NotImplementedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PortfolioService } from '../portfolio/portfolio.service';
 import { RecommendedPortfoliosService } from '../recommended-portfolios/recommended-portfolios.service';
 import { AllocationBy } from '../portfolio/dto/allocation-query.dto';
 import { AdvisorAnalysis, AdvisorReport, Asset } from '../../generated/prisma/client';
+import { ANTHROPIC_CLIENT, AnthropicClient } from './providers/anthropic-client.interface';
 
 /**
  * `AdvisorReport.rawText` character budget for the prompt's Block 2
@@ -69,6 +70,11 @@ function classificationFields(asset: ClassificationFields | null | undefined): P
  * methods below are deliberately unimplemented stubs so each story's own
  * task (noted per method) can fill in the real behavior without this task
  * reaching into their scope.
+ *
+ * `ANTHROPIC_CLIENT` is injected here by `ADVISOR_US-2_T-1` so
+ * `ADVISOR_US-2_T-3`'s `analyze()` can call `this.anthropicClient.messages
+ * .create(...)` without depending on the concrete `Anthropic` SDK class —
+ * see `providers/anthropic-client.interface.ts`.
  */
 @Injectable()
 export class AdvisorService {
@@ -76,6 +82,7 @@ export class AdvisorService {
     private readonly prisma: PrismaService,
     private readonly portfolioService: PortfolioService,
     private readonly recommendedPortfoliosService: RecommendedPortfoliosService,
+    @Inject(ANTHROPIC_CLIENT) private readonly anthropicClient: AnthropicClient,
   ) {}
 
   /** Implemented by ADVISOR_US-1_T-2 (`POST /advisor/reports/upload`). */

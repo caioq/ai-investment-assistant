@@ -7,7 +7,7 @@ As someone holding thirty-odd positions, I want one button that reads my portfol
 
 ## Tasks
 
-- [ ] [T-1: injectable Anthropic client](../tasks/ADVISOR_US-2_T-1-anthropic-client-provider.md)
+- [x] [T-1: injectable Anthropic client](../tasks/ADVISOR_US-2_T-1-anthropic-client-provider.md)
 - [x] [T-2: build the analysis prompt](../tasks/ADVISOR_US-2_T-2-build-analysis-prompt.md)
 - [ ] [T-3: generate, validate and persist the analysis](../tasks/ADVISOR_US-2_T-3-generate-and-persist-analysis.md)
 - [ ] [T-4: POST /advisor/analyze](../tasks/ADVISOR_US-2_T-4-analyze-endpoint.md)
