@@ -185,3 +185,153 @@ describe('AdvisorService.analyze (e2e)', () => {
     expect(analysis.recommendedPortfolioIds).toEqual([wallet.id]);
   });
 });
+
+/**
+ * ADVISOR_US-2_T-4 — `POST /advisor/analyze` itself, over real HTTP (unlike
+ * the `AdvisorService.analyze` suite above, which calls the service
+ * directly). `ANTHROPIC_CLIENT` is stubbed the same way, so no request here
+ * ever reaches the real Claude API.
+ */
+describe('POST /advisor/analyze (e2e)', () => {
+  let app: INestApplication;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
+
+  const SUITE_EMAIL = 'advisor-analyze-endpoint-e2e@example.com';
+  const OTHER_SUITE_EMAIL = 'advisor-analyze-endpoint-other-e2e@example.com';
+
+  const createStub: jest.Mock = jest.fn();
+  const anthropicClientStub: AnthropicClient = { messages: { create: createStub } };
+
+  const VALID_PAYLOAD = {
+    score: 7,
+    summary: 'A reasonably diversified portfolio with a few concentration risks.',
+    strengths: ['Diversified across sectors'],
+    risks: ['Overweight in one ticker'],
+    recommendations: ['Trim the largest position'],
+    impactMetrics: [{ label: 'Concentration', value: '35%' }],
+  };
+
+  /** Minimal `Anthropic.Message` double — only `content` is read by `AdvisorService.analyze`. */
+  function stubMessage(body: unknown): Anthropic.Message {
+    return {
+      content: [{ type: 'text', text: JSON.stringify(body), citations: [] }],
+    } as unknown as Anthropic.Message;
+  }
+
+  beforeAll(async () => {
+    moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(ANTHROPIC_CLIENT)
+      .useValue(anthropicClientStub)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApp(app);
+    await app.init();
+
+    prisma = moduleFixture.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    createStub.mockReset();
+  });
+
+  // Scoped cleanup per CONVENTIONS.md -> "Testing" — never an unscoped
+  // deleteMany() against a table other suites touch concurrently.
+  afterEach(async () => {
+    await prisma.advisorAnalysis.deleteMany({
+      where: { user: { email: { in: [SUITE_EMAIL, OTHER_SUITE_EMAIL] } } },
+    });
+    await prisma.advisorReport.deleteMany({
+      where: { user: { email: { in: [SUITE_EMAIL, OTHER_SUITE_EMAIL] } } },
+    });
+    await prisma.user.deleteMany({ where: { email: { in: [SUITE_EMAIL, OTHER_SUITE_EMAIL] } } });
+  });
+
+  /** Registers + logs in a user, returning the `access_token` cookie array and the new user's id. */
+  async function authCookies(email: string): Promise<{ cookies: string[]; userId: string }> {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'super-secret-password' });
+
+    const setCookieHeader = response.headers['set-cookie'];
+    const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+    return { cookies, userId: (response.body as { id: string }).id };
+  }
+
+  it('(1) returns 401 when no auth cookie is sent', async () => {
+    const response = await request(app.getHttpServer()).post('/advisor/analyze').send({});
+
+    expect(response.status).toBe(401);
+    expect(createStub).not.toHaveBeenCalled();
+  });
+
+  it('(2) returns 200 and a persisted analysis when authed with no body', async () => {
+    const { cookies, userId } = await authCookies(SUITE_EMAIL);
+    createStub.mockResolvedValueOnce(stubMessage(VALID_PAYLOAD));
+
+    const response = await request(app.getHttpServer())
+      .post('/advisor/analyze')
+      .set('Cookie', cookies)
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ score: 7, summary: VALID_PAYLOAD.summary });
+
+    const rows = await prisma.advisorAnalysis.findMany({ where: { userId } });
+    expect(rows).toHaveLength(1);
+  });
+
+  it('(3) returns 200 and links the persisted analysis to a valid own advisorReportId', async () => {
+    const { cookies, userId } = await authCookies(SUITE_EMAIL);
+    const report = await prisma.advisorReport.create({
+      data: { userId, rawText: 'Some research house commentary.' },
+    });
+    createStub.mockResolvedValueOnce(stubMessage(VALID_PAYLOAD));
+
+    const response = await request(app.getHttpServer())
+      .post('/advisor/analyze')
+      .set('Cookie', cookies)
+      .send({ advisorReportId: report.id });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ advisorReportId: report.id });
+  });
+
+  it("(4) returns 404 and persists no row for another user's advisorReportId", async () => {
+    const { userId: otherUserId } = await authCookies(OTHER_SUITE_EMAIL);
+    const otherReport = await prisma.advisorReport.create({
+      data: { userId: otherUserId, rawText: 'Not this user\'s report.' },
+    });
+    const { cookies } = await authCookies(SUITE_EMAIL);
+
+    const response = await request(app.getHttpServer())
+      .post('/advisor/analyze')
+      .set('Cookie', cookies)
+      .send({ advisorReportId: otherReport.id });
+
+    expect(response.status).toBe(404);
+    expect(createStub).not.toHaveBeenCalled();
+
+    const rows = await prisma.advisorAnalysis.findMany({ where: { advisorReportId: otherReport.id } });
+    expect(rows).toHaveLength(0);
+  });
+
+  it('(5) returns 400, not 500, for a non-UUID advisorReportId', async () => {
+    const { cookies } = await authCookies(SUITE_EMAIL);
+
+    const response = await request(app.getHttpServer())
+      .post('/advisor/analyze')
+      .set('Cookie', cookies)
+      .send({ advisorReportId: 'not-a-uuid' });
+
+    expect(response.status).toBe(400);
+    expect(createStub).not.toHaveBeenCalled();
+  });
+});
