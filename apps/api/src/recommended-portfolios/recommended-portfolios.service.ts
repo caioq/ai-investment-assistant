@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MarketDataService } from '../market-data/market-data.service';
 import {
+  Asset,
   RecommendedHolding,
   RecommendedPortfolio,
   WalletType,
@@ -9,8 +10,17 @@ import {
 import { parseWalletCsv } from './wallet-csv';
 import { validateWalletRows } from './wallet-validation';
 
+/**
+ * Widened by ADVISOR_US-2_T-2 from `holdings: RecommendedHolding[]` (no
+ * `asset` relation) to also join each holding's `Asset` — without it a
+ * recommended holding carries no `sector`/`riskRating`/`currentPrice`, which
+ * makes two `advisor` spec ACs unsatisfiable (see `getLatestPerWallet`
+ * below). `asset` is nullable, matching `RecommendedHolding.assetId`'s own
+ * nullability (a tickerless row, e.g. the Overall wallet's fixed-income
+ * line, resolves no asset at all).
+ */
 export type RecommendedPortfolioWithHoldings = RecommendedPortfolio & {
-  holdings: RecommendedHolding[];
+  holdings: (RecommendedHolding & { asset: Asset | null })[];
 };
 
 /**
@@ -103,6 +113,14 @@ export class RecommendedPortfoliosService {
    * way across drivers. The second query then fetches full rows + holdings
    * for only those (at most 3) ids, so the holdings join is never larger
    * than what's actually returned.
+   *
+   * Holdings are joined with their `asset` (ADVISOR_US-2_T-2) so a
+   * recommended ticker's classification (`sector`/`subSector`/
+   * `investmentStyle`/`riskRating`) and `currentPrice` are available even
+   * for a ticker the user doesn't hold themselves — `advisor`'s prompt
+   * builder reads them from here, never from the user's own `Holding` rows,
+   * since `RecommendedHolding` is what points at `Asset` for a ticker that
+   * may not appear in the user's portfolio at all.
    */
   async getLatestPerWallet(userId: string): Promise<RecommendedPortfolioWithHoldings[]> {
     const portfolios = await this.prisma.recommendedPortfolio.findMany({
@@ -124,7 +142,7 @@ export class RecommendedPortfoliosService {
 
     return this.prisma.recommendedPortfolio.findMany({
       where: { id: { in: [...latestIdByWallet.values()] } },
-      include: { holdings: true },
+      include: { holdings: { include: { asset: true } } },
     });
   }
 }
