@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotImplementedException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotImplementedException } from '@nestjs/common';
 // `pdf-parse` ships no type declarations of its own; `@types/pdf-parse`
 // (dev dep) covers it.
 import * as pdfParse from 'pdf-parse';
@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PortfolioService } from '../portfolio/portfolio.service';
 import { RecommendedPortfoliosService } from '../recommended-portfolios/recommended-portfolios.service';
 import { AdvisorAnalysis, AdvisorReport } from '../../generated/prisma/client';
+import { ANTHROPIC_CLIENT, AnthropicClient } from './providers/anthropic-client.interface';
 
 /**
  * Thin-controller/logic-in-service split per CONVENTIONS.md -> "Module
@@ -18,6 +19,11 @@ import { AdvisorAnalysis, AdvisorReport } from '../../generated/prisma/client';
  * methods below are deliberately unimplemented stubs so each story's own
  * task (noted per method) can fill in the real behavior without this task
  * reaching into their scope.
+ *
+ * `ANTHROPIC_CLIENT` is injected here by `ADVISOR_US-2_T-1` so
+ * `ADVISOR_US-2_T-3`'s `analyze()` can call `this.anthropicClient.messages
+ * .create(...)` without depending on the concrete `Anthropic` SDK class —
+ * see `providers/anthropic-client.interface.ts`.
  */
 @Injectable()
 export class AdvisorService {
@@ -25,6 +31,7 @@ export class AdvisorService {
     private readonly prisma: PrismaService,
     private readonly portfolioService: PortfolioService,
     private readonly recommendedPortfoliosService: RecommendedPortfoliosService,
+    @Inject(ANTHROPIC_CLIENT) private readonly anthropicClient: AnthropicClient,
   ) {}
 
   /**
