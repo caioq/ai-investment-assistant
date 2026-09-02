@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, NotImplementedException, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { AdvisorService } from './advisor.service';
 import { AdvisorAnalysis, AdvisorReport } from '../../generated/prisma/client';
@@ -28,10 +28,16 @@ export class AdvisorController {
     return this.advisorService.uploadReport();
   }
 
-  /** Implemented by ADVISOR_US-2_T-4. */
+  /**
+   * Implemented by ADVISOR_US-2_T-4. `AdvisorService.analyze` itself is now
+   * implemented (ADVISOR_US-2_T-3) and takes `(userId, advisorReportId?)`,
+   * but wiring `req.user.id` and a request DTO through to it is this route's
+   * own task — deliberately left unimplemented here rather than guessed at,
+   * per that task's scope.
+   */
   @Post('analyze')
   async analyze(): Promise<AdvisorAnalysis> {
-    return this.advisorService.analyze();
+    throw new NotImplementedException('AdvisorController.analyze is implemented by ADVISOR_US-2_T-4');
   }
 
   /** Implemented by ADVISOR_US-3_T-1. */

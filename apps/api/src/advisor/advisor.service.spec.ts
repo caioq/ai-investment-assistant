@@ -6,6 +6,7 @@ import {
 } from '../recommended-portfolios/recommended-portfolios.service';
 import { AdvisorService } from './advisor.service';
 import { Asset, Holding } from '../../generated/prisma/client';
+import { AnthropicClient } from './providers/anthropic-client.interface';
 
 /**
  * `AdvisorService.buildAnalysisPrompt` (ADVISOR_US-2_T-2) is the function
@@ -92,6 +93,7 @@ describe('AdvisorService.buildAnalysisPrompt', () => {
       prisma as unknown as PrismaService,
       portfolioService as unknown as PortfolioService,
       recommendedPortfoliosService as unknown as RecommendedPortfoliosService,
+      { messages: { create: jest.fn() } } as unknown as AnthropicClient,
     );
   });
 

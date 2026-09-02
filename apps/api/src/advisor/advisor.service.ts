@@ -1,9 +1,11 @@
-import { Injectable, NotImplementedException } from '@nestjs/common';
+import { BadGatewayException, Inject, Injectable, NotImplementedException } from '@nestjs/common';
+import type Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../prisma/prisma.service';
 import { PortfolioService } from '../portfolio/portfolio.service';
 import { RecommendedPortfoliosService } from '../recommended-portfolios/recommended-portfolios.service';
 import { AllocationBy } from '../portfolio/dto/allocation-query.dto';
 import { AdvisorAnalysis, AdvisorReport, Asset } from '../../generated/prisma/client';
+import { ANTHROPIC_CLIENT, AnthropicClient } from './providers/anthropic-client.interface';
 
 /**
  * `AdvisorReport.rawText` character budget for the prompt's Block 2
@@ -28,6 +30,125 @@ const PROMPT_ALLOCATION_AXES: AllocationBy[] = ['sector', 'stock', 'investmentSt
  * by an assets CSV import (spec.md -> Behavior Notes).
  */
 type ClassificationFields = Pick<Asset, 'sector' | 'subSector' | 'investmentStyle' | 'riskRating'>;
+
+/**
+ * Model id sent to `messages.create` (ADVISOR_US-2_T-3, spec.md -> Behavior
+ * Notes: "claude-sonnet-5 ... good cost/quality fit"). Also recorded
+ * verbatim on the persisted `AdvisorAnalysis.model` — the spec calls this
+ * an audit field, since it's the only way to explain why two analyses of
+ * the same portfolio differ after a future model upgrade.
+ */
+const ANALYSIS_MODEL = 'claude-sonnet-5';
+
+/**
+ * Ceiling for the structured JSON response (score, summary, a handful of
+ * strengths/risks/recommendations, a few impact metrics) — generous enough
+ * that a normal analysis is never cut off mid-JSON (which would fail
+ * `JSON.parse` and burn one of the two attempts below on a formatting
+ * accident rather than a real schema mismatch), bounded so a single call's
+ * cost stays predictable.
+ */
+const ANALYSIS_MAX_OUTPUT_TOKENS = 4096;
+
+/**
+ * Total attempts against `ANTHROPIC_CLIENT` per `analyze()` call: the first
+ * try plus exactly one retry on a schema-invalid response (spec.md -> AC
+ * "retried once, then surfaced as an error"). Never more — an unbounded
+ * retry loop against a paid API is how one bad prompt turns into a real
+ * bill.
+ */
+const MAX_ANALYSIS_ATTEMPTS = 2;
+
+/**
+ * JSON Schema passed as `output_config.format` (`claude-api` skill:
+ * supersedes the older `output_format` param). Mirrors `AdvisorAnalysis`'s
+ * own JSON columns 1:1 (spec.md -> Data Model), `required`/
+ * `additionalProperties: false` on both the outer object and each
+ * `impactMetrics` entry (spec.md -> Behavior Notes). `score` has no
+ * `minimum`/`maximum` — JSON Schema structured output doesn't support
+ * range constraints, so the prompt instructs the 0-10 range and
+ * `clampScore` enforces it in code after the response comes back.
+ */
+const ANALYSIS_OUTPUT_SCHEMA = {
+  type: 'object',
+  properties: {
+    score: {
+      type: 'number',
+      description: 'Overall portfolio score, intended to be between 0 and 10 inclusive.',
+    },
+    summary: { type: 'string' },
+    strengths: { type: 'array', items: { type: 'string' } },
+    risks: { type: 'array', items: { type: 'string' } },
+    recommendations: { type: 'array', items: { type: 'string' } },
+    impactMetrics: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          label: { type: 'string' },
+          value: { type: 'string' },
+        },
+        required: ['label', 'value'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['score', 'summary', 'strengths', 'risks', 'recommendations', 'impactMetrics'],
+  additionalProperties: false,
+} as const;
+
+/** Parsed + schema-validated shape of a `messages.create` response's JSON text, before `score` is clamped. */
+interface AnalysisPayload {
+  score: number;
+  summary: string;
+  strengths: string[];
+  risks: string[];
+  recommendations: string[];
+  impactMetrics: { label: string; value: string }[];
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isImpactMetricsArray(value: unknown): value is { label: string; value: string }[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).label === 'string' &&
+        typeof (item as Record<string, unknown>).value === 'string',
+    )
+  );
+}
+
+/**
+ * Validates a parsed JSON value against `ANALYSIS_OUTPUT_SCHEMA`'s shape
+ * before it's ever persisted (spec.md -> AC "validates against the
+ * declared schema on every field before being persisted"). `output_config
+ * .format` constrains the model's *generation*, but this app never trusts
+ * an upstream response's shape without checking it independently — this is
+ * also what makes the retry-once behavior below testable with a stub.
+ */
+function isAnalysisPayload(value: unknown): value is AnalysisPayload {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.score === 'number' &&
+    typeof candidate.summary === 'string' &&
+    isStringArray(candidate.strengths) &&
+    isStringArray(candidate.risks) &&
+    isStringArray(candidate.recommendations) &&
+    isImpactMetricsArray(candidate.impactMetrics)
+  );
+}
+
+/** Clamps `score` to 0-10 in code (spec.md -> Behavior Notes; JSON Schema structured output has no `minimum`/`maximum`). */
+function clampScore(score: number): number {
+  return Math.min(10, Math.max(0, score));
+}
 
 /**
  * Drops any key whose value is `null`/`undefined` rather than keeping it as
@@ -69,6 +190,11 @@ function classificationFields(asset: ClassificationFields | null | undefined): P
  * methods below are deliberately unimplemented stubs so each story's own
  * task (noted per method) can fill in the real behavior without this task
  * reaching into their scope.
+ *
+ * `ANTHROPIC_CLIENT` is injected here by `ADVISOR_US-2_T-1` so
+ * `ADVISOR_US-2_T-3`'s `analyze()` can call `this.anthropicClient.messages
+ * .create(...)` without depending on the concrete `Anthropic` SDK class —
+ * see `providers/anthropic-client.interface.ts`.
  */
 @Injectable()
 export class AdvisorService {
@@ -76,6 +202,7 @@ export class AdvisorService {
     private readonly prisma: PrismaService,
     private readonly portfolioService: PortfolioService,
     private readonly recommendedPortfoliosService: RecommendedPortfoliosService,
+    @Inject(ANTHROPIC_CLIENT) private readonly anthropicClient: AnthropicClient,
   ) {}
 
   /** Implemented by ADVISOR_US-1_T-2 (`POST /advisor/reports/upload`). */
@@ -84,9 +211,11 @@ export class AdvisorService {
   }
 
   /**
-   * Builds the three-block prompt from spec.md -> Behavior Notes, separable
-   * from the actual Claude API call (ADVISOR_US-2_T-3 calls this and passes
-   * the result along) so it's unit-testable on its own (ADVISOR_US-2_T-2).
+   * Builds the three-block prompt from spec.md -> Behavior Notes, plus the
+   * ids of the `RecommendedPortfolio` snapshots that went into it —
+   * `analyze()` (ADVISOR_US-2_T-3) needs both, and computing them together
+   * avoids a second `getLatestPerWallet` round-trip for what should be the
+   * exact same wallets the prompt just read.
    *
    * - Block 1 (the user's portfolio) and its allocation/summary/performance
    *   come from `PortfolioService` — never a direct `holdings`/`assets`
@@ -101,7 +230,10 @@ export class AdvisorService {
    *   ticker's classification and `currentPrice` are available even for a
    *   ticker the user doesn't hold.
    */
-  async buildAnalysisPrompt(userId: string, advisorReportId?: string): Promise<string> {
+  private async gatherPromptContext(
+    userId: string,
+    advisorReportId?: string,
+  ): Promise<{ prompt: string; recommendedPortfolioIds: string[] }> {
     const [holdings, allocationEntries, summary, performance, recommendedWallets] = await Promise.all([
       this.portfolioService.listHoldings(userId),
       Promise.all(
@@ -171,12 +303,83 @@ export class AdvisorService {
 
     sections.push(`## Recommended Portfolios\n${JSON.stringify(recommendedWalletsBlock, null, 2)}`);
 
-    return sections.join('\n\n');
+    return {
+      prompt: sections.join('\n\n'),
+      recommendedPortfolioIds: recommendedWallets.map((wallet) => wallet.id),
+    };
   }
 
-  /** Implemented by ADVISOR_US-2_T-4 (`POST /advisor/analyze`). */
-  async analyze(): Promise<AdvisorAnalysis> {
-    throw new NotImplementedException('AdvisorService.analyze is implemented by ADVISOR_US-2_T-4');
+  /**
+   * Unit-tested on its own (ADVISOR_US-2_T-2, `advisor.service.spec.ts`) —
+   * a thin wrapper over `gatherPromptContext` that drops the provenance
+   * ids `analyze()` needs but a prompt-only test doesn't.
+   */
+  async buildAnalysisPrompt(userId: string, advisorReportId?: string): Promise<string> {
+    const { prompt } = await this.gatherPromptContext(userId, advisorReportId);
+    return prompt;
+  }
+
+  /**
+   * `POST /advisor/analyze`'s core logic (ADVISOR_US-2_T-3; wired to the
+   * route itself by ADVISOR_US-2_T-4). Sends the prompt through
+   * `ANTHROPIC_CLIENT` (ADVISOR_US-2_T-1) with output constrained by
+   * `ANALYSIS_OUTPUT_SCHEMA`, validates the response independently
+   * (`isAnalysisPayload`) before ever touching Prisma, retries exactly once
+   * on a schema-invalid response and then throws rather than persisting a
+   * malformed row (spec.md -> AC), clamps `score` to 0-10, and always
+   * inserts a new `AdvisorAnalysis` row — never updates one. Caching is
+   * `GET /advisor/analysis/latest` reading the newest row, which is US-3's
+   * job, not this method's.
+   */
+  async analyze(userId: string, advisorReportId?: string): Promise<AdvisorAnalysis> {
+    const { prompt, recommendedPortfolioIds } = await this.gatherPromptContext(userId, advisorReportId);
+
+    let payload: AnalysisPayload | null = null;
+    for (let attempt = 1; attempt <= MAX_ANALYSIS_ATTEMPTS; attempt++) {
+      const message = await this.anthropicClient.messages.create({
+        model: ANALYSIS_MODEL,
+        max_tokens: ANALYSIS_MAX_OUTPUT_TOKENS,
+        thinking: { type: 'disabled' },
+        messages: [{ role: 'user', content: prompt }],
+        output_config: { format: { type: 'json_schema', schema: ANALYSIS_OUTPUT_SCHEMA } },
+      });
+
+      const textBlock = message.content.find(
+        (block): block is Anthropic.TextBlock => block.type === 'text',
+      );
+      let parsed: unknown;
+      try {
+        parsed = textBlock ? JSON.parse(textBlock.text) : undefined;
+      } catch {
+        parsed = undefined;
+      }
+
+      if (isAnalysisPayload(parsed)) {
+        payload = parsed;
+        break;
+      }
+    }
+
+    if (!payload) {
+      throw new BadGatewayException(
+        'Claude returned a schema-invalid portfolio analysis twice in a row; not persisting a malformed row.',
+      );
+    }
+
+    return this.prisma.advisorAnalysis.create({
+      data: {
+        userId,
+        advisorReportId: advisorReportId ?? null,
+        recommendedPortfolioIds,
+        score: clampScore(payload.score),
+        summary: payload.summary,
+        strengths: payload.strengths,
+        risks: payload.risks,
+        recommendations: payload.recommendations,
+        impactMetrics: payload.impactMetrics,
+        model: ANALYSIS_MODEL,
+      },
+    });
   }
 
   /** Implemented by ADVISOR_US-3_T-1 (`GET /advisor/analysis/latest`). */
