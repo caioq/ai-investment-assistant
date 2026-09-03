@@ -8,7 +8,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 |---|---|---|---|
 | [US-1](./US-1-upload-report.md) | Give the advisor the research house's report | Ready | T-1..T-2 in `../tasks/` |
 | [US-2](./US-2-generate-analysis.md) | Generate a portfolio analysis | Ready | T-1..T-4 in `../tasks/` |
-| [US-3](./US-3-latest-analysis.md) | See my last analysis without paying for it again | Ready | T-1 in `../tasks/` |
+| [US-3](./US-3-latest-analysis.md) | See my last analysis without paying for it again | Done | T-1 in `../tasks/` |
 
 ## Cross-cutting tasks
 

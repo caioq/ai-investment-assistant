@@ -1,4 +1,10 @@
-import { BadGatewayException, Inject, Injectable, NotImplementedException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  NotImplementedException,
+} from '@nestjs/common';
 import type Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../prisma/prisma.service';
 import { PortfolioService } from '../portfolio/portfolio.service';
@@ -382,10 +388,29 @@ export class AdvisorService {
     });
   }
 
-  /** Implemented by ADVISOR_US-3_T-1 (`GET /advisor/analysis/latest`). */
-  async getLatestAnalysis(): Promise<AdvisorAnalysis> {
-    throw new NotImplementedException(
-      'AdvisorService.getLatestAnalysis is implemented by ADVISOR_US-3_T-1',
-    );
+  /**
+   * `GET /advisor/analysis/latest` (ADVISOR_US-3_T-1). The entire caching
+   * design (spec.md -> Behavior Notes, US-3 story notes): `analyze()` above
+   * always *appends* a new row, this just reads the newest one for the
+   * user — no TTL, no invalidation, and critically, **no call to
+   * `ANTHROPIC_CLIENT`**, so a dashboard reload never spends money. `404`
+   * (not an empty `200`) when the user has never generated one is
+   * deliberate — it's what tells the dashboard to render the idle
+   * "Generate Portfolio Analysis" state instead of a blank panel.
+   *
+   * `findFirst` + `orderBy: { createdAt: 'desc' }` is served by the
+   * `@@index([userId, createdAt])` added in `ADVISOR_SHARED_T-1`.
+   */
+  async getLatestAnalysis(userId: string): Promise<AdvisorAnalysis> {
+    const analysis = await this.prisma.advisorAnalysis.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!analysis) {
+      throw new NotFoundException('No AdvisorAnalysis found for this user yet');
+    }
+
+    return analysis;
   }
 }
