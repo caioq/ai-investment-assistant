@@ -50,6 +50,28 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
   // — e2e suites run in parallel against the same test Postgres
   // (CONVENTIONS.md -> "Testing").
   afterEach(async () => {
+    // portfolioValueSnapshot deleted first: PortfolioListener.snapshotAllUsers
+    // (portfolio.listener.ts) fires on *any* market-data refresh completing
+    // anywhere in the process — including a concurrently-running e2e worker's
+    // — and snapshots every user with a holding at that moment, unscoped to
+    // this suite. If that races against this suite's fixtures existing, the
+    // user.deleteMany below fails on portfolio_value_snapshots_user_id_fkey.
+    await prisma.portfolioValueSnapshot.deleteMany({
+      where: {
+        user: {
+          email: {
+            in: [
+              'portfolio-e2e-1@example.com',
+              'portfolio-e2e-2@example.com',
+              'portfolio-e2e-3@example.com',
+              'portfolio-e2e-4@example.com',
+              'portfolio-e2e-5@example.com',
+              'portfolio-e2e-6@example.com',
+            ],
+          },
+        },
+      },
+    });
     await prisma.holding.deleteMany({
       where: { asset: { ticker: { in: ['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'RACE3'] } } },
     });
@@ -319,6 +341,17 @@ describe('PortfolioController (e2e) - GET /portfolio/holdings', () => {
   // tickers/emails distinct from the POST describe above so both can run
   // without interfering with each other.
   afterEach(async () => {
+    // See the POST /portfolio/holdings suite's afterEach above for why this
+    // goes first: PortfolioListener.snapshotAllUsers can snapshot this
+    // suite's fixture users as a side effect of an unrelated, concurrently
+    // running e2e worker's market-data refresh.
+    await prisma.portfolioValueSnapshot.deleteMany({
+      where: {
+        user: {
+          email: { in: ['portfolio-list-e2e-1@example.com', 'portfolio-list-e2e-2@example.com'] },
+        },
+      },
+    });
     await prisma.holding.deleteMany({
       where: { asset: { ticker: { in: ['BBAS3', 'WEGE3'] } } },
     });
@@ -431,6 +464,15 @@ describe('PortfolioController (e2e) - DELETE /portfolio/holdings/:id', () => {
   // — e2e suites run in parallel against the same test Postgres
   // (CONVENTIONS.md -> "Testing").
   afterEach(async () => {
+    // See the POST /portfolio/holdings suite's afterEach for why this goes
+    // first (PortfolioListener.snapshotAllUsers cross-suite race).
+    await prisma.portfolioValueSnapshot.deleteMany({
+      where: {
+        user: {
+          email: { in: ['portfolio-delete-e2e-1@example.com', 'portfolio-delete-e2e-2@example.com'] },
+        },
+      },
+    });
     await prisma.holding.deleteMany({
       where: { asset: { ticker: { in: ['PETR4'] } } },
     });
@@ -543,6 +585,17 @@ describe('PortfolioController (e2e) - cross-user isolation (PORTFOLIO_US-1_T-5)'
   // — e2e suites run in parallel against the same test Postgres
   // (CONVENTIONS.md -> "Testing").
   afterEach(async () => {
+    // See the POST /portfolio/holdings suite's afterEach for why this goes
+    // first (PortfolioListener.snapshotAllUsers cross-suite race).
+    await prisma.portfolioValueSnapshot.deleteMany({
+      where: {
+        user: {
+          email: {
+            in: ['portfolio-isolation-e2e-a@example.com', 'portfolio-isolation-e2e-b@example.com'],
+          },
+        },
+      },
+    });
     await prisma.holding.deleteMany({
       where: { asset: { ticker: { in: ['ISOL4'] } } },
     });
@@ -688,6 +741,15 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings/upload-csv', () =
   // — e2e suites run in parallel against the same test Postgres
   // (CONVENTIONS.md -> "Testing").
   afterEach(async () => {
+    // See the POST /portfolio/holdings suite's afterEach for why this goes
+    // first (PortfolioListener.snapshotAllUsers cross-suite race).
+    await prisma.portfolioValueSnapshot.deleteMany({
+      where: {
+        user: {
+          email: { in: ['portfolio-csv-e2e-1@example.com', 'portfolio-csv-e2e-2@example.com'] },
+        },
+      },
+    });
     await prisma.holding.deleteMany({
       where: { asset: { ticker: { in: ['VALE3', 'ITUB4', 'BBDC4', 'PETR4'] } } },
     });
@@ -793,6 +855,17 @@ describe('PortfolioController (e2e) - GET /portfolio/allocation', () => {
   });
 
   afterEach(async () => {
+    // See the POST /portfolio/holdings suite's afterEach for why this goes
+    // first (PortfolioListener.snapshotAllUsers cross-suite race).
+    await prisma.portfolioValueSnapshot.deleteMany({
+      where: {
+        user: {
+          email: {
+            in: ['portfolio-allocation-e2e-1@example.com', 'portfolio-allocation-e2e-2@example.com'],
+          },
+        },
+      },
+    });
     await prisma.holding.deleteMany({
       where: { asset: { ticker: { in: ALLOCATION_TICKERS } } },
     });
@@ -952,6 +1025,22 @@ describe('PortfolioController (e2e) - GET /portfolio/summary', () => {
   // — e2e suites run in parallel against the same test Postgres
   // (CONVENTIONS.md -> "Testing").
   afterEach(async () => {
+    // See the POST /portfolio/holdings suite's afterEach for why this goes
+    // first (PortfolioListener.snapshotAllUsers cross-suite race).
+    await prisma.portfolioValueSnapshot.deleteMany({
+      where: {
+        user: {
+          email: {
+            in: [
+              'portfolio-summary-e2e-1@example.com',
+              'portfolio-summary-e2e-2@example.com',
+              'portfolio-summary-e2e-3@example.com',
+              'portfolio-summary-e2e-4@example.com',
+            ],
+          },
+        },
+      },
+    });
     await prisma.holding.deleteMany({
       where: { asset: { ticker: { in: ['SUMA1', 'SUMB2', 'SUMC3', 'SUMD4'] } } },
     });
