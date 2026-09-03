@@ -7,7 +7,7 @@ As someone who receives a monthly PDF commentary from my research house, I want 
 
 ## Tasks
 
-- [ ] [T-1: PDF text extraction](../tasks/ADVISOR_US-1_T-1-pdf-text-extraction.md)
+- [x] [T-1: PDF text extraction](../tasks/ADVISOR_US-1_T-1-pdf-text-extraction.md)
 - [ ] [T-2: POST /advisor/reports/upload](../tasks/ADVISOR_US-1_T-2-report-upload-endpoint.md)
 
 ## Notes

@@ -1,7 +1,7 @@
 # ADVISOR_US-1_T-1: PDF text extraction
 
 **Story:** [../stories/US-1-upload-report.md](../stories/US-1-upload-report.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #185 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** ADVISOR_SHARED_T-2
 
