@@ -1,6 +1,6 @@
 # US-1: Give the advisor the research house's report
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Upload and extract text from a PDF (or accept pasted text) as the free-text recommendation report." / spec API Contract `POST /advisor/reports/upload` / spec ACs "Uploading a valid PDF report results in a non-empty `AdvisorReport.rawText`.", "Uploading a corrupt/invalid PDF returns a clear 4xx error, not a 500 or a silently empty `rawText`." (in `../spec.md`)
 
 As someone who receives a monthly PDF commentary from my research house, I want to hand that document to the advisor, so its analysis reflects what my analysts are actually saying rather than only what my spreadsheet shows.
@@ -8,7 +8,7 @@ As someone who receives a monthly PDF commentary from my research house, I want 
 ## Tasks
 
 - [x] [T-1: PDF text extraction](../tasks/ADVISOR_US-1_T-1-pdf-text-extraction.md)
-- [ ] [T-2: POST /advisor/reports/upload](../tasks/ADVISOR_US-1_T-2-report-upload-endpoint.md)
+- [x] [T-2: POST /advisor/reports/upload](../tasks/ADVISOR_US-1_T-2-report-upload-endpoint.md)
 
 ## Notes
 

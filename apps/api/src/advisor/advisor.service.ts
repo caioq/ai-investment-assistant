@@ -27,9 +27,45 @@ export class AdvisorService {
     private readonly recommendedPortfoliosService: RecommendedPortfoliosService,
   ) {}
 
-  /** Implemented by ADVISOR_US-1_T-2 (`POST /advisor/reports/upload`). */
-  async uploadReport(): Promise<AdvisorReport> {
-    throw new NotImplementedException('AdvisorService.uploadReport is implemented by ADVISOR_US-1_T-2');
+  /**
+   * `POST /advisor/reports/upload` accepts *either* a multipart PDF *or* a
+   * JSON `{ sourceName?, text }` body (spec.md -> API Contract). Routing
+   * between the two: a `file` present takes precedence and is run through
+   * `extractPdfText` above, with `fileName` set from `file.originalname`;
+   * otherwise a non-empty `text` is required and stored verbatim with
+   * `fileName: null`. Neither present is a `BadRequestException` — not a
+   * report row with an empty `rawText`, which would silently corrupt any
+   * later `POST /advisor/analyze` prompt built from it.
+   */
+  async uploadReport(
+    userId: string,
+    input: { file?: Express.Multer.File; sourceName?: string; text?: string },
+  ): Promise<AdvisorReport> {
+    if (input.file) {
+      const rawText = await this.extractPdfText(input.file.buffer);
+
+      return this.prisma.advisorReport.create({
+        data: {
+          userId,
+          sourceName: input.sourceName ?? null,
+          fileName: input.file.originalname,
+          rawText,
+        },
+      });
+    }
+
+    if (input.text && input.text.trim().length > 0) {
+      return this.prisma.advisorReport.create({
+        data: {
+          userId,
+          sourceName: input.sourceName ?? null,
+          fileName: null,
+          rawText: input.text,
+        },
+      });
+    }
+
+    throw new BadRequestException('Either a PDF file or non-empty text is required');
   }
 
   /**
