@@ -31,9 +31,14 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/investment_assistant_test?schema=public
       # e2e boots the real AppModule, so anything read at bootstrap must be
       # set: JwtStrategy throws "requires a secret or key" without JWT_SECRET,
-      # and configureApp reads FRONTEND_URL for CORS. Test-only values.
+      # configureApp reads FRONTEND_URL for CORS, and the Anthropic client
+      # provider throws without ANTHROPIC_API_KEY (ADVISOR_US-2_T-1) — no
+      # test in this repo calls the real Anthropic API (they inject a stub
+      # ANTHROPIC_CLIENT), so this only needs to satisfy the presence check.
+      # Test-only values.
       JWT_SECRET: ci-test-secret
       FRONTEND_URL: http://localhost:3000
+      ANTHROPIC_API_KEY: ci-test-anthropic-key
 
     steps:
       - uses: actions/checkout@v4
