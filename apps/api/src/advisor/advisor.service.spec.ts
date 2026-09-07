@@ -5,15 +5,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PortfolioService } from '../portfolio/portfolio.service';
 import { RecommendedPortfoliosService } from '../recommended-portfolios/recommended-portfolios.service';
 import { AdvisorService } from './advisor.service';
+import { AnthropicClient } from './providers/anthropic-client.interface';
 
 /**
  * ADVISOR_US-1_T-1 — PDF text extraction.
  *
- * Unit test with a mocked `PrismaService` (and its two sibling service
+ * Unit test with a mocked `PrismaService` (and its sibling service/client
  * deps), per CONVENTIONS.md -> "Testing" — direct instantiation, same
  * pattern as `RecommendedPortfoliosService`'s own spec.
- * `extractPdfText` never touches any of the three, but the constructor
- * still requires them.
+ * `extractPdfText` never touches any of them, but the constructor still
+ * requires them — `anthropicClient` stubbed per the shape documented in
+ * `providers/anthropic-client.interface.ts` (added by `ADVISOR_US-2_T-1`).
  */
 
 const FIXTURE_DIR = join(__dirname, '..', '..', 'test', 'fixtures', 'advisor');
@@ -30,6 +32,7 @@ describe('AdvisorService', () => {
       {} as unknown as PrismaService,
       {} as unknown as PortfolioService,
       {} as unknown as RecommendedPortfoliosService,
+      { messages: { create: jest.fn() } } as unknown as AnthropicClient,
     );
   });
 
