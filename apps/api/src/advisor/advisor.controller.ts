@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotImplementedException,
+  Post,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
@@ -52,10 +62,16 @@ export class AdvisorController {
     });
   }
 
-  /** Implemented by ADVISOR_US-2_T-4. */
+  /**
+   * Implemented by ADVISOR_US-2_T-4. `AdvisorService.analyze` itself is now
+   * implemented (ADVISOR_US-2_T-3) and takes `(userId, advisorReportId?)`,
+   * but wiring `req.user.id` and a request DTO through to it is this route's
+   * own task — deliberately left unimplemented here rather than guessed at,
+   * per that task's scope.
+   */
   @Post('analyze')
   async analyze(): Promise<AdvisorAnalysis> {
-    return this.advisorService.analyze();
+    throw new NotImplementedException('AdvisorController.analyze is implemented by ADVISOR_US-2_T-4');
   }
 
   /** Implemented by ADVISOR_US-3_T-1. */
