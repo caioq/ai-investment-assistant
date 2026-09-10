@@ -97,9 +97,15 @@ export class AdvisorController {
     return this.advisorService.analyze(userId, dto.advisorReportId);
   }
 
-  /** Implemented by ADVISOR_US-3_T-1. */
+  /**
+   * `req.user.id` per CONVENTIONS.md -> "Auth" — never a client-supplied
+   * `userId`. `AdvisorService.getLatestAnalysis` throws `NotFoundException`
+   * (404) when the user has never generated an analysis, which Nest's
+   * built-in exception filter turns into the response directly.
+   */
   @Get('analysis/latest')
-  async getLatestAnalysis(): Promise<AdvisorAnalysis> {
-    return this.advisorService.getLatestAnalysis();
+  async getLatestAnalysis(@Req() req: Request): Promise<AdvisorAnalysis> {
+    const userId = (req.user as { id: string }).id;
+    return this.advisorService.getLatestAnalysis(userId);
   }
 }
