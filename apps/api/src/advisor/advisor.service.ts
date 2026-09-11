@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  NotFoundException,
   NotImplementedException,
 } from '@nestjs/common';
 // `pdf-parse` ships no type declarations of its own; `@types/pdf-parse`
@@ -389,6 +390,22 @@ export class AdvisorService {
   async buildAnalysisPrompt(userId: string, advisorReportId?: string): Promise<string> {
     const { prompt } = await this.gatherPromptContext(userId, advisorReportId);
     return prompt;
+  }
+
+  /**
+   * `(id, userId)`-scoped `AdvisorReport` lookup (ADVISOR_US-2_T-4), used by
+   * `AdvisorController.analyze` to reject a cross-user `advisorReportId`
+   * with `404` before ever calling `analyze()` below — same rule as
+   * `PortfolioService.updateHolding`/`deleteHolding` (CONVENTIONS.md ->
+   * "Auth"): `404`, never `403`, so the response can't be used to probe
+   * which report ids exist for another user.
+   */
+  async getReportForUser(userId: string, id: string): Promise<AdvisorReport> {
+    const report = await this.prisma.advisorReport.findFirst({ where: { id, userId } });
+    if (!report) {
+      throw new NotFoundException(`No AdvisorReport found for id '${id}'`);
+    }
+    return report;
   }
 
   /**
