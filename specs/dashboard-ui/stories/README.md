@@ -6,7 +6,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 
 | Story | Title | Status | Tasks |
 |---|---|---|---|
-| [US-1](./US-1-auth-pages.md) | Sign in and create an account | Ready | T-1..T-3 in `../tasks/` |
+| [US-1](./US-1-auth-pages.md) | Sign in, create an account, sign out | Ready | T-1..T-4 in `../tasks/` |
 | [US-2](./US-2-portfolio-header-summary.md) | See what my portfolio is worth | Ready | T-1..T-3 in `../tasks/` |
 | [US-3](./US-3-allocation-donuts.md) | See how my money is spread out | Ready | T-1..T-2 in `../tasks/` |
 | [US-4](./US-4-performance-chart.md) | Track performance against a benchmark | Ready | T-1..T-4 in `../tasks/` |
@@ -23,7 +23,10 @@ Work shared by more than one story lives in `../tasks/DASHBOARD_UI_SHARED_T-<T>-
 - [`DASHBOARD_UI_SHARED_T-3-design-tokens.md`](../tasks/DASHBOARD_UI_SHARED_T-3-design-tokens.md) — the mockup's palette as CSS custom properties, plus `Inter` via `next/font`. Shared by every story.
 - [`DASHBOARD_UI_SHARED_T-4-ui-primitives.md`](../tasks/DASHBOARD_UI_SHARED_T-4-ui-primitives.md) — `Button`, `Card`, `Badge`. Shared by every story.
 - [`DASHBOARD_UI_SHARED_T-5-dashboard-layout-guard.md`](../tasks/DASHBOARD_UI_SHARED_T-5-dashboard-layout-guard.md) — `(dashboard)/layout.tsx`: the auth guard (spec AC "unauthenticated visits redirect to `/login`") and the sidebar/main shell. Shared by US-2, US-3, US-4, US-5, US-6, US-7.
-- [`DASHBOARD_UI_SHARED_T-6-dashboard-composition.md`](../tasks/DASHBOARD_UI_SHARED_T-6-dashboard-composition.md) — the last task in the module: proves every section is actually mounted on the assembled page, including the all-empty new-user case. Shared by US-2, US-3, US-4, US-5, US-7.
+- [`DASHBOARD_UI_SHARED_T-6-dashboard-composition.md`](../tasks/DASHBOARD_UI_SHARED_T-6-dashboard-composition.md) — proves every section is actually mounted on the assembled page, including the all-empty new-user case, and is where a human confirms fidelity to the mockup. Shared by US-2, US-3, US-4, US-5, US-7.
+- [`DASHBOARD_UI_SHARED_T-7-playwright-harness.md`](../tasks/DASHBOARD_UI_SHARED_T-7-playwright-harness.md) — the browser-e2e harness the repo documents but never had: config, dual `webServer`, a seeded fixture user, and the auth/logout smoke flow. Shared by every story.
+- [`DASHBOARD_UI_SHARED_T-8-e2e-ci.md`](../tasks/DASHBOARD_UI_SHARED_T-8-e2e-ci.md) — runs that suite in CI, with artifacts on failure. Shared by every story.
+- [`DASHBOARD_UI_SHARED_T-9-visual-regression.md`](../tasks/DASHBOARD_UI_SHARED_T-9-visual-regression.md) — the last task in the module: freezes the approved dashboard layout as a committed baseline so later drift fails a PR. Shared by US-2, US-3, US-4, US-5, US-7.
 
 ## Start here
 
@@ -33,7 +36,9 @@ After those five, the module opens up wide: **US-1 (auth), and the leaf componen
 
 The exception, and the one real bottleneck: **`US-2_T-3` creates `(dashboard)/page.tsx`, and `US-3_T-2`, `US-4_T-4`, `US-5_T-3` and `US-7_T-5` all add their section to that same file.** Four stories are blocked on it, and then all four edit it. Merge `US-2_T-3` promptly rather than letting four branches stack on it, and expect the four wiring tasks to need rebasing against each other if they run truly concurrently. Build the leaf components in parallel; serialize the wiring.
 
-`SHARED_T-6` is last by construction — it depends on all four wiring tasks plus `US-2_T-3`.
+`SHARED_T-6` depends on all four wiring tasks plus `US-2_T-3`, and `SHARED_T-9` depends on `T-6` — so the tail of the module is fixed: compose the page, have a human approve it against the mockup, then freeze that approval as a baseline.
+
+The e2e harness is the one piece of infrastructure that can run early: **`SHARED_T-7` is unblocked as soon as `US-1_T-3` lands**, well before the dashboard exists, because its smoke flow is login/logout. Doing it early is worth it — it's the only test in the module that exercises a real cookie round trip through a real browser, and `SHARED_T-8` (CI) follows it immediately.
 
 ## Decisions this pass had to make
 
@@ -41,14 +46,14 @@ The exception, and the one real bottleneck: **`US-2_T-3` creates `(dashboard)/pa
 - **Three mockup elements have no backend behind them and are omitted rather than faked**: "Cash available" (no cash concept anywhere in the data model), "Across 8 sectors" (not derivable from `/portfolio/summary` alone, and not worth a second request from a stat card), and the "S&P 500" benchmark legend (the backend's benchmarks are `IBOVESPA` and `CDI`). A hard-coded zero on the dashboard's most prominent row is worse than an absent card.
 - **`(dashboard)/layout.tsx` holds the auth guard, not `middleware.ts`.** Middleware can see that a cookie exists but can't verify its signature without duplicating `JWT_SECRET` into the frontend runtime; a server-side `GET /auth/me` asks the service that actually knows. It also means an expired token behaves like no token — the case a "cookie present?" check silently gets wrong.
 - **The server/client split is drawn at the smallest stateful leaf**, per `CONVENTIONS.md`. The page and every presentational component are Server Components fed by one concurrent `Promise.all`; only `PerformanceRange`, `AdvisorPanel` and the three forms are `'use client'`. That's what keeps the chart and the advisor report in the first paint instead of arriving after a client round trip.
-- **`SHARED_T-6` is honest about what it can't test.** The AC says "visually matches the mockup's layout"; an RTL test can assert every section is mounted in the right order, and that's what it does. Pixel fidelity stays a manual side-by-side read, called out in the task rather than left implied by a green check.
+- **Mockup fidelity is a human check; visual regression is a machine check; they are not the same thing.** The spec now says so in its Non-Goals. [`resources/UI/portfolio-dashboard.html`](../../../resources/UI/portfolio-dashboard.html) cannot be diffed against: it is a declarative prototype needing its own `support.js` runtime, with hardcoded demo data (Jordan, a cash balance, an S&P 500 benchmark) this UI deliberately omits, so every diff would fail by design. `SHARED_T-6` therefore ends in a human side-by-side read, and `SHARED_T-9` freezes *that approved result* as a baseline — catching future drift, not measuring design conformance.
+- **The Playwright harness is scoped as module work, not a `project-setup` reopening.** `apps/web/e2e/` is this module's territory and the mockup AC is this module's AC; `project-setup` is fully `Done` and its bare task IDs (`US-1_T-1`) are a documented historical exception, so adding module-prefixed tasks there would mix two conventions in one directory. `SHARED_T-8` does edit `.github/workflows/ci.yml`, which `project-setup` owns — precedented by `ADVISOR_US-2_T-2` touching `recommended-portfolios`, and called out so a reviewer expects it.
 - **Every component task's test includes its degenerate case, and they're not padding.** The empty-portfolio path runs through all of them at once on a new user's first load: `conic-gradient()` with zero stops is invalid CSS, an all-equal performance series divides by zero into a `NaN` path, a `null` `currentPrice` read as `0` reports a 100% loss, and a `404` from the advisor endpoint is the *expected* response. Each renders as a blank panel or a plausible-looking wrong number rather than an error, which is why they're asserted rather than eyeballed.
 
 ## Flagged for you, outside this pass's scope
 
+- **`CONVENTIONS.md` → "Frontend → Testing" is currently false.** It states *"Playwright specs live under `apps/web/e2e/`"*; nothing was ever installed. `SHARED_T-7` is what makes the line true and should correct it in the same PR — until then, the file describes a harness that does not exist, which is exactly the kind of thing an `/implement` run reads as established fact.
 - **`GET /portfolio/summary` should probably grow a `dayChange`/`dayChangePct`.** Deriving it in the frontend works and is what these tasks do, but the backend already holds the `PortfolioValueSnapshot` series and can compute it correctly once, including the weekday-only gap. Worth a `/spec portfolio` pass; nothing here forecloses it, and `PortfolioHeader` takes the values as props either way.
-- **No Playwright in the repo.** `CONVENTIONS.md` → "Testing" describes `apps/web/e2e/` as the home for Playwright specs, but the harness was never installed — `apps/web/package.json` has Vitest and RTL only. Every test in this module is therefore RTL, including `SHARED_T-6`'s composition test. Adding Playwright (and a screenshot-diff for the mockup AC) is a reasonable separate task; it wasn't scoped here because it's tooling, not a spec Goal.
-- **No logout control is specified.** `POST /auth/logout` exists in the [auth](../../auth/spec.md) spec, but this module's Goals and component tree don't include a place to put one — so a signed-in user has no way to sign out. Small, and worth a line in the spec's Goals rather than being smuggled into a task.
 - **`GET /advisor/recommended-portfolios/latest` is read but never really displayed.** `US-7_T-2` shows which wallets are loaded and their `effectiveDate`, which is enough to decide whether to re-upload. The actual model-wallet holdings — and any side-by-side against the user's own positions — aren't in this spec's Goals, though they're arguably the most interesting thing the backend now holds.
 
 ## Out of scope for this pass
