@@ -1,26 +1,44 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens ported from the mockup's light palette
+ * (resources/UI/portfolio-dashboard.html, rootStyle, light branch).
+ *
+ * Only the light palette is defined here — theming/dark mode is out of
+ * scope for this pass (see specs/dashboard-ui/stories/README.md, "Out of
+ * scope for this pass"). Every token below is named so a future
+ * `@media (prefers-color-scheme: dark)` block can override the same names
+ * without any component needing to change.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-app: #f3f5f9;
+  --bg-card: #ffffff;
+  --bg-card-alt: #f7f9fc;
+  --border: #e6e9f1;
+  --text-primary: #0b1e3d;
+  --text-secondary: #5b6478;
+  --text-tertiary: #96a0b6;
+  --navy: #0b1e3d;
+  --navy-2: #15305c;
+  --blue: #2f6fed;
+  --emerald: #0ea579;
+  --emerald-light: #0ea579;
+  --red: #d65c4f;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 8px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 24px 60px rgba(11, 30, 61, 0.28);
+
+  --background: var(--bg-app);
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-inter);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), sans-serif;
 }
