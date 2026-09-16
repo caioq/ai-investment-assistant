@@ -1,6 +1,6 @@
 # US-1: Sign in and create an account
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Auth pages: login, register, and a logout control in the dashboard shell." / spec AC "Clicking logout calls `POST /auth/logout`, lands on `/login`, and a subsequent direct visit to a `(dashboard)` route redirects back to `/login`" (in `../spec.md`)
 
 As a new or returning investor, I want to create an account and sign in from the web app, so that I can reach my portfolio without hand-crafting a request against the API.
@@ -10,7 +10,7 @@ As a new or returning investor, I want to create an account and sign in from the
 - [x] [T-1: `LoginForm`](../tasks/DASHBOARD_UI_US-1_T-1-login-form.md)
 - [x] [T-2: `RegisterForm`](../tasks/DASHBOARD_UI_US-1_T-2-register-form.md)
 - [x] [T-3: `(auth)` routes](../tasks/DASHBOARD_UI_US-1_T-3-auth-routes.md)
-- [ ] [T-4: `LogoutButton`](../tasks/DASHBOARD_UI_US-1_T-4-logout-button.md)
+- [x] [T-4: `LogoutButton`](../tasks/DASHBOARD_UI_US-1_T-4-logout-button.md)
 
 ## Notes
 

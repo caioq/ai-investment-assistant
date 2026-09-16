@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-const { cookiesMock, redirectMock, apiFetchMock } = vi.hoisted(() => ({
+const { cookiesMock, redirectMock, apiFetchMock, routerMock } = vi.hoisted(() => ({
   cookiesMock: vi.fn(),
   redirectMock: vi.fn(),
   apiFetchMock: vi.fn(),
+  routerMock: { replace: vi.fn(), push: vi.fn(), refresh: vi.fn() },
 }));
 
 vi.mock('next/headers', () => ({
@@ -13,6 +14,7 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   redirect: redirectMock,
+  useRouter: () => routerMock,
 }));
 
 vi.mock('../../lib/api-client', () => {
