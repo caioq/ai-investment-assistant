@@ -1,6 +1,6 @@
 # US-1: Sign in and create an account
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Auth pages: login, register, and a logout control in the dashboard shell." / spec AC "Clicking logout calls `POST /auth/logout`, lands on `/login`, and a subsequent direct visit to a `(dashboard)` route redirects back to `/login`" (in `../spec.md`)
 
 As a new or returning investor, I want to create an account and sign in from the web app, so that I can reach my portfolio without hand-crafting a request against the API.
