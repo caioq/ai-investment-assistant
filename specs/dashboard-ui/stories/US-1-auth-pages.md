@@ -9,7 +9,7 @@ As a new or returning investor, I want to create an account and sign in from the
 
 - [x] [T-1: `LoginForm`](../tasks/DASHBOARD_UI_US-1_T-1-login-form.md)
 - [x] [T-2: `RegisterForm`](../tasks/DASHBOARD_UI_US-1_T-2-register-form.md)
-- [ ] [T-3: `(auth)` routes](../tasks/DASHBOARD_UI_US-1_T-3-auth-routes.md)
+- [x] [T-3: `(auth)` routes](../tasks/DASHBOARD_UI_US-1_T-3-auth-routes.md)
 - [ ] [T-4: `LogoutButton`](../tasks/DASHBOARD_UI_US-1_T-4-logout-button.md)
 
 ## Notes
