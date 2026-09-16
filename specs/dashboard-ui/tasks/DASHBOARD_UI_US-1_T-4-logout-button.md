@@ -1,7 +1,7 @@
 # DASHBOARD_UI_US-1_T-4: `LogoutButton`
 
 **Story:** [../stories/US-1-auth-pages.md](../stories/US-1-auth-pages.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #233 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_SHARED_T-1, DASHBOARD_UI_SHARED_T-5
 

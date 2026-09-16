@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
 import { apiFetch } from '../../lib/api-client';
+import { LogoutButton } from '../../components/auth/LogoutButton';
 
 const ACCESS_TOKEN_COOKIE = 'access_token';
 
@@ -89,8 +90,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           ))}
         </nav>
 
-        <div style={{ marginTop: 'auto' }} title={user.name ?? user.email}>
-          {(user.name ?? user.email).slice(0, 2).toUpperCase()}
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+          <div title={user.name ?? user.email}>
+            {(user.name ?? user.email).slice(0, 2).toUpperCase()}
+          </div>
+          <LogoutButton />
         </div>
       </aside>
 
