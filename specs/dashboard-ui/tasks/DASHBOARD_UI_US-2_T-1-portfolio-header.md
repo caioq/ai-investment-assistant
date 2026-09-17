@@ -1,7 +1,7 @@
 # DASHBOARD_UI_US-2_T-1: `PortfolioHeader`
 
 **Story:** [../stories/US-2-portfolio-header-summary.md](../stories/US-2-portfolio-header-summary.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #212 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_SHARED_T-2, DASHBOARD_UI_SHARED_T-4
 

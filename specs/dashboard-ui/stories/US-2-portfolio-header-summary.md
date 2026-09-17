@@ -7,7 +7,7 @@ As an investor opening the app, I want the total value of my portfolio and how i
 
 ## Tasks
 
-- [ ] [T-1: `PortfolioHeader`](../tasks/DASHBOARD_UI_US-2_T-1-portfolio-header.md)
+- [x] [T-1: `PortfolioHeader`](../tasks/DASHBOARD_UI_US-2_T-1-portfolio-header.md)
 - [ ] [T-2: `SummaryCards`](../tasks/DASHBOARD_UI_US-2_T-2-summary-cards.md)
 - [ ] [T-3: dashboard page shell](../tasks/DASHBOARD_UI_US-2_T-3-dashboard-page-shell.md)
 
