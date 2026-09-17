@@ -7,7 +7,7 @@ As an investor, I want my portfolio's value over time plotted against Ibovespa o
 
 ## Tasks
 
-- [ ] [T-1: `PerformanceChart` SVG](../tasks/DASHBOARD_UI_US-4_T-1-performance-chart.md)
+- [x] [T-1: `PerformanceChart` SVG](../tasks/DASHBOARD_UI_US-4_T-1-performance-chart.md)
 - [ ] [T-2: 6M/1Y/ALL range toggle](../tasks/DASHBOARD_UI_US-4_T-2-range-toggle.md)
 - [ ] [T-3: `PerformanceMetrics`](../tasks/DASHBOARD_UI_US-4_T-3-performance-metrics.md)
 - [ ] [T-4: wire the performance section](../tasks/DASHBOARD_UI_US-4_T-4-wire-performance-section.md)
