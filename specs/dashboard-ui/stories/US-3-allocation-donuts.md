@@ -7,7 +7,7 @@ As an investor, I want my holdings broken down by sector and by individual stock
 
 ## Tasks
 
-- [ ] [T-1: `AllocationDonut`](../tasks/DASHBOARD_UI_US-3_T-1-allocation-donut.md)
+- [x] [T-1: `AllocationDonut`](../tasks/DASHBOARD_UI_US-3_T-1-allocation-donut.md)
 - [ ] [T-2: wire the sector and stock donuts](../tasks/DASHBOARD_UI_US-3_T-2-wire-allocation-section.md)
 
 ## Notes
