@@ -1,6 +1,6 @@
 # US-2: See what my portfolio is worth
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Single dashboard page showing: header (total value, daily change) … and summary cards" / spec AC "Dashboard visually matches the mockup's layout for header … summary cards" (in `../spec.md`)
 
 As an investor opening the app, I want the total value of my portfolio and how it has moved at the top of the page, so that I know where I stand before reading anything else.
@@ -9,7 +9,7 @@ As an investor opening the app, I want the total value of my portfolio and how i
 
 - [x] [T-1: `PortfolioHeader`](../tasks/DASHBOARD_UI_US-2_T-1-portfolio-header.md)
 - [x] [T-2: `SummaryCards`](../tasks/DASHBOARD_UI_US-2_T-2-summary-cards.md)
-- [ ] [T-3: dashboard page shell](../tasks/DASHBOARD_UI_US-2_T-3-dashboard-page-shell.md)
+- [x] [T-3: dashboard page shell](../tasks/DASHBOARD_UI_US-2_T-3-dashboard-page-shell.md)
 
 ## Notes
 
