@@ -8,7 +8,7 @@ As an investor holding thirty-odd positions, I want to hand the advisor my resea
 ## Tasks
 
 - [x] [T-1: `AdvisorReportUpload`](../tasks/DASHBOARD_UI_US-7_T-1-advisor-report-upload.md)
-- [ ] [T-2: `RecommendedPortfoliosUpload`](../tasks/DASHBOARD_UI_US-7_T-2-recommended-portfolios-upload.md)
+- [x] [T-2: `RecommendedPortfoliosUpload`](../tasks/DASHBOARD_UI_US-7_T-2-recommended-portfolios-upload.md)
 - [ ] [T-3: `AdvisorAnalysisResult`](../tasks/DASHBOARD_UI_US-7_T-3-advisor-analysis-result.md)
 - [ ] [T-4: `AdvisorPanel` state machine](../tasks/DASHBOARD_UI_US-7_T-4-advisor-panel-state-machine.md)
 - [ ] [T-5: load the latest analysis and wire the panel](../tasks/DASHBOARD_UI_US-7_T-5-latest-analysis-on-load.md)
