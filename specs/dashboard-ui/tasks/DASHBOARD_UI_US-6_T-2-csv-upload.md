@@ -1,7 +1,7 @@
 # DASHBOARD_UI_US-6_T-2: holdings CSV upload with per-row feedback
 
 **Story:** [../stories/US-6-holdings-management.md](../stories/US-6-holdings-management.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #225 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_SHARED_T-1, DASHBOARD_UI_SHARED_T-4
 
