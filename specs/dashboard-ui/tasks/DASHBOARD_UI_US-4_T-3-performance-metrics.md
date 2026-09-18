@@ -1,7 +1,7 @@
 # DASHBOARD_UI_US-4_T-3: `PerformanceMetrics`
 
 **Story:** [../stories/US-4-performance-chart.md](../stories/US-4-performance-chart.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #219 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_SHARED_T-2, DASHBOARD_UI_SHARED_T-4
 
