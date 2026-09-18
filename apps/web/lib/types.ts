@@ -87,6 +87,16 @@ export interface AdvisorAnalysis {
   createdAt: string;
 }
 
+/** `AdvisorReport`, as returned by `POST /advisor/reports/upload` (see `specs/advisor/spec.md`). */
+export interface AdvisorReport {
+  id: string;
+  userId: string;
+  sourceName: string | null;
+  fileName: string | null;
+  rawText: string;
+  uploadedAt: string;
+}
+
 /** `{ id, email, name }`, returned by `/auth/register`, `/auth/login`, and `GET /auth/me` (see `specs/auth/spec.md`). */
 export interface AuthUser {
   id: string;
