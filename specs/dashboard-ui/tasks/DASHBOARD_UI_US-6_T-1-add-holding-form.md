@@ -1,7 +1,7 @@
 # DASHBOARD_UI_US-6_T-1: manual add-holding form
 
 **Story:** [../stories/US-6-holdings-management.md](../stories/US-6-holdings-management.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #224 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_SHARED_T-1, DASHBOARD_UI_SHARED_T-4
 

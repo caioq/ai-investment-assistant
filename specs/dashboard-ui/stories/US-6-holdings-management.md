@@ -7,7 +7,7 @@ As an investor with a broker export, I want to upload it in one go and still be 
 
 ## Tasks
 
-- [ ] [T-1: manual add-holding form](../tasks/DASHBOARD_UI_US-6_T-1-add-holding-form.md)
+- [x] [T-1: manual add-holding form](../tasks/DASHBOARD_UI_US-6_T-1-add-holding-form.md)
 - [ ] [T-2: holdings CSV upload with per-row feedback](../tasks/DASHBOARD_UI_US-6_T-2-csv-upload.md)
 - [ ] [T-3: `/holdings` page](../tasks/DASHBOARD_UI_US-6_T-3-holdings-page.md)
 
