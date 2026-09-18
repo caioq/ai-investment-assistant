@@ -7,7 +7,7 @@ As an investor, I want every position listed with its quantity, average price, c
 
 ## Tasks
 
-- [ ] [T-1: `HoldingCard`](../tasks/DASHBOARD_UI_US-5_T-1-holding-card.md)
+- [x] [T-1: `HoldingCard`](../tasks/DASHBOARD_UI_US-5_T-1-holding-card.md)
 - [ ] [T-2: `HoldingsGrid`](../tasks/DASHBOARD_UI_US-5_T-2-holdings-grid.md)
 - [ ] [T-3: wire the holdings grid](../tasks/DASHBOARD_UI_US-5_T-3-wire-holdings-grid.md)
 
