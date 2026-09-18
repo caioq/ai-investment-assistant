@@ -1,6 +1,6 @@
 # US-6: Add holdings by hand or by CSV
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Holdings management page: manual add form + CSV upload" / spec AC "Holdings page CSV upload shows per-row success/error feedback matching the backend's `{ created, updated, errors[] }` response" (in `../spec.md`)
 
 As an investor with a broker export, I want to upload it in one go and still be able to type in a single position by hand, so that getting my portfolio into the app isn't thirty separate forms.
@@ -9,7 +9,7 @@ As an investor with a broker export, I want to upload it in one go and still be 
 
 - [x] [T-1: manual add-holding form](../tasks/DASHBOARD_UI_US-6_T-1-add-holding-form.md)
 - [x] [T-2: holdings CSV upload with per-row feedback](../tasks/DASHBOARD_UI_US-6_T-2-csv-upload.md)
-- [ ] [T-3: `/holdings` page](../tasks/DASHBOARD_UI_US-6_T-3-holdings-page.md)
+- [x] [T-3: `/holdings` page](../tasks/DASHBOARD_UI_US-6_T-3-holdings-page.md)
 
 ## Notes
 
