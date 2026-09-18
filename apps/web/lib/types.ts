@@ -97,6 +97,39 @@ export interface AdvisorReport {
   uploadedAt: string;
 }
 
+/** `WalletType`, as accepted by `POST /advisor/recommended-portfolios/upload` (see `specs/recommended-portfolios/spec.md`). */
+export type WalletType = "DIVIDENDS" | "OVERALL_RECOMMENDED" | "SMALL_CAPS";
+
+/** `Recommendation`, normalised from the CSV's Portuguese `RECOMENDACAO` column (see `specs/recommended-portfolios/spec.md`). */
+export type Recommendation = "BUY" | "NEUTRAL" | "SELL";
+
+/** `RecommendedHolding`, as embedded in a `RecommendedPortfolio` (see `specs/recommended-portfolios/spec.md`). */
+export interface RecommendedHolding {
+  id: string;
+  recommendedPortfolioId: string;
+  assetId: string | null;
+  label: string;
+  targetWeightPct: number | null;
+  limitPrice: number | null;
+  recommendation: Recommendation | null;
+  dividendYieldPct: number | null;
+  marginOfSafetyPct: number | null;
+}
+
+/**
+ * `RecommendedPortfolio`, as returned by `POST /advisor/recommended-portfolios/upload`
+ * and `GET /advisor/recommended-portfolios/latest` (see `specs/recommended-portfolios/spec.md`).
+ */
+export interface RecommendedPortfolio {
+  id: string;
+  userId: string;
+  walletType: WalletType;
+  sourceName: string | null;
+  effectiveDate: string;
+  uploadedAt: string;
+  holdings: RecommendedHolding[];
+}
+
 /** `{ id, email, name }`, returned by `/auth/register`, `/auth/login`, and `GET /auth/me` (see `specs/auth/spec.md`). */
 export interface AuthUser {
   id: string;
