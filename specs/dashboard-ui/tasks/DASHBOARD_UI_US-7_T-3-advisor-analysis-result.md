@@ -1,7 +1,7 @@
 # DASHBOARD_UI_US-7_T-3: `AdvisorAnalysisResult`
 
 **Story:** [../stories/US-7-advisor-panel.md](../stories/US-7-advisor-panel.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #229 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_SHARED_T-2, DASHBOARD_UI_SHARED_T-4
 
