@@ -1,9 +1,14 @@
 import { cookies } from "next/headers";
 
-import { apiFetch } from "../../lib/api-client";
+import { apiFetch, ApiError } from "../../lib/api-client";
 import { PortfolioHeader } from "../../components/dashboard/PortfolioHeader";
 import { SummaryCards } from "../../components/dashboard/SummaryCards";
-import type { PerformanceResponse, PortfolioSummary } from "../../lib/types";
+import { AdvisorPanel } from "../../components/dashboard/advisor/AdvisorPanel";
+import type {
+  AdvisorAnalysis,
+  PerformanceResponse,
+  PortfolioSummary,
+} from "../../lib/types";
 import { getCurrentUser } from "./layout";
 
 const ACCESS_TOKEN_COOKIE = "access_token";
@@ -37,16 +42,25 @@ function deriveDayChange(series: { value: number }[] | undefined): {
 }
 
 /**
- * Main dashboard page — a Server Component that composes the header and
- * summary cards from `GET /portfolio/summary` and `GET /portfolio/performance`.
- * The two fetches are issued concurrently (`Promise.allSettled`, not a
+ * Main dashboard page — a Server Component that composes the header,
+ * summary cards, and `AdvisorPanel` from `GET /portfolio/summary`,
+ * `GET /portfolio/performance`, and `GET /advisor/analysis/latest`. All
+ * three fetches are issued concurrently (`Promise.allSettled`, not a
  * sequential `await` each) since the full dashboard ends up making five API
- * calls across this file (US-3/US-4/US-5/US-7 each add their own inside the
+ * calls across this file (US-3/US-4/US-5 still owe their own, inside the
  * same `Promise.allSettled`/`Promise.all`).
  *
  * A rejected `/portfolio/performance` degrades rather than blanking the
  * page: the summary cards still render from a successful `/portfolio/summary`,
  * with the header's daily change falling back to `null` (an em-dash).
+ *
+ * `/advisor/analysis/latest` degrades in two different ways depending on
+ * *why* it failed: a `404` is the expected response for a user who hasn't
+ * generated an analysis yet, so the panel just starts `idle` with no notice
+ * at all (see `US-7_T-5`); any other failure (e.g. a `500`) also starts the
+ * panel `idle` — it must never take the rest of the page down — but with an
+ * inline notice, since that case is unexpected rather than a new-user
+ * default.
  */
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -54,13 +68,15 @@ export default async function DashboardPage() {
   const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
   const headers = { Cookie: `${ACCESS_TOKEN_COOKIE}=${accessToken}` };
 
-  const [summaryResult, performanceResult] = await Promise.allSettled([
-    apiFetch<PortfolioSummary>("/portfolio/summary", { headers }),
-    apiFetch<PerformanceResponse>(
-      "/portfolio/performance?range=6M&benchmark=IBOVESPA",
-      { headers },
-    ),
-  ]);
+  const [summaryResult, performanceResult, advisorAnalysisResult] =
+    await Promise.allSettled([
+      apiFetch<PortfolioSummary>("/portfolio/summary", { headers }),
+      apiFetch<PerformanceResponse>(
+        "/portfolio/performance?range=6M&benchmark=IBOVESPA",
+        { headers },
+      ),
+      apiFetch<AdvisorAnalysis>("/advisor/analysis/latest", { headers }),
+    ]);
 
   const summary =
     summaryResult.status === "fulfilled" ? summaryResult.value : EMPTY_SUMMARY;
@@ -71,6 +87,23 @@ export default async function DashboardPage() {
 
   const { dayChange, dayChangePct } = deriveDayChange(performance?.series);
 
+  // `404` is the expected response for a user with no analysis yet — start
+  // idle, no notice. Any other rejection (e.g. `500`) still starts idle
+  // (never blocks the rest of the dashboard) but surfaces an inline notice,
+  // since that one is unexpected rather than a new-user default.
+  let initialAnalysis: AdvisorAnalysis | undefined;
+  let advisorLoadFailed = false;
+  if (advisorAnalysisResult.status === "fulfilled") {
+    initialAnalysis = advisorAnalysisResult.value;
+  } else if (
+    !(
+      advisorAnalysisResult.reason instanceof ApiError &&
+      advisorAnalysisResult.reason.status === 404
+    )
+  ) {
+    advisorLoadFailed = true;
+  }
+
   return (
     <>
       <PortfolioHeader
@@ -80,6 +113,10 @@ export default async function DashboardPage() {
         dayChangePct={dayChangePct}
       />
       <SummaryCards summary={summary} holdingsCount={0} />
+      <AdvisorPanel
+        initialAnalysis={initialAnalysis}
+        initialLoadFailed={advisorLoadFailed}
+      />
     </>
   );
 }
