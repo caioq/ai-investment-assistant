@@ -1,7 +1,7 @@
 # DASHBOARD_UI_US-3_T-2: wire the sector and stock donuts
 
 **Story:** [../stories/US-3-allocation-donuts.md](../stories/US-3-allocation-donuts.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #216 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_US-2_T-3, DASHBOARD_UI_US-3_T-1
 

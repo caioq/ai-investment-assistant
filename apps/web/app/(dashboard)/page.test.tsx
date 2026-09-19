@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type {
   AdvisorAnalysis,
+  AllocationSlice,
   PortfolioSummary,
   PerformanceResponse,
 } from "../../lib/types";
@@ -79,6 +80,20 @@ const performanceStub: PerformanceResponse = {
   vsBenchmarkPct: 1.5,
 };
 
+const sectorAllocationStub: AllocationSlice[] = [
+  { label: "Financials", value: 60000, pct: 60, color: "#2563eb" },
+  { label: "Energy", value: 40000, pct: 40, color: "#16a34a" },
+];
+
+const stockAllocationStub: AllocationSlice[] = [
+  { label: "PETR4", value: 70000, pct: 62.5, color: "#2563eb" },
+  { label: "VALE3", value: 42000, pct: 37.5, color: "#16a34a" },
+];
+
+const unclassifiedOnlyStub: AllocationSlice[] = [
+  { label: "Unclassified", value: 112000, pct: 100, color: "#94a3b8" },
+];
+
 const advisorAnalysisStub: AdvisorAnalysis = {
   score: 7,
   summary: "A well-diversified portfolio with moderate concentration risk.",
@@ -125,7 +140,7 @@ describe("DashboardPage", () => {
     render(<>{element}</>);
 
     expect(screen.getByText("Jordan Mercer", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText(formatBRL(112000))).toBeInTheDocument();
+    expect(screen.getAllByText(formatBRL(112000)).length).toBeGreaterThan(0);
     expect(screen.getByText(formatBRL(12000))).toBeInTheDocument();
     expect(screen.getByText(formatBRL(100000))).toBeInTheDocument();
 
@@ -156,6 +171,10 @@ describe("DashboardPage", () => {
       "/portfolio/performance": () => performancePromise,
       "/advisor/analysis/latest": () =>
         Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () =>
+        Promise.resolve(sectorAllocationStub),
+      "/portfolio/allocation?by=stock": () =>
+        Promise.resolve(stockAllocationStub),
     });
 
     const pagePromise = DashboardPage();
@@ -165,7 +184,7 @@ describe("DashboardPage", () => {
     // sequential, only one call would exist by now.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(apiFetchMock).toHaveBeenCalledTimes(3);
+    expect(apiFetchMock).toHaveBeenCalledTimes(5);
     expect(apiFetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/portfolio/summary"),
       expect.anything(),
@@ -176,6 +195,14 @@ describe("DashboardPage", () => {
     );
     expect(apiFetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/advisor/analysis/latest"),
+      expect.anything(),
+    );
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/portfolio/allocation?by=sector"),
+      expect.anything(),
+    );
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/portfolio/allocation?by=stock"),
       expect.anything(),
     );
 
@@ -275,7 +302,7 @@ describe("DashboardPage", () => {
     render(<>{element}</>);
 
     expect(screen.getByText("Jordan Mercer", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText(formatBRL(112000))).toBeInTheDocument();
+    expect(screen.getAllByText(formatBRL(112000)).length).toBeGreaterThan(0);
     expect(screen.getByText("Generate Portfolio Analysis")).toBeInTheDocument();
     expect(screen.queryByText(advisorAnalysisStub.summary)).not.toBeInTheDocument();
   });
@@ -298,10 +325,123 @@ describe("DashboardPage", () => {
     render(<>{element}</>);
 
     expect(screen.getByText("Jordan Mercer", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText(formatBRL(112000))).toBeInTheDocument();
+    expect(screen.getAllByText(formatBRL(112000)).length).toBeGreaterThan(0);
     expect(screen.getByText("Generate Portfolio Analysis")).toBeInTheDocument();
     expect(
       screen.getByText(/couldn.t load your saved analysis/i),
     ).toBeInTheDocument();
+  });
+
+  it("renders the sector and stock allocation donuts with their own stubbed slices, distinguishable by title", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () =>
+        Promise.resolve(sectorAllocationStub),
+      "/portfolio/allocation?by=stock": () =>
+        Promise.resolve(stockAllocationStub),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(screen.getByText("By sector")).toBeInTheDocument();
+    expect(screen.getByText("By stock")).toBeInTheDocument();
+
+    expect(screen.getByText("Financials")).toBeInTheDocument();
+    expect(screen.getByText("Energy")).toBeInTheDocument();
+    expect(screen.getByText("PETR4")).toBeInTheDocument();
+    expect(screen.getByText("VALE3")).toBeInTheDocument();
+  });
+
+  it("fetches allocation with by=sector and by=stock query strings", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () =>
+        Promise.resolve(sectorAllocationStub),
+      "/portfolio/allocation?by=stock": () =>
+        Promise.resolve(stockAllocationStub),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/portfolio/allocation?by=sector"),
+      expect.anything(),
+    );
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/portfolio/allocation?by=stock"),
+      expect.anything(),
+    );
+  });
+
+  it("renders a solely-'Unclassified' allocation response as a normal slice, not the empty state", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () =>
+        Promise.resolve(unclassifiedOnlyStub),
+      "/portfolio/allocation?by=stock": () =>
+        Promise.resolve(stockAllocationStub),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(screen.getByText("Unclassified")).toBeInTheDocument();
+    expect(screen.getAllByText(formatBRL(112000)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/no holdings yet/i)).not.toBeInTheDocument();
+  });
+
+  it("still renders the header, summary cards, and advisor panel when both allocation fetches reject", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () =>
+        Promise.reject(new ApiError(500, { message: "boom" })),
+      "/portfolio/allocation?by=stock": () =>
+        Promise.reject(new ApiError(500, { message: "boom" })),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(screen.getByText("Jordan Mercer", { exact: false })).toBeInTheDocument();
+    expect(screen.getAllByText(formatBRL(112000)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/no holdings yet/i)).toHaveLength(2);
   });
 });
