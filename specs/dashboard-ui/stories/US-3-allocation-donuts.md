@@ -1,6 +1,6 @@
 # US-3: See how my money is spread out
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "two allocation donuts (by sector, by stock — extensible to style/risk)" / spec AC "`AllocationDonut` renders correctly with 1 slice, many slices, and an empty list (no holdings yet) without crashing" (in `../spec.md`)
 
 As an investor, I want my holdings broken down by sector and by individual stock, so that I can see a concentration I didn't intend before it costs me.
@@ -8,7 +8,7 @@ As an investor, I want my holdings broken down by sector and by individual stock
 ## Tasks
 
 - [x] [T-1: `AllocationDonut`](../tasks/DASHBOARD_UI_US-3_T-1-allocation-donut.md)
-- [ ] [T-2: wire the sector and stock donuts](../tasks/DASHBOARD_UI_US-3_T-2-wire-allocation-section.md)
+- [x] [T-2: wire the sector and stock donuts](../tasks/DASHBOARD_UI_US-3_T-2-wire-allocation-section.md)
 
 ## Notes
 
