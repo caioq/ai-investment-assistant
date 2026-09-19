@@ -11,7 +11,29 @@ import { AdvisorAnalysisResult } from "./AdvisorAnalysisResult";
 const UNEXPECTED_ERROR =
   "Something went wrong generating your analysis. Please try again.";
 
+const LOAD_ERROR_NOTICE =
+  "We couldn't load your saved analysis. You can still generate a new one.";
+
 type PanelState = "idle" | "loading" | "report" | "error";
+
+interface AdvisorPanelProps {
+  /**
+   * Seeds the panel from `GET /advisor/analysis/latest`, fetched
+   * server-side in `(dashboard)/page.tsx` (`US-7_T-5`) so a previously
+   * generated report is on screen on first paint, with no client round trip
+   * and no extra Claude spend. `undefined` (the default) starts the panel in
+   * `idle`, same as a `404` (no analysis yet) from that endpoint.
+   */
+  initialAnalysis?: AdvisorAnalysis;
+  /**
+   * Set when the server-side load of `GET /advisor/analysis/latest` itself
+   * failed with something other than the expected `404` (e.g. a `500`). The
+   * panel still starts in `idle` — it must never block the rest of the
+   * dashboard — but shows an inline notice distinct from the silent,
+   * error-free `404`/new-user case.
+   */
+  initialLoadFailed?: boolean;
+}
 
 function extractApiErrorMessage(body: unknown): string {
   if (
@@ -38,13 +60,22 @@ function extractApiErrorMessage(body: unknown): string {
  * `onUploaded` callback is captured here purely to remember the uploaded
  * report's id, nothing else), `RecommendedPortfoliosUpload` (self-contained,
  * takes no props), and `AdvisorAnalysisResult` (rendered once an analysis is
- * held in state). Does not load `GET /advisor/analysis/latest` on mount —
- * that is `US-7_T-5`'s job, layered on top of this component.
+ * held in state). Seeded from `GET /advisor/analysis/latest` via
+ * `initialAnalysis`/`initialLoadFailed`, fetched server-side by
+ * `(dashboard)/page.tsx` (`US-7_T-5`) — this component itself does no
+ * fetching on mount.
  */
-export function AdvisorPanel() {
-  const [state, setState] = useState<PanelState>("idle");
+export function AdvisorPanel({
+  initialAnalysis,
+  initialLoadFailed = false,
+}: AdvisorPanelProps = {}) {
+  const [state, setState] = useState<PanelState>(
+    initialAnalysis ? "report" : "idle",
+  );
   const [advisorReportId, setAdvisorReportId] = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<AdvisorAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<AdvisorAnalysis | null>(
+    initialAnalysis ?? null,
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isLoading = state === "loading";
@@ -105,6 +136,10 @@ export function AdvisorPanel() {
     <div>
       <AdvisorReportUpload onUploaded={handleReportUploaded} />
       <RecommendedPortfoliosUpload />
+
+      {state === "idle" && initialLoadFailed && (
+        <p role="alert">{LOAD_ERROR_NOTICE}</p>
+      )}
 
       {state === "loading" && (
         <div role="status">

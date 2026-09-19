@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { PortfolioSummary, PerformanceResponse } from "../../lib/types";
+import type {
+  AdvisorAnalysis,
+  PortfolioSummary,
+  PerformanceResponse,
+} from "../../lib/types";
 
 const { cookiesMock, apiFetchMock, getCurrentUserMock } = vi.hoisted(() => ({
   cookiesMock: vi.fn(),
@@ -75,6 +79,17 @@ const performanceStub: PerformanceResponse = {
   vsBenchmarkPct: 1.5,
 };
 
+const advisorAnalysisStub: AdvisorAnalysis = {
+  score: 7,
+  summary: "A well-diversified portfolio with moderate concentration risk.",
+  strengths: ["Broad sector diversification"],
+  risks: ["Overweight in financials"],
+  recommendations: ["Consider trimming financials exposure"],
+  impactMetrics: [{ label: "Sector concentration", value: "32%" }],
+  model: "claude-sonnet",
+  createdAt: "2026-09-01T12:00:00.000Z",
+};
+
 function mockApiFetchByPath(implementations: Record<string, () => Promise<unknown>>) {
   apiFetchMock.mockImplementation((path: string) => {
     const matched = Object.entries(implementations).find(([prefix]) =>
@@ -102,6 +117,8 @@ describe("DashboardPage", () => {
     mockApiFetchByPath({
       "/portfolio/summary": () => Promise.resolve(summaryStub),
       "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
     });
 
     const element = await DashboardPage();
@@ -137,6 +154,8 @@ describe("DashboardPage", () => {
     mockApiFetchByPath({
       "/portfolio/summary": () => summaryPromise,
       "/portfolio/performance": () => performancePromise,
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
     });
 
     const pagePromise = DashboardPage();
@@ -146,13 +165,17 @@ describe("DashboardPage", () => {
     // sequential, only one call would exist by now.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(apiFetchMock).toHaveBeenCalledTimes(2);
+    expect(apiFetchMock).toHaveBeenCalledTimes(3);
     expect(apiFetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/portfolio/summary"),
       expect.anything(),
     );
     expect(apiFetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/portfolio/performance"),
+      expect.anything(),
+    );
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/advisor/analysis/latest"),
       expect.anything(),
     );
 
@@ -172,6 +195,8 @@ describe("DashboardPage", () => {
       "/portfolio/summary": () => Promise.resolve(summaryStub),
       "/portfolio/performance": () =>
         Promise.reject(new ApiError(500, { message: "boom" })),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
     });
 
     const element = await DashboardPage();
@@ -201,6 +226,8 @@ describe("DashboardPage", () => {
             { date: "2026-08-28", value: 108500 },
           ],
         }),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
     });
 
     const element = await DashboardPage();
@@ -209,5 +236,72 @@ describe("DashboardPage", () => {
     // 108500 - 110000 = -1500, from the last two of the three points.
     const badge = screen.getByTestId("day-change-badge");
     expect(badge.textContent?.replace(/\s/g, " ")).toContain(formatBRL(-1500));
+  });
+
+  it("seeds AdvisorPanel with a stubbed GET /advisor/analysis/latest, rendering it in report state", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () => Promise.resolve(advisorAnalysisStub),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(screen.getByText(advisorAnalysisStub.summary)).toBeInTheDocument();
+  });
+
+  it("starts AdvisorPanel in idle, with the rest of the dashboard rendering normally, when GET /advisor/analysis/latest 404s", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(screen.getByText("Jordan Mercer", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(formatBRL(112000))).toBeInTheDocument();
+    expect(screen.getByText("Generate Portfolio Analysis")).toBeInTheDocument();
+    expect(screen.queryByText(advisorAnalysisStub.summary)).not.toBeInTheDocument();
+  });
+
+  it("degrades AdvisorPanel to idle with an inline notice, without taking down the rest of the dashboard, when GET /advisor/analysis/latest 500s", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(500, { message: "boom" })),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(screen.getByText("Jordan Mercer", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(formatBRL(112000))).toBeInTheDocument();
+    expect(screen.getByText("Generate Portfolio Analysis")).toBeInTheDocument();
+    expect(
+      screen.getByText(/couldn.t load your saved analysis/i),
+    ).toBeInTheDocument();
   });
 });

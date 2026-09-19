@@ -1,6 +1,6 @@
 # US-7: Get the AI advisor's read on my portfolio
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "Single dashboard page showing: … and the AI Advisor panel" / spec Behavior Notes "`AdvisorPanel` state machine: `idle` → `loading` → `report`", "Dashboard page loads `GET /advisor/analysis/latest` on mount" / spec AC "Advisor panel's `loading` state can't be triggered twice concurrently" (in `../spec.md`)
 
 As an investor holding thirty-odd positions, I want to hand the advisor my research house's report and its model wallets and get back strengths, risks and recommendations in one panel, so that the analysis the backend can already produce is one click away.
@@ -11,7 +11,7 @@ As an investor holding thirty-odd positions, I want to hand the advisor my resea
 - [x] [T-2: `RecommendedPortfoliosUpload`](../tasks/DASHBOARD_UI_US-7_T-2-recommended-portfolios-upload.md)
 - [x] [T-3: `AdvisorAnalysisResult`](../tasks/DASHBOARD_UI_US-7_T-3-advisor-analysis-result.md)
 - [x] [T-4: `AdvisorPanel` state machine](../tasks/DASHBOARD_UI_US-7_T-4-advisor-panel-state-machine.md)
-- [ ] [T-5: load the latest analysis and wire the panel](../tasks/DASHBOARD_UI_US-7_T-5-latest-analysis-on-load.md)
+- [x] [T-5: load the latest analysis and wire the panel](../tasks/DASHBOARD_UI_US-7_T-5-latest-analysis-on-load.md)
 
 ## Notes
 
