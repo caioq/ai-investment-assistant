@@ -96,7 +96,7 @@ jobs:
         run: pnpm --filter web exec playwright install --with-deps chromium
 
       - name: e2e tests (web)
-        run: pnpm --filter web test:e2e -- dashboard-visual.spec.ts --update-snapshots
+        run: pnpm --filter web test:e2e
 
       - name: Upload Playwright report
         if: failure()
@@ -105,11 +105,3 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
-
-      - name: TEMP - upload regenerated baselines
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: regenerated-baselines
-          path: apps/web/e2e/dashboard-visual.spec.ts-snapshots/
-          retention-days: 1
