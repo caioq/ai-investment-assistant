@@ -18,7 +18,7 @@ test('unauthenticated dashboard visit redirects to login, login lands on the das
   await page.getByRole('button', { name: 'Log in' }).click();
 
   // Lands on the dashboard.
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/this-route-does-not-exist$/);
   await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 
   // Log out.
