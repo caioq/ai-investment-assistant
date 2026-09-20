@@ -199,6 +199,7 @@ export function AdvisorAnalysisResult({ analysis }: AdvisorAnalysisResultProps) 
       )}
 
       <div
+        data-testid="advisor-analysis-footer"
         style={{
           fontSize: 11.5,
           color: "var(--text-tertiary)",
