@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 
 import { apiFetch, ApiError } from "../../lib/api-client";
@@ -5,10 +6,12 @@ import { PortfolioHeader } from "../../components/dashboard/PortfolioHeader";
 import { SummaryCards } from "../../components/dashboard/SummaryCards";
 import { AllocationDonut } from "../../components/dashboard/AllocationDonut";
 import { PerformanceRange } from "../../components/dashboard/PerformanceRange";
+import { HoldingsGrid } from "../../components/dashboard/HoldingsGrid";
 import { AdvisorPanel } from "../../components/dashboard/advisor/AdvisorPanel";
 import type {
   AdvisorAnalysis,
   AllocationSlice,
+  HoldingWithAsset,
   PerformanceResponse,
   PortfolioSummary,
 } from "../../lib/types";
@@ -61,14 +64,21 @@ function deriveDayChange(series: { value: number }[] | undefined): {
 
 /**
  * Main dashboard page — a Server Component that composes the header,
- * summary cards, allocation donuts, the performance section, and
- * `AdvisorPanel` from `GET /portfolio/summary`, `GET /portfolio/performance`,
- * `GET /portfolio/allocation?by=sector`, `GET /portfolio/allocation?by=stock`,
- * and `GET /advisor/analysis/latest`. All five fetches are issued
- * concurrently (`Promise.allSettled`, not a sequential `await` each or a
- * plain `Promise.all`) so one endpoint's rejection degrades only its own
- * section instead of failing the whole page (US-5 still owes its own
- * fetches, inside this same `Promise.allSettled`).
+ * summary cards, allocation donuts, the performance section, the holdings
+ * grid, and `AdvisorPanel` from `GET /portfolio/summary`,
+ * `GET /portfolio/performance`, `GET /portfolio/allocation?by=sector`,
+ * `GET /portfolio/allocation?by=stock`, `GET /portfolio/holdings`, and
+ * `GET /advisor/analysis/latest`. All six fetches are issued concurrently
+ * (`Promise.allSettled`, not a sequential `await` each or a plain
+ * `Promise.all`) so one endpoint's rejection degrades only its own section
+ * instead of failing the whole page.
+ *
+ * A rejected `GET /portfolio/holdings` falls back to an empty array —
+ * `HoldingsGrid` already renders its own empty state for that (see
+ * `US-5_T-2`), so a holdings-fetch failure never takes down the rest of the
+ * dashboard. No client-side filtering is applied to the list (out of scope,
+ * see the story's notes); the page just renders whatever the fetch (or its
+ * empty fallback) returns.
  *
  * A rejected `/portfolio/performance` degrades rather than blanking the
  * page: the summary cards still render from a successful `/portfolio/summary`,
@@ -113,6 +123,7 @@ export default async function DashboardPage() {
     advisorAnalysisResult,
     sectorAllocationResult,
     stockAllocationResult,
+    holdingsResult,
   ] = await Promise.allSettled([
     apiFetch<PortfolioSummary>("/portfolio/summary", { headers }),
     apiFetch<PerformanceResponse>(
@@ -126,6 +137,7 @@ export default async function DashboardPage() {
     apiFetch<AllocationSlice[]>("/portfolio/allocation?by=stock", {
       headers,
     }),
+    apiFetch<HoldingWithAsset[]>("/portfolio/holdings", { headers }),
   ]);
 
   const summary =
@@ -145,6 +157,8 @@ export default async function DashboardPage() {
     stockAllocationResult.status === "fulfilled"
       ? stockAllocationResult.value
       : [];
+  const holdings =
+    holdingsResult.status === "fulfilled" ? holdingsResult.value : [];
 
   const totalValueLabel = currencyFormatter.format(summary.currentValue);
 
@@ -194,6 +208,20 @@ export default async function DashboardPage() {
             <PerformanceRange initialData={performance} benchmark="IBOVESPA" />
           </div>
         ) : null}
+      </div>
+      <div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 8,
+          }}
+        >
+          <Link href="/holdings" style={{ color: "var(--blue)", fontWeight: 600 }}>
+            Add holdings
+          </Link>
+        </div>
+        <HoldingsGrid holdings={holdings} />
       </div>
       <AdvisorPanel
         initialAnalysis={initialAnalysis}

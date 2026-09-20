@@ -1,6 +1,6 @@
 # US-5: See every position I hold
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "a holdings grid" / spec AC "Dashboard visually matches the mockup's layout for … holdings grid" (in `../spec.md`)
 
 As an investor, I want every position listed with its quantity, average price, current price and gain or loss, so that I can see which individual holdings are driving the totals above.
@@ -9,7 +9,7 @@ As an investor, I want every position listed with its quantity, average price, c
 
 - [x] [T-1: `HoldingCard`](../tasks/DASHBOARD_UI_US-5_T-1-holding-card.md)
 - [x] [T-2: `HoldingsGrid`](../tasks/DASHBOARD_UI_US-5_T-2-holdings-grid.md)
-- [ ] [T-3: wire the holdings grid](../tasks/DASHBOARD_UI_US-5_T-3-wire-holdings-grid.md)
+- [x] [T-3: wire the holdings grid](../tasks/DASHBOARD_UI_US-5_T-3-wire-holdings-grid.md)
 
 ## Notes
 

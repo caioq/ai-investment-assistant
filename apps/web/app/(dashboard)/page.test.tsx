@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type {
   AdvisorAnalysis,
   AllocationSlice,
+  HoldingWithAsset,
   PortfolioSummary,
   PerformanceResponse,
 } from "../../lib/types";
@@ -95,6 +96,34 @@ const unclassifiedOnlyStub: AllocationSlice[] = [
   { label: "Unclassified", value: 112000, pct: 100, color: "#94a3b8" },
 ];
 
+const holdingsStub: HoldingWithAsset[] = [
+  {
+    id: "holding-1",
+    userId: "user-1",
+    assetId: "asset-1",
+    quantity: 100,
+    avgPrice: 30,
+    metadata: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    asset: {
+      id: "asset-1",
+      ticker: "PETR4",
+      name: "Petrobras",
+      assetType: "STOCK",
+      currency: "BRL",
+      exchange: "B3",
+      sector: "Energy",
+      subSector: null,
+      investmentStyle: null,
+      riskRating: null,
+      currentPrice: 35,
+      currentChangePct: 1.2,
+      priceUpdatedAt: "2026-09-19T12:00:00.000Z",
+    },
+  },
+];
+
 const advisorAnalysisStub: AdvisorAnalysis = {
   score: 7,
   summary: "A well-diversified portfolio with moderate concentration risk.",
@@ -178,6 +207,7 @@ describe("DashboardPage", () => {
         Promise.resolve(sectorAllocationStub),
       "/portfolio/allocation?by=stock": () =>
         Promise.resolve(stockAllocationStub),
+      "/portfolio/holdings": () => Promise.resolve(holdingsStub),
     });
 
     const pagePromise = DashboardPage();
@@ -187,7 +217,7 @@ describe("DashboardPage", () => {
     // sequential, only one call would exist by now.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(apiFetchMock).toHaveBeenCalledTimes(5);
+    expect(apiFetchMock).toHaveBeenCalledTimes(6);
     expect(apiFetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/portfolio/summary"),
       expect.anything(),
@@ -206,6 +236,10 @@ describe("DashboardPage", () => {
     );
     expect(apiFetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/portfolio/allocation?by=stock"),
+      expect.anything(),
+    );
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/portfolio/holdings"),
       expect.anything(),
     );
 
@@ -412,6 +446,7 @@ describe("DashboardPage", () => {
         Promise.resolve(unclassifiedOnlyStub),
       "/portfolio/allocation?by=stock": () =>
         Promise.resolve(stockAllocationStub),
+      "/portfolio/holdings": () => Promise.resolve(holdingsStub),
     });
 
     const element = await DashboardPage();
@@ -520,6 +555,7 @@ describe("DashboardPage", () => {
         Promise.reject(new ApiError(500, { message: "boom" })),
       "/portfolio/allocation?by=stock": () =>
         Promise.reject(new ApiError(500, { message: "boom" })),
+      "/portfolio/holdings": () => Promise.resolve(holdingsStub),
     });
 
     const element = await DashboardPage();
@@ -528,5 +564,81 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Jordan Mercer", { exact: false })).toBeInTheDocument();
     expect(screen.getAllByText(formatBRL(112000)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/no holdings yet/i)).toHaveLength(2);
+  });
+
+  it("renders a HoldingsGrid row per stubbed holding, with a link to /holdings to add more", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () =>
+        Promise.resolve(sectorAllocationStub),
+      "/portfolio/allocation?by=stock": () =>
+        Promise.resolve(stockAllocationStub),
+      "/portfolio/holdings": () => Promise.resolve(holdingsStub),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    const tbody = screen.getByTestId("holdings-tbody");
+    expect(
+      within(tbody).getByText(holdingsStub[0].asset.ticker),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: /holdings/i }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("renders HoldingsGrid's empty state, with the rest of the dashboard still intact, for the complete new-user dashboard (empty holdings, allocation, series, and a 404 from the advisor endpoint)", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    const emptySummary: PortfolioSummary = {
+      totalInvested: 0,
+      currentValue: 0,
+      gainLoss: 0,
+      returnPct: 0,
+    };
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(emptySummary),
+      "/portfolio/performance": () =>
+        Promise.resolve({ ...performanceStub, series: [] }),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () => Promise.resolve([]),
+      "/portfolio/allocation?by=stock": () => Promise.resolve([]),
+      "/portfolio/holdings": () => Promise.resolve([]),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    // Header and summary cards still render.
+    expect(screen.getByText("Jordan Mercer", { exact: false })).toBeInTheDocument();
+    expect(screen.getAllByText(formatBRL(0)).length).toBeGreaterThan(0);
+
+    // Allocation donuts still render, in their own empty state.
+    expect(screen.getByText("By sector")).toBeInTheDocument();
+    expect(screen.getByText("By stock")).toBeInTheDocument();
+
+    // Advisor panel still renders, idle (404 is the expected new-user response).
+    expect(screen.getByText("Generate Portfolio Analysis")).toBeInTheDocument();
+
+    // Holdings grid renders its own empty state, not a row.
+    expect(
+      screen.getByText("You don't have any holdings yet."),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("holdings-tbody")).not.toBeInTheDocument();
   });
 });

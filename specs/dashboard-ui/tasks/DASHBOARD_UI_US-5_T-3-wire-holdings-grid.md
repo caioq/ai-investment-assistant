@@ -1,7 +1,7 @@
 # DASHBOARD_UI_US-5_T-3: wire the holdings grid
 
 **Story:** [../stories/US-5-holdings-grid.md](../stories/US-5-holdings-grid.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #223 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_US-2_T-3, DASHBOARD_UI_US-5_T-2
 
