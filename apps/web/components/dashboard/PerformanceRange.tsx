@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { apiFetch } from "../../lib/api-client";
 import { PerformanceChart } from "./PerformanceChart";
+import { PerformanceMetrics } from "./PerformanceMetrics";
 import type {
   PerformanceResponse,
   PortfolioValuePoint,
@@ -164,6 +165,22 @@ export function PerformanceRange({
         benchmarkSeries={toValuePoints(data.benchmarkSeries)}
         benchmarkLabel={benchmark}
       />
+
+      {/*
+        Read off this component's own `data` state (not `initialData`) so the
+        metrics move with the chart on a range change — the CAGR beside a
+        `1Y` chart must describe `1Y`, not stay frozen on the initial `6M`
+        fetch (see `CONVENTIONS.md` → "Dashboard page composition").
+      */}
+      <div style={{ marginTop: 16 }}>
+        <PerformanceMetrics
+          cagr={data.cagr}
+          volatility={data.volatility}
+          maxDrawdown={data.maxDrawdown}
+          vsBenchmarkPct={data.vsBenchmarkPct}
+          benchmarkLabel={benchmark}
+        />
+      </div>
     </div>
   );
 }

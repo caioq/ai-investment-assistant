@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type {
   AdvisorAnalysis,
   AllocationSlice,
@@ -105,7 +106,9 @@ const advisorAnalysisStub: AdvisorAnalysis = {
   createdAt: "2026-09-01T12:00:00.000Z",
 };
 
-function mockApiFetchByPath(implementations: Record<string, () => Promise<unknown>>) {
+function mockApiFetchByPath(
+  implementations: Record<string, (path: string) => Promise<unknown>>,
+) {
   apiFetchMock.mockImplementation((path: string) => {
     const matched = Object.entries(implementations).find(([prefix]) =>
       path.startsWith(prefix),
@@ -113,7 +116,7 @@ function mockApiFetchByPath(implementations: Record<string, () => Promise<unknow
     if (!matched) {
       return Promise.reject(new Error(`unexpected path: ${path}`));
     }
-    return matched[1]();
+    return matched[1](path);
   });
 }
 
@@ -417,6 +420,88 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Unclassified")).toBeInTheDocument();
     expect(screen.getAllByText(formatBRL(112000)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/no holdings yet/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the performance chart and metrics from the stubbed performance response", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(screen.getByTestId("portfolio-line")).toBeInTheDocument();
+    expect(screen.getByText("10.0%")).toBeInTheDocument();
+  });
+
+  it("requests /portfolio/performance exactly once across the whole page render", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    const performanceCalls = apiFetchMock.mock.calls.filter(([path]) =>
+      String(path).startsWith("/portfolio/performance"),
+    );
+    expect(performanceCalls).toHaveLength(1);
+  });
+
+  it("updates the displayed CAGR to the 1Y response after switching the range", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    const oneYearStub: PerformanceResponse = {
+      ...performanceStub,
+      series: [
+        { date: "2026-02-27", value: 90000 },
+        { date: "2026-08-28", value: 112000 },
+      ],
+      cagr: 0.24,
+    };
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": (path: string) =>
+        Promise.resolve(
+          path.includes("range=1Y") ? oneYearStub : performanceStub,
+        ),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    expect(screen.getByText("10.0%")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "1Y" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("24.0%")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("10.0%")).not.toBeInTheDocument();
   });
 
   it("still renders the header, summary cards, and advisor panel when both allocation fetches reject", async () => {

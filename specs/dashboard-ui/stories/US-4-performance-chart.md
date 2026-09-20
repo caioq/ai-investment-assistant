@@ -1,6 +1,6 @@
 # US-4: Track performance against a benchmark
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goal "a performance line chart with benchmark overlay and range toggle" / spec AC "Performance chart range toggle (6M/1Y/ALL) re-fetches and re-renders without a full page reload" (in `../spec.md`)
 
 As an investor, I want my portfolio's value over time plotted against Ibovespa or CDI across a range I choose, so that I can tell whether I'm actually beating what I could have bought instead.
@@ -10,7 +10,7 @@ As an investor, I want my portfolio's value over time plotted against Ibovespa o
 - [x] [T-1: `PerformanceChart` SVG](../tasks/DASHBOARD_UI_US-4_T-1-performance-chart.md)
 - [x] [T-2: 6M/1Y/ALL range toggle](../tasks/DASHBOARD_UI_US-4_T-2-range-toggle.md)
 - [x] [T-3: `PerformanceMetrics`](../tasks/DASHBOARD_UI_US-4_T-3-performance-metrics.md)
-- [ ] [T-4: wire the performance section](../tasks/DASHBOARD_UI_US-4_T-4-wire-performance-section.md)
+- [x] [T-4: wire the performance section](../tasks/DASHBOARD_UI_US-4_T-4-wire-performance-section.md)
 
 ## Notes
 
