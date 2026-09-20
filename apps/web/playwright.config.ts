@@ -12,10 +12,18 @@ const TEST_DATABASE_URL =
 export default defineConfig({
   testDir: './e2e',
   globalSetup: path.resolve(__dirname, 'e2e/global-setup.ts'),
-  fullyParallel: true,
+  // The suite shares one fixture user and one database (see
+  // global-setup.ts) — parallel workers logging in/out as the same user
+  // produce flakes that read as real failures, not the app's. Single
+  // worker "for now" (DASHBOARD_UI_SHARED_T-8), revisit if per-worker
+  // fixture users are ever added.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  reporter: 'list',
+  // 1, not Playwright's usual 2, in CI: a genuinely flaky spec should be
+  // visible as a retry in the report, not silently absorbed.
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
 
   use: {
     baseURL: 'http://localhost:3000',
