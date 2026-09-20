@@ -4,6 +4,7 @@ import { apiFetch, ApiError } from "../../lib/api-client";
 import { PortfolioHeader } from "../../components/dashboard/PortfolioHeader";
 import { SummaryCards } from "../../components/dashboard/SummaryCards";
 import { AllocationDonut } from "../../components/dashboard/AllocationDonut";
+import { PerformanceRange } from "../../components/dashboard/PerformanceRange";
 import { AdvisorPanel } from "../../components/dashboard/advisor/AdvisorPanel";
 import type {
   AdvisorAnalysis,
@@ -60,18 +61,26 @@ function deriveDayChange(series: { value: number }[] | undefined): {
 
 /**
  * Main dashboard page — a Server Component that composes the header,
- * summary cards, allocation donuts, and `AdvisorPanel` from
- * `GET /portfolio/summary`, `GET /portfolio/performance`,
+ * summary cards, allocation donuts, the performance section, and
+ * `AdvisorPanel` from `GET /portfolio/summary`, `GET /portfolio/performance`,
  * `GET /portfolio/allocation?by=sector`, `GET /portfolio/allocation?by=stock`,
  * and `GET /advisor/analysis/latest`. All five fetches are issued
  * concurrently (`Promise.allSettled`, not a sequential `await` each or a
  * plain `Promise.all`) so one endpoint's rejection degrades only its own
- * section instead of failing the whole page (US-4/US-5 still owe their own
+ * section instead of failing the whole page (US-5 still owes its own
  * fetches, inside this same `Promise.allSettled`).
  *
  * A rejected `/portfolio/performance` degrades rather than blanking the
  * page: the summary cards still render from a successful `/portfolio/summary`,
- * with the header's daily change falling back to `null` (an em-dash).
+ * with the header's daily change falling back to `null` (an em-dash), and the
+ * performance section (`PerformanceRange` + its child `PerformanceMetrics`)
+ * simply isn't rendered at all rather than being handed an empty stand-in —
+ * `PerformanceRange`'s `initialData` prop is a real `PerformanceResponse`,
+ * not an optional one, since there's no meaningful "empty" performance series
+ * to seed a chart with. The single `6M` fetch here is also what seeds
+ * `PerformanceRange` (`US-4_T-4`) — it is deliberately not fetched a second
+ * time for the chart; see `PerformanceRange`'s own doc comment for how it
+ * re-fetches on a range change without a second initial request.
  *
  * `/advisor/analysis/latest` degrades in two different ways depending on
  * *why* it failed: a `404` is the expected response for a user who hasn't
@@ -166,18 +175,25 @@ export default async function DashboardPage() {
       />
       <SummaryCards summary={summary} holdingsCount={0} />
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <AllocationDonut
-          title="By sector"
-          slices={sectorAllocation}
-          centerLabel={totalValueLabel}
-          centerSubLabel={pluralizeCount(sectorAllocation.length, "sector")}
-        />
-        <AllocationDonut
-          title="By stock"
-          slices={stockAllocation}
-          centerLabel={totalValueLabel}
-          centerSubLabel={pluralizeCount(stockAllocation.length, "stock")}
-        />
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: 1 }}>
+          <AllocationDonut
+            title="By sector"
+            slices={sectorAllocation}
+            centerLabel={totalValueLabel}
+            centerSubLabel={pluralizeCount(sectorAllocation.length, "sector")}
+          />
+          <AllocationDonut
+            title="By stock"
+            slices={stockAllocation}
+            centerLabel={totalValueLabel}
+            centerSubLabel={pluralizeCount(stockAllocation.length, "stock")}
+          />
+        </div>
+        {performance ? (
+          <div style={{ flex: 1, minWidth: 320 }}>
+            <PerformanceRange initialData={performance} benchmark="IBOVESPA" />
+          </div>
+        ) : null}
       </div>
       <AdvisorPanel
         initialAnalysis={initialAnalysis}
