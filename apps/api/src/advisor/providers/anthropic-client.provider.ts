@@ -1,6 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Provider } from '@nestjs/common';
-import { ANTHROPIC_CLIENT } from './anthropic-client.interface';
+import { ANTHROPIC_CLIENT, AnthropicClient } from './anthropic-client.interface';
+
+const MISSING_API_KEY_MESSAGE =
+  'ANTHROPIC_API_KEY environment variable is required to call the Anthropic API (see .env.example). ' +
+  'The server started without it so every other module keeps working locally; only /advisor/analyze fails, and only when actually called.';
 
 /**
  * Binds the real `Anthropic` SDK client to the `ANTHROPIC_CLIENT` token
@@ -12,19 +16,26 @@ import { ANTHROPIC_CLIENT } from './anthropic-client.interface';
  *
  * `apps/api` has no `ConfigModule`/dotenv loader, so `process.env` is read
  * directly here — same pattern as `JWT_SECRET` in `auth.module.ts`
- * (CONVENTIONS.md -> "Auth"). The key is read and validated at provider
- * construction time (during module compile/bootstrap), not lazily on the
- * first `/advisor/analyze` request, so a misconfigured deploy fails at boot
- * with an obvious reason.
+ * (CONVENTIONS.md -> "Auth"). Unlike `JWT_SECRET` (needed by every request
+ * via `JwtStrategy`), a missing key here is scoped to one module: without
+ * it, this factory returns a stub satisfying `AnthropicClient` whose
+ * `messages.create` rejects with `MISSING_API_KEY_MESSAGE` instead of
+ * throwing at construction time. That keeps Nest's DI graph resolvable
+ * (and the rest of the app — auth, portfolio, market-data — booting and
+ * servable) when a developer hasn't set up advisor credentials locally;
+ * only an actual `POST /advisor/analyze` call surfaces the error, as a
+ * normal request failure rather than a boot-time crash of the whole API.
  */
 export const anthropicClientProvider: Provider = {
   provide: ANTHROPIC_CLIENT,
-  useFactory: (): Anthropic => {
+  useFactory: (): AnthropicClient => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      throw new Error(
-        'ANTHROPIC_API_KEY environment variable is required to construct the Anthropic client (see .env.example).',
-      );
+      return {
+        messages: {
+          create: () => Promise.reject(new Error(MISSING_API_KEY_MESSAGE)),
+        },
+      };
     }
     return new Anthropic({ apiKey });
   },
