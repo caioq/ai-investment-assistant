@@ -24,6 +24,9 @@ packages/*/dist/
 
 # Test / coverage
 coverage/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
 
 # Logs
 *.log
