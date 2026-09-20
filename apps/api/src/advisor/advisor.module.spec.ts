@@ -63,9 +63,14 @@ describe('AdvisorModule', () => {
     expect(typeof client.messages.create).toBe('function');
   });
 
-  it('fails fast with a message naming ANTHROPIC_API_KEY when the env var is absent', async () => {
+  it('compiles without ANTHROPIC_API_KEY, but the client rejects with a message naming it once actually called', async () => {
     delete process.env.ANTHROPIC_API_KEY;
 
-    await expect(compileAdvisorModule()).rejects.toThrow(/ANTHROPIC_API_KEY/);
+    const module = await compileAdvisorModule();
+    const client = module.get(ANTHROPIC_CLIENT);
+
+    await expect(
+      client.messages.create({} as never),
+    ).rejects.toThrow(/ANTHROPIC_API_KEY/);
   });
 });
