@@ -641,4 +641,112 @@ describe("DashboardPage", () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId("holdings-tbody")).not.toBeInTheDocument();
   });
+
+  /**
+   * `SHARED_T-6`'s composition test. Nothing before this task proves all six
+   * sections are actually mounted together, on the same page, in the
+   * mockup's order — each earlier wiring task only tests its own section in
+   * isolation. Sections are located by their own accessible, visible text
+   * (never a CSS class or `data-testid`), so this survives a future
+   * restyling pass as long as the section's own copy doesn't change:
+   * `AllocationDonut`/`PerformanceChart`/`HoldingsGrid` render their titles
+   * inside a `Card`'s `<header>` (see `apps/web/components/ui/Card.tsx`) —
+   * there is no `role="heading"` element anywhere on this page yet (a real
+   * gap in the mockup's markup, out of this task's scope to fix), so a
+   * `<header>`'s own text content is the closest accessible stand-in.
+   * `PortfolioHeader` and `AdvisorPanel` don't use `Card` at all, so those
+   * two are matched by their own distinctive copy instead.
+   *
+   * One genuine collision: `SummaryCards` and `HoldingsGrid` both title a
+   * `Card` "Holdings" (`SummaryCards`' third stat card, and `HoldingsGrid`'s
+   * own panel). `getAllByText("Holdings")` returns both, in DOM order — the
+   * second one is always `HoldingsGrid`'s, since `SummaryCards` renders
+   * earlier on the page (see `(dashboard)/page.tsx`).
+   */
+  function expectDomOrder(elements: Element[]) {
+    for (let i = 0; i < elements.length - 1; i++) {
+      const relation = elements[i].compareDocumentPosition(elements[i + 1]);
+      expect(relation & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  }
+
+  it("renders every section, in the mockup's order, from one set of stubbed responses", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(summaryStub),
+      "/portfolio/performance": () => Promise.resolve(performanceStub),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () =>
+        Promise.resolve(sectorAllocationStub),
+      "/portfolio/allocation?by=stock": () =>
+        Promise.resolve(stockAllocationStub),
+      "/portfolio/holdings": () => Promise.resolve(holdingsStub),
+    });
+
+    const element = await DashboardPage();
+    render(<>{element}</>);
+
+    const headerMarker = screen.getByText(/Total portfolio value/i);
+    const summaryCardsMarker = screen.getByText("Total invested");
+    const sectorDonutMarker = screen.getByText("By sector");
+    const stockDonutMarker = screen.getByText("By stock");
+    const performanceMarker = screen.getByText("Portfolio performance");
+    const holdingsHeadings = screen.getAllByText("Holdings");
+    expect(holdingsHeadings).toHaveLength(2);
+    const holdingsGridMarker = holdingsHeadings[1];
+    const advisorPanelMarker = screen.getByText("Generate Portfolio Analysis");
+
+    expectDomOrder([
+      headerMarker,
+      summaryCardsMarker,
+      sectorDonutMarker,
+      stockDonutMarker,
+      performanceMarker,
+      holdingsGridMarker,
+      advisorPanelMarker,
+    ]);
+  });
+
+  it("still renders every section's heading, throwing nothing, when every endpoint returns an empty new-user portfolio", async () => {
+    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
+    getCurrentUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "jordan@example.com",
+      name: "Jordan Mercer",
+    });
+    const emptySummary: PortfolioSummary = {
+      totalInvested: 0,
+      currentValue: 0,
+      gainLoss: 0,
+      returnPct: 0,
+    };
+
+    mockApiFetchByPath({
+      "/portfolio/summary": () => Promise.resolve(emptySummary),
+      "/portfolio/performance": () =>
+        Promise.resolve({ ...performanceStub, series: [] }),
+      "/advisor/analysis/latest": () =>
+        Promise.reject(new ApiError(404, { message: "not found" })),
+      "/portfolio/allocation?by=sector": () => Promise.resolve([]),
+      "/portfolio/allocation?by=stock": () => Promise.resolve([]),
+      "/portfolio/holdings": () => Promise.resolve([]),
+    });
+
+    const element = await DashboardPage();
+    expect(() => render(<>{element}</>)).not.toThrow();
+
+    expect(screen.getByText(/Total portfolio value/i)).toBeInTheDocument();
+    expect(screen.getByText("Total invested")).toBeInTheDocument();
+    expect(screen.getByText("By sector")).toBeInTheDocument();
+    expect(screen.getByText("By stock")).toBeInTheDocument();
+    expect(screen.getByText("Portfolio performance")).toBeInTheDocument();
+    expect(screen.getAllByText("Holdings")).toHaveLength(2);
+    expect(screen.getByText("Generate Portfolio Analysis")).toBeInTheDocument();
+  });
 });
