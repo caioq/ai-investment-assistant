@@ -81,8 +81,20 @@ its own since it's already Linux.
      --network host \
      -v "$(pwd)":/work -w /work \
      mcr.microsoft.com/playwright:v1.63.0-jammy \
-     bash -c "corepack enable && pnpm install --frozen-lockfile && CI=true pnpm --filter web test:e2e -- dashboard-visual.spec.ts --update-snapshots"
+     bash -c "corepack enable && pnpm install && CI=true pnpm --filter web test:e2e -- dashboard-visual.spec.ts --update-snapshots"
    ```
+
+   **Use plain `pnpm install`, not `--frozen-lockfile`.** If `node_modules`
+   was previously populated on the host (macOS/Windows), `--frozen-lockfile`
+   can silently skip re-resolving platform-specific optional dependencies
+   (e.g. `lightningcss`'s native binary) for the container's Linux
+   platform, leaving the host's binary in place — `next dev` then fails
+   with `Cannot find module '../lightningcss.linux-*.node'` the moment it
+   touches `globals.css`. If that happens even with plain `install`, the
+   mounted `node_modules` is contaminated beyond repair by pnpm's own
+   "should I reinstall?" heuristics — force it: `rm -rf node_modules
+   apps/*/node_modules packages/*/node_modules` *before* `pnpm install`,
+   inside the container.
 
    Drop the `dashboard-visual.spec.ts` argument to regenerate every spec's
    baselines/traces, not just this one. `CI=true` is set deliberately: it's
@@ -128,6 +140,42 @@ Linux-built native modules (e.g. `@next/swc`, `esbuild`) into the repo's
 afterwards before going back to local `pnpm dev`/`pnpm test` outside the
 container, or do baseline regeneration from a disposable worktree/clone
 instead of your main working tree.
+
+**Apple Silicon (M-series) hosts: the container above runs `arm64`, not
+`amd64` — and that's a real, silent problem, not a formality.** Docker
+picks a native-architecture image by default, so on an M-series Mac this
+container is Linux/**arm64**, while GitHub Actions' Ubuntu runners are
+Linux/**amd64**. Font rasterisation differs enough between the two that a
+baseline generated this way still mismatches CI — confirmed in practice
+(`DASHBOARD_UI_SHARED_T-9`'s first attempt: a 13,015-pixel/1% diff against
+the real CI run, despite both being "Linux"). Passing `--platform
+linux/amd64` to force the correct architecture doesn't fix this either:
+under QEMU's user-mode emulation, Chromium crashes on launch consistently
+(`browserType.launch: Target page, context or browser has been closed`,
+reproducible, confirmed via core dumps left in `apps/web/`) — a known,
+hard Chromium/QEMU incompatibility (Chromium's own sandboxing and JIT
+interact badly with binary translation), not a resource or timeout
+problem to tune around.
+
+**The actual fix on an Apple Silicon host: generate the baseline using
+CI itself**, since the GitHub Actions runner *is* the reference platform
+these baselines need to match — no emulation involved:
+
+1. On a scratch commit (never merged), change `.github/workflows/ci.yml`'s
+   `e2e tests (web)` step to append `-- dashboard-visual.spec.ts
+   --update-snapshots` to its `pnpm --filter web test:e2e` command, and add
+   an `if: always()` `actions/upload-artifact@v4` step uploading
+   `apps/web/e2e/dashboard-visual.spec.ts-snapshots/`.
+2. Delete the stale baseline `.png`s (an `--update-snapshots` run only
+   *writes* a baseline that's missing — it won't overwrite one that exists
+   and merely differs, without also passing `--update-snapshots=all`).
+3. Push, let the job run (it "fails" — expected, the same "no baseline
+   exists yet, writing actual" message a first local run produces), then
+   `gh run download <run-id> -n regenerated-baselines -D /tmp/ci-baselines`.
+4. Copy those `.png`s over the stale ones, revert the scratch `ci.yml`
+   change (`git revert`, then manually restore the real `.png` bytes — a
+   plain revert restores whatever baseline existed *before* the scratch
+   commit, not the newly downloaded one), and commit.
 
 #### Demonstrating red
 
