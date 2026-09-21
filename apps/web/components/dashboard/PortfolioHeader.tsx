@@ -39,7 +39,7 @@ export function PortfolioHeader({
         background:
           "linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%)",
         borderRadius: 20,
-        padding: "80px 36px",
+        padding: "32px 36px",
         boxShadow: "var(--shadow-lg)",
       }}
     >
