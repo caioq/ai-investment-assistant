@@ -187,7 +187,7 @@ export default async function DashboardPage() {
         dayChange={dayChange}
         dayChangePct={dayChangePct}
       />
-      <SummaryCards summary={summary} holdingsCount={0} />
+      <SummaryCards summary={summary} holdingsCount={holdings.length} />
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: 1 }}>
           <AllocationDonut

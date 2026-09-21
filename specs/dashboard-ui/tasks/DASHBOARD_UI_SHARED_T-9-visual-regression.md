@@ -1,7 +1,7 @@
 # DASHBOARD_UI_SHARED_T-9: visual-regression baseline
 
 **Shared by:** US-2, US-3, US-4, US-5, US-7
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #236 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DASHBOARD_UI_SHARED_T-6, DASHBOARD_UI_SHARED_T-7
 
