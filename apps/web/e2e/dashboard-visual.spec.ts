@@ -50,7 +50,17 @@ test('populated dashboard matches its committed baseline', async ({ page }) => {
     // relative to the machine's local timezone — masked here as a second,
     // independent guard against that varying between the container this
     // baseline was generated in and whatever machine re-runs the check.
-    mask: [page.getByTestId('advisor-analysis-footer')],
+    //
+    // `RecommendedPortfoliosUpload`'s "Effective date" `<input type="date">`
+    // defaults to `todayIsoDate()` — genuinely wall-clock-derived and
+    // unmasked, it flips the check red on any day boundary between
+    // baseline generation and a later run (confirmed in CI: a 413-pixel
+    // diff localized to exactly this field). Masked for the same reason as
+    // the advisor footer.
+    mask: [
+      page.getByTestId('advisor-analysis-footer'),
+      page.locator('#recommended-portfolio-effective-date'),
+    ],
   });
 });
 
@@ -70,5 +80,10 @@ test('empty-portfolio dashboard matches its committed baseline', async ({ page }
   await expect(page.getByTestId('performance-chart-empty')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Generate Portfolio Analysis' })).toBeVisible();
 
-  await expect(page).toHaveScreenshot('dashboard-empty.png', { fullPage: true });
+  await expect(page).toHaveScreenshot('dashboard-empty.png', {
+    fullPage: true,
+    // Same wall-clock-derived "Effective date" field as the populated
+    // test above — see that assertion's comment.
+    mask: [page.locator('#recommended-portfolio-effective-date')],
+  });
 });
