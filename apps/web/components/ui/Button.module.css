@@ -1,0 +1,44 @@
+/*
+ * Interaction styles for `Button` that inline styles can't express
+ * (`:hover`, `@keyframes`, media queries). Colors/sizes stay inline in
+ * `Button.tsx`; this file only carries motion (AUTH_UI_SHARED_T-3).
+ */
+
+.navy {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.navy:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: button-spin 0.8s linear infinite;
+}
+
+@keyframes button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navy,
+  .navy:not(:disabled):hover {
+    transition: none;
+    transform: none;
+  }
+
+  /* Static indicator: the ring still shows next to the "…ing" label. */
+  .spinner {
+    animation: none;
+  }
+}
