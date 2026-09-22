@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const { apiFetchMock, pushMock, refreshMock } = vi.hoisted(() => ({
   apiFetchMock: vi.fn(),
@@ -233,6 +233,205 @@ describe("AuthScreen (signin mode) submit", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Couldn't reach the server. Please try again.",
+    );
+  });
+});
+
+describe("AuthScreen (signup mode)", () => {
+  function getForm(): HTMLFormElement {
+    const form = document.querySelector("form");
+    if (!form) {
+      throw new Error("form not found");
+    }
+    return form as HTMLFormElement;
+  }
+
+  function fillValidSignupForm() {
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "ana@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password", { exact: true }), {
+      target: { value: "abcdefgh" },
+    });
+  }
+
+  it('renders "Create your account" with Name, Email and Password in that order, plus the strength hint', () => {
+    render(<AuthScreen startMode="signup" />);
+
+    expect(screen.getByText("Create your account")).toBeInTheDocument();
+
+    const inputs = Array.from(getForm().querySelectorAll("input"));
+    expect(inputs.map((input) => input.getAttribute("autocomplete"))).toEqual([
+      "name",
+      "email",
+      "new-password",
+    ]);
+    expect(screen.getByLabelText("Name")).toHaveAttribute("placeholder", "Ana Souza");
+    expect(screen.getByLabelText("Password", { exact: true })).toHaveAttribute(
+      "placeholder",
+      "At least 8 characters",
+    );
+    expect(screen.getByText("Use 8+ characters")).toBeInTheDocument();
+  });
+
+  it('submitting a whitespace-only name shows "Name is required." and focuses Name', () => {
+    render(<AuthScreen startMode="signup" />);
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "   " } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "ana@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password", { exact: true }), {
+      target: { value: "abcdefgh" },
+    });
+    clickSubmit();
+
+    expect(screen.getByText("Name is required.", { selector: "p" })).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByLabelText("Name"));
+    expect(apiFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('a 7-character password shows "Use at least 8 characters." and never calls apiFetch', () => {
+    render(<AuthScreen startMode="signup" />);
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "ana@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password", { exact: true }), {
+      target: { value: "abcdefg" },
+    });
+    clickSubmit();
+
+    expect(
+      screen.getByText("Use at least 8 characters.", { selector: "p" }),
+    ).toBeInTheDocument();
+    expect(apiFetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a valid submit posts the trimmed name and email to /auth/register, even at score 1", async () => {
+    apiFetchMock.mockResolvedValue(undefined);
+    render(<AuthScreen startMode="signup" />);
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  Ana " } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "ana@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password", { exact: true }), {
+      target: { value: "abcdefgh" },
+    });
+
+    // The advisory meter never blocks submission (spec → Password strength meter).
+    expect(screen.getByText("Weak")).toBeInTheDocument();
+
+    clickSubmit();
+
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledTimes(1));
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      "/auth/register",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          email: "ana@example.com",
+          password: "abcdefgh",
+          name: "Ana",
+        }),
+      }),
+    );
+  });
+
+  it('shows "Creating account" while pending, and a second click leaves apiFetch at one call', async () => {
+    let resolveRegister: (() => void) | undefined;
+    apiFetchMock.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveRegister = () => resolve();
+      }),
+    );
+    render(<AuthScreen startMode="signup" />);
+
+    fillValidSignupForm();
+    clickSubmit();
+
+    await waitFor(() => expect(getSubmitButton()).toHaveTextContent("Creating account"));
+    expect(getSubmitButton()).toHaveAttribute("aria-busy", "true");
+
+    clickSubmit();
+    expect(apiFetchMock).toHaveBeenCalledTimes(1);
+
+    resolveRegister?.();
+    await waitFor(() => expect(pushMock).toHaveBeenCalled());
+  });
+
+  it('ApiError(409) shows "This email is already registered." on the Email field, keeping every value', async () => {
+    apiFetchMock.mockRejectedValue(new ApiError(409, { message: "Conflict" }));
+    render(<AuthScreen startMode="signup" />);
+
+    fillValidSignupForm();
+    clickSubmit();
+
+    const emailInput = screen.getByLabelText("Email");
+    await waitFor(() =>
+      expect(
+        screen.getByText("This email is already registered.", { selector: "p" }),
+      ).toBeInTheDocument(),
+    );
+    // The message is wired to the Email field, not rendered as a form alert.
+    const errorId = emailInput.getAttribute("aria-describedby");
+    expect(errorId).toBeTruthy();
+    expect(document.getElementById(errorId as string)).toHaveTextContent(
+      "This email is already registered.",
+    );
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Ana");
+    expect(emailInput).toHaveValue("ana@example.com");
+    expect(screen.getByLabelText("Password", { exact: true })).toHaveValue("abcdefgh");
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("ApiError(429) shows the throttle message in the form alert", async () => {
+    apiFetchMock.mockRejectedValue(new ApiError(429, { message: "Too Many Requests" }));
+    render(<AuthScreen startMode="signup" />);
+
+    fillValidSignupForm();
+    clickSubmit();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too many attempts. Please wait a minute and try again.",
+    );
+  });
+
+  it('ApiError(400) shows "Check your details and try again." in the form alert', async () => {
+    apiFetchMock.mockRejectedValue(new ApiError(400, { message: "Bad Request" }));
+    render(<AuthScreen startMode="signup" />);
+
+    fillValidSignupForm();
+    clickSubmit();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Check your details and try again.",
+    );
+  });
+
+  it("a successful registration calls router.push('/') and then router.refresh()", async () => {
+    apiFetchMock.mockResolvedValue(undefined);
+    render(<AuthScreen startMode="signup" />);
+
+    fillValidSignupForm();
+    clickSubmit();
+
+    await waitFor(() => expect(refreshMock).toHaveBeenCalled());
+    expect(pushMock).toHaveBeenCalledWith("/");
+    expect(pushMock.mock.invocationCallOrder[0]).toBeLessThan(
+      refreshMock.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("the submit button is the one scoped to the form, since the mode toggle shares its name", () => {
+    render(<AuthScreen startMode="signup" />);
+
+    expect(within(getForm()).getByRole("button", { name: "Create account" })).toBe(
+      getSubmitButton(),
     );
   });
 });

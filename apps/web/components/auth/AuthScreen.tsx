@@ -9,19 +9,25 @@ import { TextField } from "../ui/TextField";
 import { PasswordField } from "../ui/PasswordField";
 import { Button } from "../ui/Button";
 import { BrandPanel, FRAUNCES_STACK } from "./BrandPanel";
+import { PasswordStrengthMeter } from "./PasswordStrengthMeter";
 import { AUTH_CONTENT, type AuthMode } from "./auth-content";
 
 export interface AuthScreenProps {
   startMode: AuthMode;
 }
 
-interface SignInErrors {
+interface FieldErrors {
+  name?: string;
   email?: string;
   password?: string;
 }
 
+const NAME_FIELD_ID = "auth-name";
 const EMAIL_FIELD_ID = "auth-email";
 const PASSWORD_FIELD_ID = "auth-password";
+
+/** Create account mode's minimum password length — client-side only (spec → Non-Goals). */
+const MIN_PASSWORD_LENGTH = 8;
 
 // Server/network error mapping (spec → Behavior Notes → "Server and network
 // errors"). The 401 message is deliberately generic — it must never reveal
@@ -29,6 +35,11 @@ const PASSWORD_FIELD_ID = "auth-password";
 const LOGIN_401_ERROR = "Email or password is incorrect.";
 const LOGIN_429_ERROR = "Too many attempts. Please wait a minute and try again.";
 const LOGIN_NETWORK_ERROR = "Couldn't reach the server. Please try again.";
+// Create account mode. The 409 renders on the Email field rather than as a
+// form alert; its "Sign in instead" action needs mode switching and belongs to
+// AUTH_UI_US-3_T-2, so only the message itself is rendered here.
+const REGISTER_409_ERROR = "This email is already registered.";
+const REGISTER_400_ERROR = "Check your details and try again.";
 
 function emailError(email: string): string | undefined {
   const trimmed = email.trim();
@@ -41,30 +52,40 @@ function emailError(email: string): string | undefined {
   return undefined;
 }
 
-function passwordError(password: string): string | undefined {
+function passwordError(password: string, mode: AuthMode): string | undefined {
   if (password === "") {
     return "Password is required.";
+  }
+  if (mode === "signup" && password.length < MIN_PASSWORD_LENGTH) {
+    return "Use at least 8 characters.";
   }
   return undefined;
 }
 
+function nameError(name: string): string | undefined {
+  return name.trim() === "" ? "Name is required." : undefined;
+}
+
 /**
  * The redesigned Sign in / Create account screen (spec: specs/auth-ui/spec.md).
- * `startMode` selects which mode is rendered; this task (AUTH_UI_US-1_T-1)
- * only implements `signin` — Create account mode (Name field, password
- * strength meter) is AUTH_UI_US-2, client-side mode switching without a
- * remount is AUTH_UI_US-3_T-1, and submit/error-mapping against the API is
- * AUTH_UI_US-1_T-2.
+ * `startMode` selects which mode is rendered: `signin` (AUTH_UI_US-1_T-1/T-2)
+ * and `signup` (AUTH_UI_US-2_T-4 — Name field, 8-character rule, advisory
+ * strength meter, `POST /auth/register`). Client-side mode switching without
+ * a remount is AUTH_UI_US-3_T-1, and the 409's "Sign in instead" action is
+ * AUTH_UI_US-3_T-2.
  */
 export function AuthScreen({ startMode }: AuthScreenProps) {
   const router = useRouter();
   const mode: AuthMode = startMode;
   const content = AUTH_CONTENT[mode];
 
+  const isSignup = mode === "signup";
+
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [errors, setErrors] = useState<SignInErrors>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | undefined>(undefined);
 
@@ -79,15 +100,20 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
 
     setSubmitted(true);
 
-    const nextErrors: SignInErrors = {
+    const nextErrors: FieldErrors = {
+      name: isSignup ? nameError(name) : undefined,
       email: emailError(email),
-      password: passwordError(password),
+      password: passwordError(password, mode),
     };
     setErrors(nextErrors);
 
     // Focus the first invalid field in DOM order (spec → Behavior Notes →
     // Validation). `TextField`/`PasswordField` don't forward refs, but each
     // field's `id` is stable, so `getElementById` reaches the real <input>.
+    if (nextErrors.name) {
+      document.getElementById(NAME_FIELD_ID)?.focus();
+      return;
+    }
     if (nextErrors.email) {
       document.getElementById(EMAIL_FIELD_ID)?.focus();
       return;
@@ -100,23 +126,40 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
     setFormError(undefined);
     setIsSubmitting(true);
     try {
-      await apiFetch("/auth/login", {
+      const body = isSignup
+        ? { email: email.trim(), password, name: name.trim() }
+        : { email: email.trim(), password };
+      await apiFetch(isSignup ? "/auth/register" : "/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify(body),
       });
       router.push("/");
       router.refresh();
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      const status = err instanceof ApiError ? err.status : undefined;
+      if (isSignup && status === 409) {
+        // On the Email field, not the form alert (spec → Server and network errors).
+        setErrors((prev) => ({ ...prev, email: REGISTER_409_ERROR }));
+      } else if (isSignup && status === 400) {
+        setFormError(REGISTER_400_ERROR);
+      } else if (!isSignup && status === 401) {
         setFormError(LOGIN_401_ERROR);
-      } else if (err instanceof ApiError && err.status === 429) {
+      } else if (status === 429) {
         setFormError(LOGIN_429_ERROR);
       } else {
         setFormError(LOGIN_NETWORK_ERROR);
       }
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function handleNameChange(event: ChangeEvent<HTMLInputElement>) {
+    const value = event.target.value;
+    setName(value);
+    if (submitted) {
+      setErrors((prev) => ({ ...prev, name: nameError(value) }));
     }
   }
 
@@ -132,11 +175,13 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
     const value = event.target.value;
     setPassword(value);
     if (submitted) {
-      setErrors((prev) => ({ ...prev, password: passwordError(value) }));
+      setErrors((prev) => ({ ...prev, password: passwordError(value, mode) }));
     }
   }
 
-  const liveMessage = [errors.email, errors.password].filter(Boolean).join(" ");
+  const liveMessage = [errors.name, errors.email, errors.password]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <>
@@ -224,6 +269,18 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
 
           <form onSubmit={handleSubmit} noValidate>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {isSignup && (
+                <TextField
+                  id={NAME_FIELD_ID}
+                  label="Name"
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Ana Souza"
+                  value={name}
+                  onChange={handleNameChange}
+                  error={errors.name}
+                />
+              )}
               <TextField
                 id={EMAIL_FIELD_ID}
                 label="Email"
@@ -234,15 +291,18 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
                 onChange={handleEmailChange}
                 error={errors.email}
               />
-              <PasswordField
-                id={PASSWORD_FIELD_ID}
-                label="Password"
-                autoComplete="current-password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={handlePasswordChange}
-                error={errors.password}
-              />
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <PasswordField
+                  id={PASSWORD_FIELD_ID}
+                  label="Password"
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  placeholder={isSignup ? "At least 8 characters" : "Enter your password"}
+                  value={password}
+                  onChange={handlePasswordChange}
+                  error={errors.password}
+                />
+                {isSignup && <PasswordStrengthMeter password={password} />}
+              </div>
             </div>
 
             <div aria-live="polite" className="sr-only">
@@ -268,12 +328,26 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
               loading={isSubmitting}
               style={{ width: "100%", marginTop: 20 }}
             >
-              {isSubmitting ? "Signing in" : "Sign in"}
+              {isSignup
+                ? isSubmitting
+                  ? "Creating account"
+                  : "Create account"
+                : isSubmitting
+                  ? "Signing in"
+                  : "Sign in"}
             </Button>
           </form>
 
           <p style={{ fontSize: 13, textAlign: "center", marginTop: 20 }}>
-            Don&apos;t have an account? <Link href="/register">Create one</Link>
+            {isSignup ? (
+              <>
+                Already have an account? <Link href="/login">Sign in</Link>
+              </>
+            ) : (
+              <>
+                Don&apos;t have an account? <Link href="/register">Create one</Link>
+              </>
+            )}
           </p>
         </div>
       </div>
