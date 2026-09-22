@@ -233,6 +233,14 @@ export class MarketDataService {
     const assets = await this.prisma.asset.findMany();
     const tickers = assets.map((asset) => asset.ticker);
 
+    // An empty `tickers` array would build a `symbols=` param with nothing
+    // in it, which Yahoo Finance's /spark endpoint rejects outright with a
+    // 400 rather than an empty result — so there's nothing to batch, skip
+    // the request entirely.
+    if (tickers.length === 0) {
+      return { refreshed: 0 };
+    }
+
     let quotes: Quote[];
     try {
       quotes = await this.priceProvider.getQuote(tickers);

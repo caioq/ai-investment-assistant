@@ -106,6 +106,29 @@ describe('B3YahooProvider', () => {
      * to catch. `fetch` does not reject on 4xx/5xx, and one unrecognised
      * ticker must not void the whole batch.
      */
+    it('splits more than 20 tickers into multiple requests of at most 20 symbols each', async () => {
+      const manyTickers = Array.from({ length: 45 }, (_, i) => `TICK${i}`);
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        json: async () => ({ spark: { result: [] } }),
+      } as Response);
+
+      await provider.getQuote(manyTickers);
+
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      const requestedSymbolCounts = fetchSpy.mock.calls.map(
+        ([url]) => new URL(url as string).searchParams.get('symbols')!.split(',').length,
+      );
+      expect(requestedSymbolCounts).toEqual([20, 20, 5]);
+    });
+
+    it('makes no request for an empty ticker list', async () => {
+      const quotes = await provider.getQuote([]);
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(quotes).toEqual([]);
+    });
+
     describe('upstream failure modes', () => {
       it('rejects with the status when Yahoo returns a non-2xx carrying a JSON body', async () => {
         // A rate-limited 429 whose body is *valid JSON* — without an `res.ok`
