@@ -8,7 +8,7 @@ As a returning user, I want to sign in on a clear, designed screen that tells me
 ## Tasks
 
 - [x] [T-1: `AuthScreen` Sign in form and client validation](../tasks/AUTH_UI_US-1_T-1-sign-in-form-validation.md)
-- [ ] [T-2: Sign in submit, loading state, and error mapping](../tasks/AUTH_UI_US-1_T-2-sign-in-submit-and-errors.md)
+- [x] [T-2: Sign in submit, loading state, and error mapping](../tasks/AUTH_UI_US-1_T-2-sign-in-submit-and-errors.md)
 - [ ] [T-3: Serve `/login` from `AuthScreen` and retire `LoginForm`](../tasks/AUTH_UI_US-1_T-3-login-route-and-retire-login-form.md)
 
 Shared tasks this story relies on: [SHARED_T-1](../tasks/AUTH_UI_SHARED_T-1-is-valid-email.md), [SHARED_T-2](../tasks/AUTH_UI_SHARED_T-2-text-and-password-fields.md), [SHARED_T-3](../tasks/AUTH_UI_SHARED_T-3-button-navy-variant.md), [SHARED_T-4](../tasks/AUTH_UI_SHARED_T-4-auth-layout-and-brand-panel.md), [SHARED_T-5](../tasks/AUTH_UI_SHARED_T-5-auth-throttling.md), [SHARED_T-6](../tasks/AUTH_UI_SHARED_T-6-e2e-and-visual-baselines.md).

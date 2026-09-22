@@ -1,7 +1,7 @@
 # AUTH_UI_US-1_T-2: Sign in submit, loading state, and error mapping
 
 **Story:** [../stories/US-1-sign-in.md](../stories/US-1-sign-in.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #279 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** AUTH_UI_US-1_T-1, AUTH_UI_SHARED_T-3
 

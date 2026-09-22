@@ -2,7 +2,9 @@
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { isValidEmail } from "@ai-investment-assistant/shared";
+import { apiFetch, ApiError } from "../../lib/api-client";
 import { TextField } from "../ui/TextField";
 import { PasswordField } from "../ui/PasswordField";
 import { Button } from "../ui/Button";
@@ -20,6 +22,13 @@ interface SignInErrors {
 
 const EMAIL_FIELD_ID = "auth-email";
 const PASSWORD_FIELD_ID = "auth-password";
+
+// Server/network error mapping (spec → Behavior Notes → "Server and network
+// errors"). The 401 message is deliberately generic — it must never reveal
+// whether the email or the password was wrong (spec → Security).
+const LOGIN_401_ERROR = "Email or password is incorrect.";
+const LOGIN_429_ERROR = "Too many attempts. Please wait a minute and try again.";
+const LOGIN_NETWORK_ERROR = "Couldn't reach the server. Please try again.";
 
 function emailError(email: string): string | undefined {
   const trimmed = email.trim();
@@ -48,6 +57,7 @@ function passwordError(password: string): string | undefined {
  * AUTH_UI_US-1_T-2.
  */
 export function AuthScreen({ startMode }: AuthScreenProps) {
+  const router = useRouter();
   const mode: AuthMode = startMode;
   const content = AUTH_CONTENT[mode];
 
@@ -55,9 +65,18 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
   const [password, setPassword] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<SignInErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | undefined>(undefined);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // Re-entry guard (CONVENTIONS.md → "Disable-and-guard a button that
+    // triggers a paid API call"): the submit button is also `disabled` while
+    // `isSubmitting`, but a disabled button doesn't stop a form re-submitting
+    // via Enter in a text field, so the handler itself must refuse too.
+    if (isSubmitting) return;
+
     setSubmitted(true);
 
     const nextErrors: SignInErrors = {
@@ -71,13 +90,34 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
     // field's `id` is stable, so `getElementById` reaches the real <input>.
     if (nextErrors.email) {
       document.getElementById(EMAIL_FIELD_ID)?.focus();
-    } else if (nextErrors.password) {
+      return;
+    }
+    if (nextErrors.password) {
       document.getElementById(PASSWORD_FIELD_ID)?.focus();
+      return;
     }
 
-    // Submit/apiFetch wiring, loading state, and server-error mapping are
-    // implemented by AUTH_UI_US-1_T-2 — this task stops at client-side
-    // validation.
+    setFormError(undefined);
+    setIsSubmitting(true);
+    try {
+      await apiFetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setFormError(LOGIN_401_ERROR);
+      } else if (err instanceof ApiError && err.status === 429) {
+        setFormError(LOGIN_429_ERROR);
+      } else {
+        setFormError(LOGIN_NETWORK_ERROR);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleEmailChange(event: ChangeEvent<HTMLInputElement>) {
@@ -209,13 +249,26 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
               {liveMessage}
             </div>
 
-            {/*
-              Spec calls for a navy submit button (a `Button` `variant="navy"`
-              added by AUTH_UI_SHARED_T-3, not yet a dependency of this task)
-              — falls back to the existing `primary` variant until that lands.
-            */}
-            <Button type="submit" style={{ width: "100%", marginTop: 20 }}>
-              Sign in
+            {formError && (
+              <p
+                role="alert"
+                style={{
+                  color: "var(--red)",
+                  fontSize: 13.5,
+                  margin: "14px 0 0",
+                }}
+              >
+                {formError}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              variant="navy"
+              loading={isSubmitting}
+              style={{ width: "100%", marginTop: 20 }}
+            >
+              {isSubmitting ? "Signing in" : "Sign in"}
             </Button>
           </form>
 
