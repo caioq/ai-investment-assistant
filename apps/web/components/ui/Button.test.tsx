@@ -37,4 +37,25 @@ describe("Button", () => {
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
   });
+
+  it('renders the navy gradient for variant="navy"', () => {
+    render(<Button variant="navy">Sign in</Button>);
+
+    const button = screen.getByRole("button", { name: "Sign in" });
+    expect(button.getAttribute("style")).toContain("var(--navy)");
+    expect(button.getAttribute("style")).toContain("var(--navy-2)");
+  });
+
+  it('renders a spinner and sets aria-busy + disabled when loading with variant="navy"', () => {
+    render(
+      <Button variant="navy" loading>
+        Signing in
+      </Button>,
+    );
+
+    const button = screen.getByRole("button", { name: "Signing in" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByTestId("button-spinner")).toBeInTheDocument();
+  });
 });
