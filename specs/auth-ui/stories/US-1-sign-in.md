@@ -7,7 +7,7 @@ As a returning user, I want to sign in on a clear, designed screen that tells me
 
 ## Tasks
 
-- [ ] [T-1: `AuthScreen` Sign in form and client validation](../tasks/AUTH_UI_US-1_T-1-sign-in-form-validation.md)
+- [x] [T-1: `AuthScreen` Sign in form and client validation](../tasks/AUTH_UI_US-1_T-1-sign-in-form-validation.md)
 - [ ] [T-2: Sign in submit, loading state, and error mapping](../tasks/AUTH_UI_US-1_T-2-sign-in-submit-and-errors.md)
 - [ ] [T-3: Serve `/login` from `AuthScreen` and retire `LoginForm`](../tasks/AUTH_UI_US-1_T-3-login-route-and-retire-login-form.md)
 
