@@ -39,10 +39,15 @@ model User {
 
 | Method | Path | Body | Response | Auth |
 |---|---|---|---|---|
-| POST | `/auth/register` | `{ email, password, name? }` | `{ id, email, name }` + sets `access_token` cookie | none |
+| POST | `/auth/register` | `{ email, password, name }` | `{ id, email, name }` + sets `access_token` cookie | none |
 | POST | `/auth/login` | `{ email, password }` | `{ id, email, name }` + sets `access_token` cookie | none |
 | POST | `/auth/logout` | — | `204` + clears cookie | required |
 | GET | `/auth/me` | — | `{ id, email, name }` | required |
+
+**Amended by [auth-ui](../auth-ui/spec.md)** (pending until that spec is Approved):
+
+- `POST /auth/register`: `name` is **required**. It's trimmed, and an absent or whitespace-only value returns `400`. `User.name` stays nullable in the schema, so accounts created before this change are unaffected, and `/auth/me` may still return `name: null` for them.
+- `POST /auth/login` and `POST /auth/register` are **throttled per client IP** and return `429` once the limit is exceeded. The limit and window come from env: `AUTH_THROTTLE_LIMIT` (default `5`) and `AUTH_THROTTLE_TTL_MS` (default `60000`). Test and CI environments set a high limit, because the e2e suites register and log in many users from one IP.
 
 ## Behavior Notes
 
@@ -51,6 +56,8 @@ model User {
 - Cookie flags: `httpOnly: true`, `sameSite: 'lax'`, `secure: isProd`.
 - CORS configured with `{ origin: FRONTEND_URL, credentials: true }` so the browser sends the cookie cross-port in dev (`localhost:3000` ↔ `localhost:3001`).
 - All other modules' controllers use a shared `AuthGuard` that resolves `req.user.id`; no endpoint outside `AuthModule` accepts a `userId` from the client.
+- Throttling is **per IP only**, applied with `@nestjs/throttler` to the two unauthenticated auth endpoints and nowhere else. Per-account lockout and progressive delays are out of scope (see auth-ui Non-Goals). The login `401` stays the single generic `Invalid email or password` whether the email or the password was wrong.
+- There is **no server-side minimum password length**; the 8-character minimum is enforced client-side only (auth-ui). This is a deliberate choice, recorded there.
 
 ## Acceptance Criteria
 
@@ -60,3 +67,6 @@ model User {
 - [ ] Hitting any protected endpoint (e.g. `GET /portfolio/holdings`) without the cookie returns 401.
 - [ ] `POST /auth/logout` clears the cookie; a subsequent `GET /auth/me` returns 401.
 - [ ] Passwords are never returned in any API response and never logged.
+- [ ] (auth-ui) `POST /auth/register` with `name` missing or `"   "` returns 400 and creates no user; with `"  Ana  "` it stores `"Ana"`.
+- [ ] (auth-ui) With default limits, the 6th `POST /auth/login` from the same IP within 60 s returns 429, whether the credentials are valid or not; after the window passes, login works again.
+- [ ] (auth-ui) `GET /auth/me` and every other endpoint are not throttled.
