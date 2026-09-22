@@ -20,6 +20,7 @@ const REQUIRED_TOKENS = [
   "--emerald",
   "--emerald-light",
   "--red",
+  "--amber",
   "--shadow",
   "--shadow-lg",
 ];
