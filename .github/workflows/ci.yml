@@ -44,6 +44,11 @@ jobs:
       # to what a local `pnpm --filter web test:e2e` run uses — job-level
       # too so a failure reproduces locally without a translation step.
       NEXT_PUBLIC_API_URL: http://localhost:3001
+      # Per-IP throttle on POST /auth/login and /auth/register (default 5 per
+      # minute, AUTH_UI_SHARED_T-5). The api and web e2e suites register and
+      # log in many users from one IP, so raise it here; auth-throttle.e2e-spec.ts
+      # pins its own limit.
+      AUTH_THROTTLE_LIMIT: 1000
 
     steps:
       - uses: actions/checkout@v4
