@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthGuard } from './auth.guard';
 import { LoginDto } from './dto/login.dto';
@@ -9,7 +10,10 @@ import { AuthService } from './auth.service';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Per-IP throttling on the two unauthenticated endpoints only
+  // (AUTH_UI_SHARED_T-5); limits come from ThrottlerModule in auth.module.ts.
   @Post('register')
+  @UseGuards(ThrottlerGuard)
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
@@ -23,6 +27,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
+  @UseGuards(ThrottlerGuard)
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,

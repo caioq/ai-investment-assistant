@@ -83,6 +83,9 @@ export default defineConfig({
         JWT_SECRET: 'e2e-test-secret',
         FRONTEND_URL: 'http://localhost:3000',
         PORT: '3001',
+        // The suite logs in/registers repeatedly from one IP; the default
+        // auth throttle (5/min, AUTH_UI_SHARED_T-5) would 429 it.
+        AUTH_THROTTLE_LIMIT: '1000',
       },
     },
     {
