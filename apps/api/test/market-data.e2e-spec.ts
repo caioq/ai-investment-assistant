@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/configure-app';
 import { PRICE_PROVIDER, PriceProvider } from '../src/market-data/providers/price-provider.interface';
+import { PortfolioService } from '../src/portfolio/portfolio.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('MarketDataController (e2e)', () => {
@@ -32,6 +33,9 @@ describe('MarketDataController (e2e)', () => {
     await app.init();
 
     prisma = moduleFixture.get(PrismaService);
+
+    // The refresh event snapshots *every* user in the shared test DB, racing other suites' user cleanup (FK violation).
+    jest.spyOn(moduleFixture.get(PortfolioService), 'snapshotAllUsers').mockResolvedValue();
   });
 
   afterAll(async () => {

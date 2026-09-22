@@ -8,3 +8,10 @@ export {
 } from "./allocation";
 export { cagr, maxDrawdown, volatility } from "./metrics";
 export type { PortfolioValuePoint } from "./metrics";
+export { isValidEmail } from "./validation";
+export {
+  scorePassword,
+  type PasswordScore,
+  type PasswordStrength,
+  type PasswordStrengthLabel,
+} from "./password-strength";
