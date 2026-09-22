@@ -101,7 +101,7 @@ describe('AdvisorController (e2e) - POST /advisor/reports/upload', () => {
   async function authCookies(email: string): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Advisor E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -396,7 +396,7 @@ describe('POST /advisor/analyze (e2e)', () => {
   async function authCookies(email: string): Promise<{ cookies: string[]; userId: string }> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Advisor E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -535,7 +535,7 @@ describe('GET /advisor/analysis/latest (e2e)', () => {
   async function registerAndLogin(email: string): Promise<{ cookies: string[]; userId: string }> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Advisor E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];

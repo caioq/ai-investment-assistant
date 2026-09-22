@@ -44,6 +44,9 @@ describe('AuthController (e2e)', () => {
             'logout@example.com',
             'wrongpass@example.com',
             'never-registered@example.com',
+            'auth-e2e-no-name@example.com',
+            'auth-e2e-blank-name@example.com',
+            'auth-e2e-trimmed-name@example.com',
           ],
         },
       },
@@ -80,7 +83,11 @@ describe('AuthController (e2e)', () => {
     it('returns a 4xx (not 500, no duplicate row) when the email is already registered', async () => {
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ email: 'dupe@example.com', password: 'super-secret-password' })
+        .send({
+          email: 'dupe@example.com',
+          password: 'super-secret-password',
+          name: 'Auth E2E Dupe',
+        })
         .expect((res) => {
           if (res.status !== 200 && res.status !== 201) {
             throw new Error(`expected 200 or 201, got ${res.status}`);
@@ -89,13 +96,62 @@ describe('AuthController (e2e)', () => {
 
       const secondResponse = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ email: 'dupe@example.com', password: 'another-password' });
+        .send({ email: 'dupe@example.com', password: 'another-password', name: 'Auth E2E Dupe' });
 
       expect(secondResponse.status).toBeGreaterThanOrEqual(400);
       expect(secondResponse.status).toBeLessThan(500);
 
       const users = await prisma.user.findMany({ where: { email: 'dupe@example.com' } });
       expect(users).toHaveLength(1);
+    });
+
+    // `name` is required and trimmed (specs/auth/spec.md -> "Amended by
+    // auth-ui", AUTH_UI_US-2_T-1).
+    it('returns 400 and creates no user when name is missing', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: 'auth-e2e-no-name@example.com', password: 'super-secret-password' });
+
+      expect(response.status).toBe(400);
+
+      const users = await prisma.user.findMany({
+        where: { email: 'auth-e2e-no-name@example.com' },
+      });
+      expect(users).toHaveLength(0);
+    });
+
+    it('returns 400 and creates no user when name is whitespace only', async () => {
+      const response = await request(app.getHttpServer()).post('/auth/register').send({
+        email: 'auth-e2e-blank-name@example.com',
+        password: 'super-secret-password',
+        name: '   ',
+      });
+
+      expect(response.status).toBe(400);
+
+      const users = await prisma.user.findMany({
+        where: { email: 'auth-e2e-blank-name@example.com' },
+      });
+      expect(users).toHaveLength(0);
+    });
+
+    it('stores and returns the trimmed name, also via GET /auth/me', async () => {
+      const response = await request(app.getHttpServer()).post('/auth/register').send({
+        email: 'auth-e2e-trimmed-name@example.com',
+        password: 'super-secret-password',
+        name: '  Ana  ',
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.name).toBe('Ana');
+
+      const setCookieHeader = response.headers['set-cookie'];
+      const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+
+      const meResponse = await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookies);
+
+      expect(meResponse.status).toBe(200);
+      expect(meResponse.body.name).toBe('Ana');
     });
   });
 
@@ -135,7 +191,11 @@ describe('AuthController (e2e)', () => {
     it('returns 401 with no Set-Cookie header when the password is wrong', async () => {
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ email: 'wrongpass@example.com', password: 'super-secret-password' })
+        .send({
+          email: 'wrongpass@example.com',
+          password: 'super-secret-password',
+          name: 'Auth E2E Wrong Pass',
+        })
         .expect((res) => {
           if (res.status !== 200 && res.status !== 201) {
             throw new Error(`expected 200 or 201, got ${res.status}`);

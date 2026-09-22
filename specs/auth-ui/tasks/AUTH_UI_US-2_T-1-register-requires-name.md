@@ -1,7 +1,7 @@
 # AUTH_UI_US-2_T-1: Require a trimmed `name` on `POST /auth/register`
 
 **Story:** [../stories/US-2-create-account.md](../stories/US-2-create-account.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #281 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 
