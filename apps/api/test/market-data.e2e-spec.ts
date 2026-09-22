@@ -44,6 +44,12 @@ describe('MarketDataController (e2e)', () => {
   // `auth.e2e-spec.ts` concurrently reads/writes the `user` table too; a
   // blanket delete here would race with it.
   afterEach(async () => {
+    // POST /market-data/refresh upserts a PriceHistory row for MDTA4, which
+    // would otherwise violate `price_history_asset_id_fkey` on the Asset
+    // delete below.
+    await prisma.priceHistory.deleteMany({
+      where: { asset: { ticker: { in: ['MDTA4', 'UNKNOWN4'] } } },
+    });
     await prisma.asset.deleteMany({ where: { ticker: { in: ['MDTA4', 'UNKNOWN4'] } } });
     await prisma.user.deleteMany({ where: { email: 'market-data-e2e@example.com' } });
   });
@@ -90,6 +96,26 @@ describe('MarketDataController (e2e)', () => {
         .set('Cookie', cookies);
 
       expect(response.status).toBe(404);
+    });
+  });
+
+  describe('POST /market-data/refresh', () => {
+    it('returns 401 when no cookie is sent', async () => {
+      const response = await request(app.getHttpServer()).post('/market-data/refresh');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 200 with the number of assets refreshed', async () => {
+      const cookies = await authCookies();
+      await prisma.asset.create({ data: { ticker: 'MDTA4', name: 'Market Data Test Asset' } });
+
+      const response = await request(app.getHttpServer())
+        .post('/market-data/refresh')
+        .set('Cookie', cookies);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ refreshed: expect.any(Number) });
     });
   });
 });

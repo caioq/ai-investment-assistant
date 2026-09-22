@@ -148,12 +148,13 @@ When [portfolio](../portfolio/spec.md)'s `Holding` model lands it adds a `holdin
 
 ## API Contract
 
-This module is mostly a scheduled job consumed internally by [portfolio](../portfolio/spec.md) and [advisor](../advisor/spec.md). It exposes one upload endpoint — the sole writer of asset classification — plus one optional debug endpoint:
+This module is mostly a scheduled job consumed internally by [portfolio](../portfolio/spec.md) and [advisor](../advisor/spec.md). It exposes one upload endpoint — the sole writer of asset classification — plus two optional debug/admin endpoints:
 
 | Method | Path | Body | Response |
 |---|---|---|---|
 | POST | `/market-data/assets/import` | multipart CSV, field `file` | `{ created, updated, errors: string[] }` |
 | GET | `/market-data/quote/:ticker` | — | `{ ticker, price, changePct, updatedAt }` — for manual/debug use, not called by the frontend |
+| POST | `/market-data/refresh` | — | `{ refreshed: number }` — manually triggers the same `refreshAllQuotes()` the daily cron runs, for use outside the schedule (e.g. after fixing a provider bug); not called by the frontend |
 
 `errors[]` reports per-row failures without failing the file, matching the partial-success shape [portfolio](../portfolio/spec.md)'s holdings upload and [recommended-portfolios](../recommended-portfolios/spec.md) already return.
 
@@ -181,7 +182,7 @@ This module is mostly a scheduled job consumed internally by [portfolio](../port
   - **A ticker not yet in `Asset` creates the row** (`name` defaults to the ticker, as the price cron already does). Classifying a ticker *before* buying it is the point of a separate file — it is what lets a recommended-but-unheld ticker carry a sector.
   - **Last upload wins.** A present column overwrites the stored value outright; there is a single source of truth, so authoritative replacement is more predictable than fill-if-null. A column **absent** from the file leaves that field untouched; a column present with an **empty cell** clears that one field.
   - An unrecognised `investmentStyle`, `riskRating`, or `assetType` value is reported in `errors[]` and that row is not applied; the file's other rows still import. A Portuguese value left over from the holdings sheet (`DIVIDENDOS`, `Acao`) therefore surfaces as a row error rather than a silent `null` — which is the intended way for a half-renamed file to fail.
-- **Batching is mandatory:** the daily cron collects every distinct ticker in `Asset` and makes **one** batched call — `GET https://query1.finance.yahoo.com/v7/finance/spark?symbols={T1}.SA,{T2}.SA,...&range=1d&interval=1d` — never one request per ticker. This is what keeps request volume low against an API with no published quota and no SLA (see "Why Yahoo Finance" below).
+- **Batching is mandatory:** the daily cron collects every distinct ticker in `Asset` and batches them into as few calls as possible — `GET https://query1.finance.yahoo.com/v7/finance/spark?symbols={T1}.SA,{T2}.SA,...&range=1d&interval=1d` — never one request per ticker. Yahoo's `/spark` endpoint hard-rejects more than 20 symbols in one call (400, "Number of symbols needs to be less than or equal to 20" — undocumented, found empirically), so batches above that size are chunked into multiple requests of at most 20 symbols each rather than one unconditional call. This is what keeps request volume low against an API with no published quota and no SLA (see "Why Yahoo Finance" below).
 - Cron runs once daily after B3 close (`@nestjs/schedule`, e.g. 18:30 BRT weekdays — set the timezone explicitly rather than relying on the host clock, which is UTC in CI and in container deploys), updates `Asset.currentPrice/currentChangePct/priceUpdatedAt`, and upserts today's `PriceHistory` row per asset. Recomputing `PortfolioValueSnapshot` is triggered after this completes but implemented in [portfolio](../portfolio/spec.md), per "Module boundary" above.
 - When a ticker is added to a holding for the first time, a one-off fetch (`range=1y&interval=1d`) backfills `PriceHistory` so the performance chart isn't empty. This module exposes the backfill as a callable method; the call site (holding creation) lives in [portfolio](../portfolio/spec.md). It must be idempotent against `@@unique([assetId, date])`, so a repeated trigger can't double-insert.
 - A separate job fetches Ibovespa (via Yahoo Finance's chart endpoint, ticker `^BVSP` — no `.SA` suffix, it's an index not a B3-listed equity) and CDI (Banco Central SGS API, series 12) history into `BenchmarkSnapshot`. Separate from the price cron so one upstream being down doesn't block the other — the two syncs are failure-isolated from each other, and a failure is logged rather than propagated.

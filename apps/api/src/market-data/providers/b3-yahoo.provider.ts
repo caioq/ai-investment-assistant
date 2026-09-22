@@ -5,6 +5,16 @@ const SPARK_URL = 'https://query1.finance.yahoo.com/v7/finance/spark';
 const CHART_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
 
 /**
+ * Yahoo's `/v7/finance/spark` hard-rejects a batch of more than 20 symbols
+ * with a 400 ("Number of symbols needs to be less than or equal to 20") —
+ * undocumented, found by triggering it with a real >20-ticker `Asset` table.
+ * `getQuote` chunks into groups of this size instead of one unconditional
+ * request (spec: "Batching is mandatory" means minimizing request count,
+ * not literally always one call).
+ */
+const SPARK_MAX_SYMBOLS_PER_REQUEST = 20;
+
+/**
  * Yahoo rejects requests with no `User-Agent` more readily than ones that
  * look like a real browser — see spec.md -> Behavior Notes: "Why Yahoo
  * Finance, not a documented paid API".
@@ -51,12 +61,21 @@ interface ChartResponse {
 @Injectable()
 export class B3YahooProvider implements PriceProvider {
   /**
-   * Fetches current price + daily change for every ticker in **one**
-   * batched request — never one request per ticker (spec: "Batching is
-   * mandatory"). Each ticker is suffixed `.SA` for B3 in the request and
-   * stripped back off in the response.
+   * Fetches current price + daily change for every ticker, chunked into
+   * batches of at most `SPARK_MAX_SYMBOLS_PER_REQUEST` — never one request
+   * per ticker (spec: "Batching is mandatory"). Each ticker is suffixed
+   * `.SA` for B3 in the request and stripped back off in the response.
    */
   async getQuote(tickers: string[]): Promise<Quote[]> {
+    const quotes: Quote[] = [];
+    for (let i = 0; i < tickers.length; i += SPARK_MAX_SYMBOLS_PER_REQUEST) {
+      const chunk = tickers.slice(i, i + SPARK_MAX_SYMBOLS_PER_REQUEST);
+      quotes.push(...(await this.fetchSparkChunk(chunk)));
+    }
+    return quotes;
+  }
+
+  private async fetchSparkChunk(tickers: string[]): Promise<Quote[]> {
     const symbols = tickers.map((ticker) => `${ticker}.SA`).join(',');
     const url = new URL(SPARK_URL);
     url.searchParams.set('symbols', symbols);

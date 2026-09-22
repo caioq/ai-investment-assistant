@@ -44,6 +44,23 @@ export class MarketDataController {
   }
 
   /**
+   * `POST /market-data/refresh` (spec.md -> API Contract) — a manual/debug
+   * trigger for the same `refreshAllQuotes()` the daily cron
+   * (`MarketDataCron.handleDailyRefresh`) calls, for use when a fix or a
+   * newly-imported asset shouldn't have to wait for the next scheduled run.
+   * Bypasses `getOrRefreshPrice`'s 15-minute TTL by design (that cache is
+   * for the debug quote endpoint's incidental Yahoo calls, not for an
+   * explicit "refresh now" request) and, like the cron, never throws on a
+   * provider failure — see `refreshAllQuotes`'s own doc comment.
+   */
+  @Post('refresh')
+  @UseGuards(AuthGuard)
+  @HttpCode(200)
+  async refresh(): Promise<{ refreshed: number }> {
+    return this.marketDataService.refreshAllQuotes();
+  }
+
+  /**
    * `POST /market-data/assets/import` (spec.md -> API Contract,
    * MARKET_DATA_US-5_T-5). Thin multipart wrapper over
    * `MarketDataService.importAssetsCsv`, which owns all row

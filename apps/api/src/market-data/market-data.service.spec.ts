@@ -188,6 +188,16 @@ describe('MarketDataService', () => {
 
       errorSpy.mockRestore();
     });
+
+    it('skips the provider call entirely when there are no Asset rows, rather than sending an empty symbols param', async () => {
+      prisma.asset.findMany.mockResolvedValue([]);
+
+      const result = await marketDataService.refreshAllQuotes();
+
+      expect(priceProvider.getQuote).not.toHaveBeenCalled();
+      expect(result).toEqual({ refreshed: 0 });
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
   });
 
   describe('backfillHistory', () => {
