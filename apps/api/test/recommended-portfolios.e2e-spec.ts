@@ -111,7 +111,7 @@ describe('RecommendedPortfoliosController (e2e) - POST /advisor/recommended-port
   async function authCookies(email: string): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Recommended Portfolios E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -488,7 +488,7 @@ describe('RecommendedPortfoliosController (e2e) - GET /advisor/recommended-portf
   async function authCookies(email: string): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Recommended Portfolios E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];

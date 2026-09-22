@@ -98,7 +98,7 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings', () => {
   async function authCookies(email: string): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Portfolio E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -369,7 +369,7 @@ describe('PortfolioController (e2e) - GET /portfolio/holdings', () => {
   async function authCookies(email: string): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Portfolio E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -488,7 +488,7 @@ describe('PortfolioController (e2e) - DELETE /portfolio/holdings/:id', () => {
   async function authCookies(email: string): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Portfolio E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -613,7 +613,7 @@ describe('PortfolioController (e2e) - cross-user isolation (PORTFOLIO_US-1_T-5)'
   async function authCookies(email: string): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Portfolio E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -769,7 +769,7 @@ describe('PortfolioController (e2e) - POST /portfolio/holdings/upload-csv', () =
   async function authCookies(email: string): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Portfolio E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -881,7 +881,7 @@ describe('PortfolioController (e2e) - GET /portfolio/allocation', () => {
   async function registerUser(email: string): Promise<{ cookies: string[]; userId: string }> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Portfolio E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
@@ -1065,7 +1065,7 @@ describe('PortfolioController (e2e) - GET /portfolio/summary', () => {
   async function registerUser(email: string): Promise<{ id: string; cookies: string[] }> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Portfolio E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return {
@@ -1233,7 +1233,7 @@ describe('PortfolioController (e2e) - GET /portfolio/performance', () => {
   async function registerUser(): Promise<{ cookies: string[]; userId: string }> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email: testEmail, password: 'super-secret-password' });
+      .send({ email: testEmail, password: 'super-secret-password', name: 'Portfolio E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];

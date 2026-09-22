@@ -96,7 +96,7 @@ describe('MarketDataService.importAssetsCsv (e2e)', () => {
   async function registerUser(email: string): Promise<{ cookies: string[]; userId: string }> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password: 'super-secret-password' });
+      .send({ email, password: 'super-secret-password', name: 'Assets Import E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];

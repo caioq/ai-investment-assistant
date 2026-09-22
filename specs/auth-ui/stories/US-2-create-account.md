@@ -7,7 +7,7 @@ As a new user, I want to create an account with my name, an email and a password
 
 ## Tasks
 
-- [ ] [T-1: Require a trimmed `name` on `POST /auth/register`](../tasks/AUTH_UI_US-2_T-1-register-requires-name.md)
+- [x] [T-1: Require a trimmed `name` on `POST /auth/register`](../tasks/AUTH_UI_US-2_T-1-register-requires-name.md)
 - [ ] [T-2: `scorePassword` in `packages/shared`](../tasks/AUTH_UI_US-2_T-2-score-password.md)
 - [ ] [T-3: `PasswordStrengthMeter` component and `--amber` token](../tasks/AUTH_UI_US-2_T-3-password-strength-meter.md)
 - [ ] [T-4: `AuthScreen` Create account mode: fields, validation, submit, errors](../tasks/AUTH_UI_US-2_T-4-create-account-mode.md)

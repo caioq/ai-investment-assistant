@@ -58,7 +58,7 @@ describe('MarketDataController (e2e)', () => {
   async function authCookies(): Promise<string[]> {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email: 'market-data-e2e@example.com', password: 'super-secret-password' });
+      .send({ email: 'market-data-e2e@example.com', password: 'super-secret-password', name: 'Market Data E2E User' });
 
     const setCookieHeader = response.headers['set-cookie'];
     return Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
