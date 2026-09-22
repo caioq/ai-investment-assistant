@@ -1,7 +1,7 @@
 # AUTH_UI_US-1_T-3: Serve `/login` from `AuthScreen` and retire `LoginForm`
 
 **Story:** [../stories/US-1-sign-in.md](../stories/US-1-sign-in.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #280 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** AUTH_UI_US-1_T-2
 

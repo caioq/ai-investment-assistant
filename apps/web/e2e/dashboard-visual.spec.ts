@@ -21,8 +21,11 @@ import { VISUAL_REGRESSION_EMPTY_USER, VISUAL_REGRESSION_POPULATED_USER } from '
 async function login(page: import('@playwright/test').Page, user: { email: string; password: string }) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(user.email);
-  await page.getByLabel('Password').fill(user.password);
-  await page.getByRole('button', { name: 'Log in' }).click();
+  // `exact` so the lookup doesn't also match the "Show password" toggle, and
+  // the submit button is scoped to the <form> so it isn't confused with the
+  // mode switcher's own "Sign in" button above it (AuthScreen, auth-ui).
+  await page.getByLabel('Password', { exact: true }).fill(user.password);
+  await page.locator('form').getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 }
 

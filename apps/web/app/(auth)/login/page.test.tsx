@@ -1,68 +1,58 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 
-const { cookiesMock, redirectMock, apiFetchMock } = vi.hoisted(() => ({
-  cookiesMock: vi.fn(),
-  redirectMock: vi.fn(),
-  apiFetchMock: vi.fn(),
+const { redirectIfAuthenticatedMock } = vi.hoisted(() => ({
+  redirectIfAuthenticatedMock: vi.fn(),
 }));
 
-vi.mock("next/headers", () => ({
-  cookies: cookiesMock,
+vi.mock("../redirect-if-authenticated", () => ({
+  redirectIfAuthenticated: redirectIfAuthenticatedMock,
 }));
 
 vi.mock("next/navigation", () => ({
-  redirect: redirectMock,
-  useRouter: () => ({ push: vi.fn() }),
-}));
-
-vi.mock("../../../lib/api-client", () => ({
-  apiFetch: apiFetchMock,
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
 import LoginPage from "./page";
-
-function cookieStoreWith(accessToken: string | undefined) {
-  return {
-    get: vi.fn((name: string) =>
-      name === "access_token" && accessToken !== undefined
-        ? { name, value: accessToken }
-        : undefined,
-    ),
-  };
-}
 
 describe("LoginPage", () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders the login form and a link to /register for an unauthenticated visitor", async () => {
-    cookiesMock.mockResolvedValue(cookieStoreWith(undefined));
+  it("renders AuthScreen in Sign in mode for an unauthenticated visitor", async () => {
+    redirectIfAuthenticatedMock.mockResolvedValue(undefined);
 
     const element = await LoginPage();
-    render(<>{element}</>);
+    const { container } = render(<>{element}</>);
 
-    expect(redirectMock).not.toHaveBeenCalled();
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /register/i })).toHaveAttribute(
-      "href",
-      "/register",
-    );
+    expect(redirectIfAuthenticatedMock).toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Password", { exact: true }),
+    ).toBeInTheDocument();
+    // Scoped to the <form>: the mode switcher above it has its own
+    // "Sign in" button, so an unscoped query matches two elements.
+    const form = container.querySelector("form");
+    expect(form).not.toBeNull();
+    expect(
+      within(form as HTMLElement).getByRole("button", { name: "Sign in" }),
+    ).toBeInTheDocument();
   });
 
-  it("redirects to / when the visitor is already authenticated", async () => {
-    cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
-    apiFetchMock.mockResolvedValue({
-      id: "user-1",
-      email: "jordan@example.com",
-      name: "Jordan Mercer",
-    });
+  it("does not render the form when the guard redirects an authenticated visitor", async () => {
+    // `redirect()` signals by throwing a NEXT_REDIRECT error, so the guard
+    // never returns for an authenticated visitor and the page body never runs.
+    redirectIfAuthenticatedMock.mockRejectedValue(new Error("NEXT_REDIRECT"));
 
-    const element = await LoginPage();
-    render(<>{element}</>);
+    await expect(LoginPage()).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(redirectMock).toHaveBeenCalledWith("/");
+    expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Welcome back" }),
+    ).not.toBeInTheDocument();
   });
 });

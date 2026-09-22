@@ -14,8 +14,11 @@ test('unauthenticated dashboard visit redirects to login, login lands on the das
 
   // Log in as the fixture user registered by global setup.
   await page.getByLabel('Email').fill(FIXTURE_USER.email);
-  await page.getByLabel('Password').fill(FIXTURE_USER.password);
-  await page.getByRole('button', { name: 'Log in' }).click();
+  // `exact` so the lookup doesn't also match the "Show password" toggle, and
+  // the submit button is scoped to the <form> so it isn't confused with the
+  // mode switcher's own "Sign in" button above it (AuthScreen, auth-ui).
+  await page.getByLabel('Password', { exact: true }).fill(FIXTURE_USER.password);
+  await page.locator('form').getByRole('button', { name: 'Sign in', exact: true }).click();
 
   // Lands on the dashboard.
   await expect(page).toHaveURL(/\/$/);
