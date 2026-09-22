@@ -44,7 +44,7 @@ model User {
 | POST | `/auth/logout` | — | `204` + clears cookie | required |
 | GET | `/auth/me` | — | `{ id, email, name }` | required |
 
-**Amended by [auth-ui](../auth-ui/spec.md)** (pending until that spec is Approved):
+**Amended by [auth-ui](../auth-ui/spec.md)** (implemented through auth-ui's tasks: `AUTH_UI_US-2_T-1` for the required name, `AUTH_UI_SHARED_T-5` for throttling):
 
 - `POST /auth/register`: `name` is **required**. It's trimmed, and an absent or whitespace-only value returns `400`. `User.name` stays nullable in the schema, so accounts created before this change are unaffected, and `/auth/me` may still return `name: null` for them.
 - `POST /auth/login` and `POST /auth/register` are **throttled per client IP** and return `429` once the limit is exceeded. The limit and window come from env: `AUTH_THROTTLE_LIMIT` (default `5`) and `AUTH_THROTTLE_TTL_MS` (default `60000`). Test and CI environments set a high limit, because the e2e suites register and log in many users from one IP.

@@ -1,6 +1,6 @@
 # Auth UI
 
-**Status:** Draft
+**Status:** Approved
 **Depends on:** [project-setup](../project-setup/spec.md), [auth](../auth/spec.md), [dashboard-ui](../dashboard-ui/spec.md)
 
 ## Problem
@@ -9,7 +9,7 @@ The existing `/login` and `/register` pages (built under dashboard-ui US-1) work
 
 ## Goals
 
-- **One screen with two modes, Sign in and Create account**, served at both existing URLs: `/login` opens in Sign in mode and `/register` in Create account mode. Switching modes happens on the client with no remount. It updates the URL with `router.replace`, keeps the typed email and password, and clears touched/error state so errors don't carry over.
+- **One screen with two modes, Sign in and Create account**, served at both existing URLs: `/login` opens in Sign in mode and `/register` in Create account mode. Switching modes happens on the client with no remount. It updates the URL in place (see Behavior Notes → Mode switching), keeps the typed email and password, and clears touched/error state so errors don't carry over.
 - **Two-column layout.** A brand panel on the left (`1.05fr`) and a form panel on the right (`1fr`), full viewport height (details in Behavior Notes → Layout).
 - **Fields.** Email and Password in both modes; Name in Create account only, required.
 - **Password visibility toggle** in both modes, and an advisory **password strength meter** in Create account mode.
@@ -114,7 +114,7 @@ Placeholders for the other fields: Email `you@example.com`; Name (Create account
 ### Mode switching
 
 - Both the segmented control and the bold link in the switch line switch modes.
-- A switch keeps email and password, keeps the name value in state even while it's hidden, resets the touched/error state, and calls `router.replace` to the other route (`/login` ↔ `/register`) without remounting.
+- A switch keeps email and password, keeps the name value in state even while it's hidden, resets the touched/error state, and updates the URL to the other route (`/login` ↔ `/register`) **without remounting**. Use `window.history.replaceState`, which the Next.js App Router supports natively and which doesn't trigger a navigation. Don't use `router.replace`: it navigates to the other `page.tsx`, which mounts a fresh `AuthScreen` and loses the typed values.
 - Focus moves to the new mode's form title. The title is an `h1` with `tabIndex={-1}`, so screen readers announce the change.
 
 ### Validation
