@@ -10,9 +10,11 @@ as.
 | Spec | Covers |
 | --- | --- |
 | `auth.spec.ts` | Unauthenticated redirect, login, logout, auth-guard round trip through a real browser and real cookie. |
+| `auth-screen.spec.ts` | The auth screen's browser-only behaviour (`AUTH_UI_SHARED_T-6`): in-place mode switching (`/login` <-> `/register`, typed values kept), sign-up end to end, the below-900px layout at 390px, and the `prefers-reduced-motion` opt-outs. |
 | `dashboard-visual.spec.ts` | Visual regression: the populated and empty dashboard against their own committed baselines. See below. |
+| `auth-visual.spec.ts` | Visual regression: `/login` and `/register` against their own committed baselines. Same rules as below. |
 
-## Visual regression (`dashboard-visual.spec.ts`)
+## Visual regression (`dashboard-visual.spec.ts`, `auth-visual.spec.ts`)
 
 **What this checks, and what it deliberately doesn't.** This spec compares
 the rendered dashboard against **its own previously committed
@@ -39,6 +41,10 @@ screenshot assertion, since its date is formatted through the local
 timezone even though the underlying `createdAt` is fixed. The empty
 screenshot logs in as a separate, never-seeded `VISUAL_REGRESSION_EMPTY_USER`
 so the two screenshots never depend on run ordering within the suite.
+`auth-visual.spec.ts` needs none of that machinery — `/login` and
+`/register` are unauthenticated, seed-free and render no wall-clock-derived
+value, so its only determinism wait is `document.fonts.ready` (Fraunces is
+loaded by `app/(auth)/layout.tsx` through `next/font/google`).
 
 ### Baselines are platform-specific — read this before regenerating one
 
