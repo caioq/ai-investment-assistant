@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/comm
 import type { Request } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { ImportLog } from '../../generated/prisma/client';
-import { DataSourcesService } from './data-sources.service';
+import { DataSourcesService, DataSourcesSummary } from './data-sources.service';
 import { CreateImportLogDto } from './dto/create-import-log.dto';
 import { ListImportsQueryDto } from './dto/list-imports-query.dto';
 
@@ -15,6 +15,20 @@ import { ListImportsQueryDto } from './dto/list-imports-query.dto';
 @UseGuards(AuthGuard)
 export class DataSourcesController {
   constructor(private readonly dataSourcesService: DataSourcesService) {}
+
+  /**
+   * `GET /data-sources/summary` (DATA_SOURCES_SHARED_T-5, spec.md -> API
+   * Contract) — everything the four source cards and the preview need in
+   * one call. All the actual composition lives in
+   * `DataSourcesService.getSummary`; this handler stays thin per
+   * CONVENTIONS.md -> "Module structure".
+   */
+  @Get('summary')
+  async getSummary(@Req() req: Request): Promise<DataSourcesSummary> {
+    const userId = (req.user as { id: string }).id;
+
+    return this.dataSourcesService.getSummary(userId);
+  }
 
   @Get('imports')
   async listImports(

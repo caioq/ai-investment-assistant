@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-// `next/font/google` is a build-time transform, not something Vitest can
+// `next/font/local` is a build-time transform, not something Vitest can
 // execute, so the loader is stubbed to the shape the layout reads.
-vi.mock("next/font/google", () => ({
-  Fraunces: () => ({ variable: "font-fraunces-mock", className: "" }),
+vi.mock("next/font/local", () => ({
+  default: () => ({ variable: "font-fraunces-mock", className: "" }),
 }));
 
 import AuthLayout from "./layout";

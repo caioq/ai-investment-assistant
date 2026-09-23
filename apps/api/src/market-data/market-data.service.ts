@@ -68,6 +68,12 @@ export interface ImportAssetsCsvResult {
   errors: string[];
 }
 
+/** Response shape for `getAssetsSummary`, feeding `GET /data-sources/summary`'s `assets` field. */
+export interface AssetsSummary {
+  count: number;
+  tickers: string[];
+}
+
 /**
  * Aggregation/cron logic for market data (price refresh, backfill,
  * benchmark sync) lands here across `MARKET_DATA_US-1..4`. The provider is
@@ -140,6 +146,21 @@ export class MarketDataService {
 
       return { asset, wasCreated: false };
     }
+  }
+
+  /**
+   * `GET /data-sources/summary`'s `assets` field (DATA_SOURCES_SHARED_T-5,
+   * spec.md -> API Contract). `Asset` rows are global — not scoped to any
+   * `userId` — per `specs/data-sources/spec.md` -> "Data ownership": every
+   * user classifies the same shared ticker universe, so this is a plain
+   * count/list over the whole table. `tickers` also doubles as the
+   * `knownTickers` list the data-sources preview needs for its
+   * unknown-ticker warnings (same spec section), so the caller needs no
+   * second query to build that.
+   */
+  async getAssetsSummary(): Promise<AssetsSummary> {
+    const assets = await this.prisma.asset.findMany({ select: { ticker: true } });
+    return { count: assets.length, tickers: assets.map((asset) => asset.ticker) };
   }
 
   /**
