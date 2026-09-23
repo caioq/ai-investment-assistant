@@ -17,7 +17,7 @@ Repo structure and full architectural decisions are in the spec files below, not
 
 ## Spec-driven development
 
-This project is built spec-first, in three stages per module: **spec → user stories/tasks → implement**. See [`WORKFLOW.md`](WORKFLOW.md) for the full guide (how to use each command/skill/agent, a walkthrough, best practices) — this section is just the reference summary. Each module has a directory under [`specs/`](specs/):
+This project is built spec-first, in three stages per module: **spec → user stories/tasks → implement**. See [`WORKFLOW.md`](WORKFLOW.md) for the full guide (how to use each command/skill/agent, Mermaid diagrams of the end-to-end flow, a walkthrough, best practices) — this section is just the reference summary. Each module has a directory under [`specs/`](specs/):
 
 - `specs/<module>/spec.md` — the PRD: problem, goals, non-goals, data model, API contract, behavior notes, acceptance criteria. Written against [`specs/_templates/spec.md`](specs/_templates/spec.md). Source of truth for _what_ a module should do.
 - `specs/<module>/stories/` — one file per user story (`US-<N>-<title>.md`), plus a `README.md` index. Each story traces to a spec Goal/Acceptance Criterion and links to its own task files.
