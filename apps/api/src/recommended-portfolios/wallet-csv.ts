@@ -1,4 +1,4 @@
-import { parse } from 'csv-parse/sync';
+import { findColumn, parseCsv, validateWalletRows } from '@ai-investment-assistant/shared';
 
 /**
  * A wallet CSV row's fields resolved by header *name*, not by position.
@@ -29,67 +29,51 @@ const EXACT_NAME_FIELDS = [
   'MARGEM_DE_SEGURANCA',
 ] as const;
 
-const REQUIRED_COLUMNS = ['CODIGO', 'PRECO_TETO'] as const;
-
 const DIVIDEND_YIELD_PREFIX = 'DY_';
 
 /**
  * Parses a research house's wallet export CSV into raw rows keyed by
- * logical field name, resolving the header row into a name→index map
- * rather than reading columns positionally. See spec Behavior Note "One
- * parser, driven by header names".
+ * logical field name. Splitting, header resolution and the required-column
+ * check are delegated to `packages/shared`'s `parseCsv`/`findColumn`/
+ * `validateWalletRows` (DATA_SOURCES_SHARED_T-3) — the same functions the
+ * browser preview runs — rather than this file's own copy of `csv-parse`.
+ * `CODIGO`/`PRECO_TETO` are required by every wallet type identically (see
+ * `packages/shared/src/csv/validators.ts`'s `WALLET_COLUMNS`), so any
+ * `WalletType` works for this file-level column check; `knownTickers` and
+ * `rowIssues`/weight totals aren't needed here and are ignored.
  *
  * Throws if the header is missing `CODIGO` or `PRECO_TETO` — that means the
  * file isn't one of these exports, and should fail loudly rather than
- * silently yield rows of `undefined`.
+ * silently yield rows of `undefined`. `findColumn` matches
+ * case-insensitively, unlike the exact-case lookup this replaces.
  */
 export function parseWalletCsv(csvText: string): RawWalletRow[] {
-  const records = parse(csvText, {
-    columns: false,
-    relax_column_count: true,
-    skip_empty_lines: true,
-  }) as string[][];
-
-  if (records.length === 0) {
-    throw new Error('Wallet CSV has no header row');
-  }
-
-  const [header, ...dataRows] = records;
-  const columnIndex = new Map<string, number>();
-  header.forEach((name, index) => {
-    columnIndex.set(name.trim(), index);
+  const parsed = parseCsv(csvText);
+  const validation = validateWalletRows(parsed, {
+    knownTickers: [],
+    walletType: 'OVERALL_RECOMMENDED',
   });
 
-  for (const required of REQUIRED_COLUMNS) {
-    if (!columnIndex.has(required)) {
-      throw new Error(
-        `Wallet CSV is missing required column "${required}"`,
-      );
-    }
+  const missingColumns = validation.fileIssues.find((issue) =>
+    issue.message.startsWith('Missing required column'),
+  );
+  if (missingColumns) {
+    throw new Error(missingColumns.message);
   }
 
-  const dividendYieldColumn = header.find((name) =>
+  const dividendYieldColumn = parsed.columns.find((name) =>
     name.trim().startsWith(DIVIDEND_YIELD_PREFIX),
   );
-  const dividendYieldIndex =
-    dividendYieldColumn === undefined
-      ? undefined
-      : columnIndex.get(dividendYieldColumn.trim());
 
-  const resolve = (row: string[], name: string): string | undefined => {
-    const index = columnIndex.get(name);
-    return index === undefined ? undefined : row[index];
-  };
-
-  return dataRows.map((row) => {
+  return parsed.rows.map((row) => {
     const resolved = { DY: undefined } as RawWalletRow;
 
     for (const field of EXACT_NAME_FIELDS) {
-      resolved[field] = resolve(row, field);
+      const column = findColumn(parsed.columns, field);
+      resolved[field] = column === undefined ? undefined : row[column];
     }
 
-    resolved.DY =
-      dividendYieldIndex === undefined ? undefined : row[dividendYieldIndex];
+    resolved.DY = dividendYieldColumn === undefined ? undefined : row[dividendYieldColumn];
 
     return resolved;
   });

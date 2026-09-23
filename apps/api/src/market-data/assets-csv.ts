@@ -1,4 +1,4 @@
-import { parse } from 'csv-parse/sync';
+import { findColumn, parseCsv, validateAssetsRows } from '@ai-investment-assistant/shared';
 
 /**
  * An assets CSV row's fields resolved by header *name*, not by position.
@@ -28,56 +28,39 @@ const FIELDS = [
   'assetType',
 ] as const;
 
-const REQUIRED_COLUMNS = ['ticker'] as const;
-
 /**
  * Parses a user-supplied assets CSV into raw rows keyed by logical field
- * name, resolving the header row into a name→index map rather than reading
- * columns positionally — same approach as `parseWalletCsv`
- * (`apps/api/src/recommended-portfolios/wallet-csv.ts`). Not extracted into
- * a shared helper: `parseWalletCsv`'s map also resolves a `DY_`-prefixed
- * column this parser has no equivalent of, and the four-line map itself is
- * cheaper to duplicate than to generalise across the two shapes.
+ * name. Splitting and header resolution are delegated to
+ * `packages/shared`'s `parseCsv`/`findColumn` (DATA_SOURCES_SHARED_T-3) —
+ * the same functions the browser preview runs — rather than this file's own
+ * copy of `csv-parse`, so a column the preview resolves is guaranteed to be
+ * the same one the server resolves. The required-column check is likewise
+ * delegated to `validateAssetsRows`'s `fileIssues`, rather than a local
+ * `Set.has('ticker')` check, for the same reason.
  *
  * Throws if the header has no `ticker` column: that means the file isn't
  * an assets CSV, and should fail loudly rather than silently yield rows of
- * `undefined`. Header names are matched case-sensitively against the
- * spec's exact camelCase (`subSector`, not `subsector`), but each is
- * `.trim()`-ed first, as `parseWalletCsv` does.
+ * `undefined`. `findColumn` matches case-insensitively (unlike the old
+ * exact-case lookup this replaces) — see assets-csv.spec.ts's "resolves a
+ * case-differing header" case.
  */
 export function parseAssetsCsv(csvText: string): RawAssetRow[] {
-  const records = parse(csvText, {
-    columns: false,
-    relax_column_count: true,
-    skip_empty_lines: true,
-  }) as string[][];
+  const parsed = parseCsv(csvText);
+  const validation = validateAssetsRows(parsed);
 
-  if (records.length === 0) {
-    throw new Error('Assets CSV has no header row');
+  const missingColumns = validation.fileIssues.find((issue) =>
+    issue.message.startsWith('Missing required column'),
+  );
+  if (missingColumns) {
+    throw new Error(missingColumns.message);
   }
 
-  const [header, ...dataRows] = records;
-  const columnIndex = new Map<string, number>();
-  header.forEach((name, index) => {
-    columnIndex.set(name.trim(), index);
-  });
-
-  for (const required of REQUIRED_COLUMNS) {
-    if (!columnIndex.has(required)) {
-      throw new Error(`Assets CSV is missing required column "${required}"`);
-    }
-  }
-
-  const resolve = (row: string[], name: string): string | undefined => {
-    const index = columnIndex.get(name);
-    return index === undefined ? undefined : row[index];
-  };
-
-  return dataRows.map((row) => {
+  return parsed.rows.map((row) => {
     const resolved = {} as RawAssetRow;
 
     for (const field of FIELDS) {
-      resolved[field] = resolve(row, field);
+      const column = findColumn(parsed.columns, field);
+      resolved[field] = column === undefined ? undefined : row[column];
     }
 
     return resolved;
