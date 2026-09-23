@@ -31,3 +31,8 @@ export {
   type ValidationResult,
   type WalletType,
 } from './csv/validators';
+export {
+  buildCsvTemplate,
+  csvTemplateFileName,
+  type CsvTemplateSource,
+} from './csv/build-csv-template';
