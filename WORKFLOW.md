@@ -162,10 +162,10 @@ flowchart TD
   G1 -- "changes" --> D1
   G1 -- "approve" --> A --> D2
   D2 --> T --> I
-  T --> G2
   I -- "issue opened" --> C0
-  G2 -. "task files on main" .-> C1
   C0 --> C1
+  I --> G2
+  G2 -. "task files on main" .-> C1
   C1 -- "no, wait for next run" --> C0
   C1 -- "yes" --> C2 --> C3 --> PR
   G2 -. "or run locally" .-> D3
