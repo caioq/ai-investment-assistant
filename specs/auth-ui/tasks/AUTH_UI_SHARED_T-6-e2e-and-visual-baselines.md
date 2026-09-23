@@ -1,7 +1,7 @@
 # AUTH_UI_SHARED_T-6: Playwright flows + `/login` and `/register` visual baselines
 
 **Shared by:** US-1, US-2, US-3
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #288 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** AUTH_UI_US-1_T-3, AUTH_UI_US-2_T-5, AUTH_UI_US-3_T-2, AUTH_UI_SHARED_T-3, AUTH_UI_SHARED_T-4
 
