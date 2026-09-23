@@ -427,6 +427,22 @@ export class AdvisorService {
   }
 
   /**
+   * `GET /data-sources/summary`'s `report` field (DATA_SOURCES_SHARED_T-5,
+   * spec.md -> API Contract / Behavior Notes: "the user's newest
+   * `AdvisorReport`, or `null`"). Reports are additive — every upload is a
+   * new row (spec.md -> "Import effects") — so "current report" is always
+   * the newest by `uploadedAt`, never an update in place. `null` for a user
+   * with nothing uploaded is a normal state, not a `404`, matching every
+   * other "nothing imported yet" branch of this endpoint.
+   */
+  async getLatestReport(userId: string): Promise<AdvisorReport | null> {
+    return this.prisma.advisorReport.findFirst({
+      where: { userId },
+      orderBy: { uploadedAt: 'desc' },
+    });
+  }
+
+  /**
    * `POST /advisor/analyze`'s core logic (ADVISOR_US-2_T-3; wired to the
    * route itself by ADVISOR_US-2_T-4). Sends the prompt through
    * `ANTHROPIC_CLIENT` (ADVISOR_US-2_T-1) with output constrained by
