@@ -156,17 +156,14 @@ flowchart TD
     CM["close-on-merge: close issue, card to Done"]
   end
 
-  subgraph GH["GitHub repo + Project #2"]
-    B["Card on board: Backlog / Ready"]
-    PR["PR on branch task/&lt;ID&gt; with Closes issue link, stacked if a dependency is still open"]
-  end
+  PR[["PR opened on task/&lt;ID&gt;, never merged by Claude"]]
 
   D1 --> S --> G1
   G1 -- "changes" --> D1
   G1 -- "approve" --> A --> D2
-  D2 --> T --> I --> B
+  D2 --> T --> I
   T --> G2
-  B --> C0
+  I -- "issue opened" --> C0
   G2 -. "task files on main" .-> C1
   C0 --> C1
   C1 -- "no, wait for next run" --> C0
