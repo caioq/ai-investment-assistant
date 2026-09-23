@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-5_T-1: `title`, `publisher` and `publishedAt` on `AdvisorReport`
 
 **Story:** [../stories/US-5-add-research-report.md](../stories/US-5-add-research-report.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #323 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 

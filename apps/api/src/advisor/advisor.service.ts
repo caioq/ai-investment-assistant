@@ -226,8 +226,25 @@ export class AdvisorService {
    */
   async uploadReport(
     userId: string,
-    input: { file?: Express.Multer.File; sourceName?: string; text?: string },
+    input: {
+      file?: Express.Multer.File;
+      sourceName?: string;
+      text?: string;
+      title?: string;
+      publisher?: string;
+      publishedAt?: string;
+    },
   ): Promise<AdvisorReport> {
+    // Optional report metadata (DATA_SOURCES_US-5_T-1), shared by both paths
+    // below so a JSON caller and a multipart caller persist it identically.
+    // An omitted field is stored as `null`, never `undefined` — the columns
+    // are nullable precisely so omitting all three keeps working.
+    const metadata = {
+      title: input.title ?? null,
+      publisher: input.publisher ?? null,
+      publishedAt: input.publishedAt ? new Date(input.publishedAt) : null,
+    };
+
     if (input.file) {
       const rawText = await this.extractPdfText(input.file.buffer);
 
@@ -237,6 +254,7 @@ export class AdvisorService {
           sourceName: input.sourceName ?? null,
           fileName: input.file.originalname,
           rawText,
+          ...metadata,
         },
       });
     }
@@ -248,6 +266,7 @@ export class AdvisorService {
           sourceName: input.sourceName ?? null,
           fileName: null,
           rawText: input.text,
+          ...metadata,
         },
       });
     }

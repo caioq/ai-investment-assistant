@@ -66,6 +66,9 @@ const UPLOAD_SUITE_EMAILS = [
   'advisor-upload-e2e-2@example.com',
   'advisor-upload-e2e-3@example.com',
   'advisor-upload-e2e-4@example.com',
+  'advisor-upload-e2e-5@example.com',
+  'advisor-upload-e2e-6@example.com',
+  'advisor-upload-e2e-7@example.com',
 ];
 
 describe('AdvisorController (e2e) - POST /advisor/reports/upload', () => {
@@ -178,6 +181,76 @@ describe('AdvisorController (e2e) - POST /advisor/reports/upload', () => {
       .send({});
 
     expect(response.status).toBe(400);
+  });
+
+  /**
+   * DATA_SOURCES_US-5_T-1 — the optional `title`/`publisher`/`publishedAt`
+   * metadata. They're sent as multipart *fields* alongside the PDF here
+   * (`.field(...)`), which is the path the report panel uses; the two cases
+   * above already cover the JSON body, and the DTO validates both the same
+   * way. `publishedAt` is a `@db.Date` column, so it round-trips as a
+   * midnight-UTC ISO string.
+   */
+  it('echoes and persists title, publisher and publishedAt when a PDF upload includes them', async () => {
+    const cookies = await authCookies(UPLOAD_SUITE_EMAILS[4]);
+
+    const response = await request(app.getHttpServer())
+      .post('/advisor/reports/upload')
+      .set('Cookie', cookies)
+      .field('title', 'Carteira Recomendada - Setembro')
+      .field('publisher', 'Research House')
+      .field('publishedAt', '2026-09-01')
+      .attach('file', readFixture('stub-report.pdf'), 'stub-report.pdf');
+
+    expect([200, 201]).toContain(response.status);
+    expect(response.body.title).toBe('Carteira Recomendada - Setembro');
+    expect(response.body.publisher).toBe('Research House');
+    expect(response.body.publishedAt).toBe('2026-09-01T00:00:00.000Z');
+
+    const persisted = await prisma.advisorReport.findUniqueOrThrow({
+      where: { id: response.body.id },
+    });
+    expect(persisted.title).toBe('Carteira Recomendada - Setembro');
+    expect(persisted.publisher).toBe('Research House');
+    expect(persisted.publishedAt?.toISOString()).toBe('2026-09-01T00:00:00.000Z');
+  });
+
+  it('still returns 201 with all three metadata fields null when the upload omits them', async () => {
+    const cookies = await authCookies(UPLOAD_SUITE_EMAILS[5]);
+
+    const response = await request(app.getHttpServer())
+      .post('/advisor/reports/upload')
+      .set('Cookie', cookies)
+      .attach('file', readFixture('stub-report.pdf'), 'stub-report.pdf');
+
+    expect([200, 201]).toContain(response.status);
+    expect(response.body.title).toBeNull();
+    expect(response.body.publisher).toBeNull();
+    expect(response.body.publishedAt).toBeNull();
+
+    const persisted = await prisma.advisorReport.findUniqueOrThrow({
+      where: { id: response.body.id },
+    });
+    expect(persisted.title).toBeNull();
+    expect(persisted.publisher).toBeNull();
+    expect(persisted.publishedAt).toBeNull();
+  });
+
+  it('returns 400 for a publishedAt that is not a date', async () => {
+    const cookies = await authCookies(UPLOAD_SUITE_EMAILS[6]);
+
+    const response = await request(app.getHttpServer())
+      .post('/advisor/reports/upload')
+      .set('Cookie', cookies)
+      .field('publishedAt', 'not-a-date')
+      .attach('file', readFixture('stub-report.pdf'), 'stub-report.pdf');
+
+    expect(response.status).toBe(400);
+
+    const count = await prisma.advisorReport.count({
+      where: { user: { email: UPLOAD_SUITE_EMAILS[6] } },
+    });
+    expect(count).toBe(0);
   });
 });
 

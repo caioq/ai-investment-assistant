@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 /**
  * The non-file fields for `POST /advisor/reports/upload`, per spec.md ->
@@ -21,4 +21,23 @@ export class UploadReportBodyDto {
   @IsOptional()
   @IsString()
   text?: string;
+
+  /**
+   * Optional report metadata (data-sources US-5 -> DATA_SOURCES_US-5_T-1).
+   * All three are `@IsOptional()` so an existing caller that omits them is
+   * still valid; `publishedAt` is `@IsDateString()` (not `@IsDate()`) because
+   * both paths deliver it as a string — multipart fields always arrive as
+   * plain strings, and JSON has no date type either.
+   */
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  publisher?: string;
+
+  @IsOptional()
+  @IsDateString()
+  publishedAt?: string;
 }

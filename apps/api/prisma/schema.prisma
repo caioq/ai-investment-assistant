@@ -222,6 +222,14 @@ model AdvisorReport {
   rawText    String   @map("raw_text") @db.Text
   uploadedAt DateTime @default(now()) @map("uploaded_at")
 
+  // Optional report metadata (data-sources US-5). Nullable on purpose: rows
+  // created before this migration, and API callers that omit them, stay valid.
+  // `publishedAt` is a publication *date* with no meaningful time-of-day, so
+  // it's `@db.Date` rather than a timestamp.
+  title       String?
+  publisher   String?
+  publishedAt DateTime? @map("published_at") @db.Date
+
   analyses AdvisorAnalysis[]
 
   @@map("advisor_reports")
