@@ -35,8 +35,8 @@ const LOGIN_401_ERROR = "Email or password is incorrect.";
 const LOGIN_429_ERROR = "Too many attempts. Please wait a minute and try again.";
 const LOGIN_NETWORK_ERROR = "Couldn't reach the server. Please try again.";
 // Create account mode. The 409 renders on the Email field rather than as a
-// form alert; its "Sign in instead" action needs mode switching and belongs to
-// AUTH_UI_US-3_T-2, so only the message itself is rendered here.
+// form alert, together with a "Sign in instead" action that switches to Sign
+// in with the email kept (AUTH_UI_US-3_T-2).
 const REGISTER_409_ERROR = "This email is already registered.";
 const REGISTER_400_ERROR = "Check your details and try again.";
 
@@ -86,8 +86,8 @@ function nameError(name: string): string | undefined {
  * `startMode` selects which mode is rendered: `signin` (AUTH_UI_US-1_T-1/T-2)
  * and `signup` (AUTH_UI_US-2_T-4 — Name field, 8-character rule, advisory
  * strength meter, `POST /auth/register`). `startMode` only seeds the mode:
- * switching afterwards happens in place (AUTH_UI_US-3_T-1). The 409's
- * "Sign in instead" action is AUTH_UI_US-3_T-2.
+ * switching afterwards happens in place (AUTH_UI_US-3_T-1), including the
+ * 409's "Sign in instead" action (AUTH_UI_US-3_T-2).
  */
 export function AuthScreen({ startMode }: AuthScreenProps) {
   const router = useRouter();
@@ -332,6 +332,24 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
                 value={email}
                 onChange={handleEmailChange}
                 error={errors.email}
+                errorAction={
+                  // Only the 409 offers a way out (spec → Server and network
+                  // errors); `switchMode` keeps the typed email and clears the
+                  // errors, so the message goes away with the switch.
+                  isSignup && errors.email === REGISTER_409_ERROR ? (
+                    <button
+                      type="button"
+                      onClick={() => switchMode("signin")}
+                      style={{
+                        ...SWITCH_LINE_BUTTON_STYLE,
+                        fontSize: "inherit",
+                        color: "var(--red)",
+                      }}
+                    >
+                      Sign in instead
+                    </button>
+                  ) : undefined
+                }
               />
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <PasswordField

@@ -534,4 +534,37 @@ describe("AuthScreen mode switching", () => {
       replaceState.mockRestore();
     }
   });
+
+  // AUTH_UI_US-3_T-2 — the 409's "Sign in instead" action (spec → Behavior
+  // Notes → Server and network errors) runs the same in-place switch.
+  it('a 409 offers "Sign in instead", which switches to Sign in keeping the email and clearing the message', async () => {
+    const replaceState = vi.spyOn(window.history, "replaceState");
+    try {
+      apiFetchMock.mockRejectedValue(new ApiError(409, { message: "Conflict" }));
+      render(<AuthScreen startMode="signup" />);
+
+      fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Ana" } });
+      fireEvent.change(screen.getByLabelText("Email"), {
+        target: { value: "ana@example.com" },
+      });
+      fireEvent.change(screen.getByLabelText("Password", { exact: true }), {
+        target: { value: "abcdefgh" },
+      });
+      clickSubmit();
+
+      const signInInstead = await screen.findByRole("button", { name: "Sign in instead" });
+
+      fireEvent.click(signInInstead);
+
+      expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+      expect(replaceState).toHaveBeenCalledWith(null, "", "/login");
+      expect(screen.getByLabelText("Email")).toHaveValue("ana@example.com");
+      expect(screen.queryByText("This email is already registered.")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Sign in instead" })).not.toBeInTheDocument();
+      expect(replaceMock).not.toHaveBeenCalled();
+      expect(pushMock).not.toHaveBeenCalled();
+    } finally {
+      replaceState.mockRestore();
+    }
+  });
 });

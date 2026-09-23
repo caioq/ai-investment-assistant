@@ -5,6 +5,13 @@ export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   /** Inline error message. When set, the input is marked `aria-invalid` and described by it. */
   error?: string;
+  /**
+   * Optional action rendered inside the error message itself (e.g. the 409's
+   * "Sign in instead" button). It lives in the same `aria-describedby` target
+   * as `error`, so it's announced as part of the field's error. Ignored when
+   * `error` is unset, since there is no error region to render it into.
+   */
+  errorAction?: ReactNode;
   /** Content absolutely positioned at the input's trailing edge (e.g. `PasswordField`'s toggle). */
   trailing?: ReactNode;
 }
@@ -19,6 +26,7 @@ export function TextField({
   id,
   label,
   error,
+  errorAction,
   trailing,
   style,
   className,
@@ -65,6 +73,7 @@ export function TextField({
       {error ? (
         <p id={errorId} style={{ margin: 0, fontSize: 11.5, color: "var(--red)" }}>
           {error}
+          {errorAction ? <> {errorAction}</> : null}
         </p>
       ) : null}
     </div>
