@@ -1,7 +1,7 @@
 # DATA_SOURCES_SHARED_T-6: `DropZone` and `FileChip` primitives
 
 **Shared by:** US-2, US-3, US-4, US-5
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #313 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 
