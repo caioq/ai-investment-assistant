@@ -61,6 +61,9 @@ export class AdvisorController {
       file,
       sourceName: dto.sourceName,
       text: dto.text,
+      title: dto.title,
+      publisher: dto.publisher,
+      publishedAt: dto.publishedAt,
     });
   }
 
