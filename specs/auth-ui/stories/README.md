@@ -7,7 +7,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 | Story | Title | Status | Tasks |
 |---|---|---|---|
 | [US-1](./US-1-sign-in.md) | Sign in on the redesigned auth screen | Done | T-1..T-3 in `../tasks/` |
-| [US-2](./US-2-create-account.md) | Create an account with a name and password guidance | Ready | T-1..T-5 in `../tasks/` |
+| [US-2](./US-2-create-account.md) | Create an account with a name and password guidance | Done | T-1..T-5 in `../tasks/` |
 | [US-3](./US-3-switch-modes.md) | Switch between Sign in and Create account without losing input | Ready | T-1..T-2 in `../tasks/` |
 
 Build order: the `SHARED` foundations (T-1..T-5) first, then US-1, US-2, US-3, then `SHARED_T-6` (end-to-end + visual) last. Each task's `**Depends on:**` field is authoritative.
