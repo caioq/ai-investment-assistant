@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
-import { Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import { AuthCompactBrand } from "../../components/auth/BrandPanel";
 
 // Fraunces is scoped to the (auth) route group only (brand headline,
 // wordmark, form title); everything else in the app stays Inter.
-const fraunces = Fraunces({
+const fraunces = localFont({
+  src: "../fonts/Fraunces-latin-variable.woff2",
   variable: "--font-fraunces",
-  subsets: ["latin"],
-  weight: ["500", "600"],
+  weight: "500 600",
+  display: "swap",
 });
 
 /**

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const inter = Inter({
+// Self-hosted rather than `next/font/google`: that fetches the font at build
+// time, so a flaky fonts.gstatic.com fails `next build` on PRs that touch no
+// frontend code at all. See ./fonts/README.md.
+const inter = localFont({
+  src: "./fonts/Inter-latin-variable.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "400 800",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
