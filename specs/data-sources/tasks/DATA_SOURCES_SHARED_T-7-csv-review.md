@@ -1,7 +1,7 @@
 # DATA_SOURCES_SHARED_T-7: `CsvReview` — summary, column checks, preview table, issues
 
 **Shared by:** US-2, US-3, US-4
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #314 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_SHARED_T-2
 
