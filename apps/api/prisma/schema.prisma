@@ -23,6 +23,7 @@ model User {
   recommendedPortfolios   RecommendedPortfolio[]
   advisorReports          AdvisorReport[]
   advisorAnalyses         AdvisorAnalysis[]
+  importLogs              ImportLog[]
 
   @@map("users")
 }
@@ -246,4 +247,43 @@ model AdvisorAnalysis {
 
   @@index([userId, createdAt])
   @@map("advisor_analyses")
+}
+
+/// Which importer an `ImportLog` row describes (data-sources spec.md ->
+/// Data Model).
+enum ImportSource {
+  ASSETS
+  HOLDINGS
+  WALLET
+  REPORT
+}
+
+enum ImportStatus {
+  IMPORTED
+  FAILED
+}
+
+/// One row per import attempt, written by the page after an upload resolves.
+/// This is the only record of an assets import: `Asset` has no timestamps,
+/// so "last imported" cannot be derived from the rows themselves.
+model ImportLog {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  userId     String       @map("user_id") @db.Uuid
+  user       User         @relation(fields: [userId], references: [id])
+  source     ImportSource
+  walletType WalletType?  @map("wallet_type") // set only when source = WALLET
+  fileName   String       @map("file_name")
+  records    Int // rows written (created + updated); 1 for a report
+  status     ImportStatus
+  message    String? // why the import failed outright; null on success
+
+  /// Every row the server rejected, verbatim from its `errors[]`. Kept on
+  /// IMPORTED rows too: an assets/holdings import partially succeeds, so
+  /// "Imported 28" can coexist with 12 rejected rows, and the history would
+  /// otherwise hide them once the banner is dismissed.
+  errors    Json? // string[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("import_logs")
 }
