@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
-import Link from "next/link";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { isValidEmail } from "@ai-investment-assistant/shared";
 import { apiFetch, ApiError } from "../../lib/api-client";
@@ -41,6 +40,22 @@ const LOGIN_NETWORK_ERROR = "Couldn't reach the server. Please try again.";
 const REGISTER_409_ERROR = "This email is already registered.";
 const REGISTER_400_ERROR = "Check your details and try again.";
 
+/**
+ * The switch line's action is a `<button>`, not a `<Link>` — it switches mode
+ * in place rather than navigating (spec → Behavior Notes → Mode switching) —
+ * so it's styled to read as the bold link the design shows.
+ */
+const SWITCH_LINE_BUTTON_STYLE = {
+  background: "none",
+  border: "none",
+  padding: 0,
+  font: "inherit",
+  fontWeight: 700,
+  color: "var(--navy)",
+  cursor: "pointer",
+  textDecoration: "underline",
+} as const;
+
 function emailError(email: string): string | undefined {
   const trimmed = email.trim();
   if (trimmed === "") {
@@ -70,14 +85,15 @@ function nameError(name: string): string | undefined {
  * The redesigned Sign in / Create account screen (spec: specs/auth-ui/spec.md).
  * `startMode` selects which mode is rendered: `signin` (AUTH_UI_US-1_T-1/T-2)
  * and `signup` (AUTH_UI_US-2_T-4 — Name field, 8-character rule, advisory
- * strength meter, `POST /auth/register`). Client-side mode switching without
- * a remount is AUTH_UI_US-3_T-1, and the 409's "Sign in instead" action is
- * AUTH_UI_US-3_T-2.
+ * strength meter, `POST /auth/register`). `startMode` only seeds the mode:
+ * switching afterwards happens in place (AUTH_UI_US-3_T-1). The 409's
+ * "Sign in instead" action is AUTH_UI_US-3_T-2.
  */
 export function AuthScreen({ startMode }: AuthScreenProps) {
   const router = useRouter();
-  const mode: AuthMode = startMode;
+  const [mode, setMode] = useState<AuthMode>(startMode);
   const content = AUTH_CONTENT[mode];
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   const isSignup = mode === "signup";
 
@@ -88,6 +104,29 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | undefined>(undefined);
+
+  /**
+   * Switch mode in place (spec → Behavior Notes → Mode switching). The URL is
+   * updated with `window.history.replaceState`, never `router.replace`: a
+   * router navigation renders the other `page.tsx`, which mounts a fresh
+   * `AuthScreen` and loses everything the visitor typed. `name`, `email` and
+   * `password` are kept in state (`name` even while hidden); only the
+   * touched/error state is cleared so errors don't carry across modes.
+   */
+  function switchMode(next: AuthMode) {
+    if (next === mode) return;
+
+    setMode(next);
+    setSubmitted(false);
+    setErrors({});
+    setFormError(undefined);
+
+    window.history.replaceState(null, "", next === "signin" ? "/login" : "/register");
+
+    // The <h1> is the same DOM node across the re-render, so focusing it now
+    // lands on the new mode's title once React commits (spec → Accessibility).
+    titleRef.current?.focus();
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -210,6 +249,7 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
             <button
               type="button"
               aria-pressed={mode === "signin"}
+              onClick={() => switchMode("signin")}
               style={{
                 flex: 1,
                 padding: "8px 12px",
@@ -228,6 +268,7 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
             <button
               type="button"
               aria-pressed={mode === "signup"}
+              onClick={() => switchMode("signup")}
               style={{
                 flex: 1,
                 padding: "8px 12px",
@@ -246,6 +287,7 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
           </div>
 
           <h1
+            ref={titleRef}
             tabIndex={-1}
             style={{
               fontFamily: FRAUNCES_STACK,
@@ -341,11 +383,25 @@ export function AuthScreen({ startMode }: AuthScreenProps) {
           <p style={{ fontSize: 13, textAlign: "center", marginTop: 20 }}>
             {isSignup ? (
               <>
-                Already have an account? <Link href="/login">Sign in</Link>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => switchMode("signin")}
+                  style={SWITCH_LINE_BUTTON_STYLE}
+                >
+                  Sign in
+                </button>
               </>
             ) : (
               <>
-                Don&apos;t have an account? <Link href="/register">Create one</Link>
+                Don&apos;t have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => switchMode("signup")}
+                  style={SWITCH_LINE_BUTTON_STYLE}
+                >
+                  Create one
+                </button>
               </>
             )}
           </p>

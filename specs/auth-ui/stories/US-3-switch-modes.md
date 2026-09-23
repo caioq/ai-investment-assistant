@@ -7,7 +7,7 @@ As a visitor who picked the wrong form, I want to switch between Sign in and Cre
 
 ## Tasks
 
-- [ ] [T-1: Client-side mode switching in `AuthScreen`](../tasks/AUTH_UI_US-3_T-1-client-side-mode-switching.md)
+- [x] [T-1: Client-side mode switching in `AuthScreen`](../tasks/AUTH_UI_US-3_T-1-client-side-mode-switching.md)
 - [ ] [T-2: "Sign in instead" action on a 409](../tasks/AUTH_UI_US-3_T-2-sign-in-instead-on-409.md)
 
 Shared tasks this story relies on: [SHARED_T-4](../tasks/AUTH_UI_SHARED_T-4-auth-layout-and-brand-panel.md), [SHARED_T-6](../tasks/AUTH_UI_SHARED_T-6-e2e-and-visual-baselines.md).

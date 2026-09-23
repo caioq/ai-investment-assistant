@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-const { apiFetchMock, pushMock, refreshMock } = vi.hoisted(() => ({
+const { apiFetchMock, pushMock, refreshMock, replaceMock } = vi.hoisted(() => ({
   apiFetchMock: vi.fn(),
   pushMock: vi.fn(),
   refreshMock: vi.fn(),
+  replaceMock: vi.fn(),
 }));
 
 vi.mock("../../lib/api-client", () => {
@@ -27,7 +28,7 @@ vi.mock("../../lib/api-client", () => {
 });
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
+  useRouter: () => ({ push: pushMock, refresh: refreshMock, replace: replaceMock }),
 }));
 
 import { AuthScreen } from "./AuthScreen";
@@ -56,6 +57,7 @@ beforeEach(() => {
   apiFetchMock.mockReset();
   pushMock.mockReset();
   refreshMock.mockReset();
+  replaceMock.mockReset();
 });
 
 describe("AuthScreen (signin mode)", () => {
@@ -433,5 +435,103 @@ describe("AuthScreen (signup mode)", () => {
     expect(within(getForm()).getByRole("button", { name: "Create account" })).toBe(
       getSubmitButton(),
     );
+  });
+});
+
+describe("AuthScreen mode switching", () => {
+  // The segmented control's segments share their accessible names with the
+  // submit button ("Sign in" / "Create account"), so every toggle query is
+  // scoped to the control itself — the same scoping rule the submit-button
+  // helper above follows in the other direction.
+  function getToggle(): HTMLElement {
+    return screen.getByRole("group", { name: "Sign in or create account" });
+  }
+
+  function clickSegment(name: string) {
+    fireEvent.click(within(getToggle()).getByRole("button", { name }));
+  }
+
+  /** The bottom switch line's button — a <button> inside the trailing <p>. */
+  function clickSwitchLine(name: string) {
+    const button = screen
+      .getAllByRole("button", { name })
+      .find((candidate) => candidate.closest("p") !== null);
+    if (!button) {
+      throw new Error(`switch-line button "${name}" not found`);
+    }
+    fireEvent.click(button);
+  }
+
+  it("switching to Create account keeps the typed values, clears errors, and replaces the URL in place", () => {
+    const replaceState = vi.spyOn(window.history, "replaceState");
+    try {
+      render(<AuthScreen startMode="signin" />);
+
+      fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ana@" } });
+      fireEvent.change(screen.getByLabelText("Password", { exact: true }), {
+        target: { value: "secret123" },
+      });
+      clickSubmit();
+      expect(
+        screen.getByText("Enter a valid email address.", { selector: "p" }),
+      ).toBeInTheDocument();
+
+      clickSegment("Create account");
+
+      expect(replaceState).toHaveBeenCalledWith(null, "", "/register");
+      expect(screen.getByLabelText("Email")).toHaveValue("ana@");
+      expect(screen.getByLabelText("Password", { exact: true })).toHaveValue("secret123");
+      expect(screen.getByLabelText("Name")).toBeInTheDocument();
+      expect(screen.queryByText("Enter a valid email address.")).not.toBeInTheDocument();
+
+      const heading = screen.getByRole("heading", { name: "Create your account" });
+      expect(document.activeElement).toBe(heading);
+    } finally {
+      replaceState.mockRestore();
+    }
+  });
+
+  it("the switch line switches back to Sign in and replaces the URL with /login", () => {
+    const replaceState = vi.spyOn(window.history, "replaceState");
+    try {
+      render(<AuthScreen startMode="signup" />);
+
+      clickSwitchLine("Sign in");
+
+      expect(replaceState).toHaveBeenCalledWith(null, "", "/login");
+      expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+    } finally {
+      replaceState.mockRestore();
+    }
+  });
+
+  it('marks the active segment with aria-pressed="true"', () => {
+    render(<AuthScreen startMode="signin" />);
+
+    clickSegment("Create account");
+
+    expect(within(getToggle()).getByRole("button", { name: "Create account" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(getToggle()).getByRole("button", { name: "Sign in" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("never navigates with the router while switching (a navigation would remount and lose the input)", () => {
+    const replaceState = vi.spyOn(window.history, "replaceState");
+    try {
+      render(<AuthScreen startMode="signin" />);
+
+      clickSegment("Create account");
+      clickSwitchLine("Sign in");
+
+      expect(replaceMock).not.toHaveBeenCalled();
+      expect(pushMock).not.toHaveBeenCalled();
+    } finally {
+      replaceState.mockRestore();
+    }
   });
 });
