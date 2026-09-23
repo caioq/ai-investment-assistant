@@ -168,6 +168,7 @@ flowchart TD
   C0 --> C1
   C1 -- "no, wait for next run" --> C0
   C1 -- "yes" --> C2 --> C3 --> PR
+  G2 -. "or run locally" .-> D3
   D3 --> L1 --> L2 --> PR
   PR --> LT
   PR --> CI
