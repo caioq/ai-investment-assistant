@@ -1,7 +1,7 @@
 # AUTH_UI_US-3_T-1: Client-side mode switching in `AuthScreen`
 
 **Story:** [../stories/US-3-switch-modes.md](../stories/US-3-switch-modes.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #286 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** AUTH_UI_US-2_T-4
 
