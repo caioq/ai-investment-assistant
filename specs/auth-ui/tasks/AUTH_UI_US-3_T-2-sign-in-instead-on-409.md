@@ -1,7 +1,7 @@
 # AUTH_UI_US-3_T-2: "Sign in instead" action on a 409
 
 **Story:** [../stories/US-3-switch-modes.md](../stories/US-3-switch-modes.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #287 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** AUTH_UI_US-3_T-1
 
