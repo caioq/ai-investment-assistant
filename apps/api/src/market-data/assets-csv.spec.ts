@@ -72,4 +72,19 @@ describe('parseAssetsCsv', () => {
 
     expect(() => parseAssetsCsv(csvWithoutTicker)).toThrow();
   });
+
+  // DATA_SOURCES_SHARED_T-3: parseAssetsCsv now resolves columns through
+  // packages/shared's `findColumn` (case-insensitive header matching), used
+  // by `validateAssetsRows` — a capability the old exact-case
+  // `columnIndex.get(name)` lookup never had. A header spelled "Ticker"
+  // would previously fail the required-column check outright; proving it
+  // now resolves is proof the shared column-resolution code path, not a
+  // local reimplementation, is the one actually running.
+  it('resolves a case-differing header via the shared column resolver (a validator-only behaviour the old exact-match parser lacked)', () => {
+    const csvWithMixedCaseHeader = 'Ticker,Sector\nMDAS1,FINANCIAL\n';
+
+    const rows = parseAssetsCsv(csvWithMixedCaseHeader);
+
+    expect(rows).toEqual([{ ticker: 'MDAS1', sector: 'FINANCIAL' }]);
+  });
 });
