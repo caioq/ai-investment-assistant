@@ -121,6 +121,64 @@ Its loop, per task:
 
 Tool access is scoped to `Read, Edit, Write, Bash, Grep, Glob, mcp__github__list_pull_requests, mcp__github__create_pull_request` — no `Agent` (it can't spawn further agents), no `gh`/board access, and no merge authority. It pushes its own branch via plain `git` (through `Bash`) and opens its own PR via the `github` MCP server, but merging stays outside its scope entirely.
 
+## Workflow diagram
+
+End-to-end view of a module, from `/spec` to merged PRs. Diamonds are the points where you review and approve; everything else is automated by Claude Code or GitHub Actions. The task files must be on `main` before `check-for-work` can match an issue to its task, so the CI path usually picks a task up on the hourly cron run after you merge the stories/tasks, not on the `issues: opened` event itself.
+
+```mermaid
+flowchart TD
+  subgraph DEV["Developer"]
+    D1(["/spec &lt;module&gt;"])
+    G1{"Review spec"}
+    D2(["/user-stories &lt;module&gt;"])
+    G2{"Review stories and tasks, merge to main"}
+    D3(["/implement &lt;task&gt; (optional, local)"])
+    G3{"Review PR"}
+    M["Approve and merge PR"]
+  end
+
+  subgraph CC["Claude Code (local)"]
+    S["spec.md written, Status: Draft"]
+    A["Status: Approved"]
+    T["stories/US-N-*.md + tasks/*_T-N-*.md"]
+    I["Issue per task via GitHub MCP, GitHub Issue field set in task file"]
+    L1["Card to In Progress (gh)"]
+    L2["spec-implementer in worktree: red-green TDD"]
+  end
+
+  subgraph GHA["GitHub Actions"]
+    C0["auto-implement-issues.yml, trigger: issue opened / hourly cron / manual"]
+    C1{"check-for-work: task on main, Not Started, no branch or PR?"}
+    C2["Card to In Progress"]
+    C3["claude-code-action runs implement.md + spec-implementer procedure"]
+    LT["link-and-track-pr.yml: link issue, card to In Review"]
+    CI["ci.yml: build + tests"]
+    CM["close-on-merge: close issue, card to Done"]
+  end
+
+  PR[["PR opened on task/&lt;ID&gt;, never merged by Claude"]]
+
+  D1 --> S --> G1
+  G1 -- "changes" --> D1
+  G1 -- "approve" --> A --> D2
+  D2 --> T --> I
+  I -- "issue opened" --> C0
+  C0 --> C1
+  I --> G2
+  G2 -. "task files on main" .-> C1
+  C1 -- "no, wait for next run" --> C0
+  C1 -- "yes" --> C2 --> C3 --> PR
+  G2 -. "or run locally" .-> D3
+  D3 --> L1 --> L2 --> PR
+  PR --> LT
+  PR --> CI
+  LT --> G3
+  CI --> G3
+  G3 -- "request changes" --> PR
+  G3 -- "approve" --> M --> CM
+  CM -. "next task" .-> C0
+```
+
 ## How the pieces actually fit together
 
 It helps to think of these as three different *mechanisms* for three different jobs:
