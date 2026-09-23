@@ -15,6 +15,9 @@ vi.mock('next/headers', () => ({
 vi.mock('next/navigation', () => ({
   redirect: redirectMock,
   useRouter: () => routerMock,
+  // The rail is a client child (`SidebarNav`) that reads the current path;
+  // its own active-state assertions live in SidebarNav.test.tsx.
+  usePathname: () => '/',
 }));
 
 vi.mock('../../lib/api-client', () => {

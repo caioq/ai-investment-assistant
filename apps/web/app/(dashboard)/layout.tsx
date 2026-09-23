@@ -2,10 +2,9 @@ import type { ReactNode } from 'react';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-
 import { apiFetch } from '../../lib/api-client';
 import { LogoutButton } from '../../components/auth/LogoutButton';
+import { SidebarNav } from '../../components/layout/SidebarNav';
 
 const ACCESS_TOKEN_COOKIE = 'access_token';
 
@@ -47,11 +46,6 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   }
 });
 
-const NAV_ITEMS = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/holdings', label: 'Holdings' },
-];
-
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
 
@@ -82,13 +76,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           gap: '4px',
         }}
       >
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {NAV_ITEMS.map((item) => (
-            <Link key={item.href} href={item.href} title={item.label}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <SidebarNav />
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
           <div title={user.name ?? user.email}>
