@@ -130,6 +130,31 @@ export interface RecommendedPortfolio {
   holdings: RecommendedHolding[];
 }
 
+/**
+ * `GET /data-sources/summary` response — everything the four source cards
+ * need in one call (see `specs/data-sources/spec.md` → API Contract, and
+ * `DataSourcesSummary` in `apps/api/src/data-sources/data-sources.service.ts`,
+ * which this mirrors as it arrives over HTTP).
+ */
+export interface DataSourcesSummary {
+  assets: { count: number; tickers: string[]; lastImportAt: string | null };
+  holdings: { count: number; lastImportAt: string | null };
+  wallets: {
+    walletType: WalletType;
+    effectiveDate: string;
+    sourceName: string | null;
+    positions: number;
+  }[];
+  report: {
+    id: string;
+    title: string | null;
+    publisher: string | null;
+    publishedAt: string | null;
+    fileName: string | null;
+    uploadedAt: string;
+  } | null;
+}
+
 /** `{ id, email, name }`, returned by `/auth/register`, `/auth/login`, and `GET /auth/me` (see `specs/auth/spec.md`). */
 export interface AuthUser {
   id: string;
