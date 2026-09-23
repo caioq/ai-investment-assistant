@@ -32,6 +32,13 @@ model AdvisorReport {
   rawText    String   @map("raw_text") @db.Text
   uploadedAt DateTime @default(now()) @map("uploaded_at")
 
+  /// Added by [data-sources](../data-sources/spec.md) so a report can be named
+  /// rather than identified by its file name. All nullable: existing rows stay
+  /// valid, and `POST /advisor/reports/upload` still succeeds without them.
+  title       String?
+  publisher   String?
+  publishedAt DateTime? @map("published_at") @db.Date
+
   analyses AdvisorAnalysis[]
 
   @@map("advisor_reports")
@@ -66,7 +73,7 @@ Both models follow the repo-wide Prisma conventions in [`CONVENTIONS.md`](../../
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/advisor/reports/upload` | multipart PDF, or `{ sourceName?, text }` | created `AdvisorReport` |
+| POST | `/advisor/reports/upload` | multipart PDF, or `{ sourceName?, text }`; optional `title`, `publisher`, `publishedAt` ([data-sources](../data-sources/spec.md)) | created `AdvisorReport` |
 | POST | `/advisor/analyze` | `{ advisorReportId? }` | created `AdvisorAnalysis` |
 | GET | `/advisor/analysis/latest` | — | most recent `AdvisorAnalysis` for the user, or `404` if none exists yet |
 
