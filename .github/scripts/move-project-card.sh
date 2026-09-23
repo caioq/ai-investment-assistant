@@ -21,8 +21,19 @@ project_id=$(gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format
 item_id=$(gh project item-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json --limit 200 \
   | jq -r --argjson num "$ISSUE_NUMBER" '.items[] | select(.content.number == $num) | .id')
 
+# `item-list` misses an item in two cases: the issue was never added to the
+# board, and — seen for issues #308-#328 — the item exists (resolvable by id,
+# not archived, Status set) but never appears in the project's own listing.
+# `item-add` covers both: it is idempotent, returning the existing item's id
+# when there is one, so it repairs the first case and sidesteps the second.
 if [ -z "$item_id" ]; then
-  echo "No project item found for issue #$ISSUE_NUMBER -- is it added to project $PROJECT_NUMBER?" >&2
+  repo="${GITHUB_REPOSITORY:-caioq/ai-investment-assistant}"
+  item_id=$(gh project item-add "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" \
+    --url "https://github.com/$repo/issues/$ISSUE_NUMBER" --format json 2>/dev/null | jq -r '.id // empty')
+fi
+
+if [ -z "$item_id" ]; then
+  echo "No project item found for issue #$ISSUE_NUMBER, and adding it to project $PROJECT_NUMBER failed -- does GH_TOKEN carry the 'project' scope? See CONVENTIONS.md." >&2
   exit 1
 fi
 
