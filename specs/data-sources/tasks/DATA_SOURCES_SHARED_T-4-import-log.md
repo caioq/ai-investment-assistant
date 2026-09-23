@@ -1,7 +1,7 @@
 # DATA_SOURCES_SHARED_T-4: `ImportLog` model and `/data-sources/imports`
 
 **Shared by:** US-2, US-3, US-4, US-5, US-6
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #311 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 

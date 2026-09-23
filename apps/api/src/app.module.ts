@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AdvisorModule } from './advisor/advisor.module';
 import { AuthModule } from './auth/auth.module';
+import { DataSourcesModule } from './data-sources/data-sources.module';
 import { HealthController } from './health/health.controller';
 import { SharedInfoService } from './health/shared-info.service';
 import { MarketDataModule } from './market-data/market-data.module';
@@ -28,6 +29,7 @@ import { RecommendedPortfoliosModule } from './recommended-portfolios/recommende
     PortfolioModule,
     RecommendedPortfoliosModule,
     AdvisorModule,
+    DataSourcesModule,
   ],
   controllers: [HealthController],
   providers: [SharedInfoService],
