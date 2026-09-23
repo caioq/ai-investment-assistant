@@ -1,6 +1,6 @@
 # Data Sources
 
-**Status:** Draft
+**Status:** Approved
 **Depends on:** [project-setup](../project-setup/spec.md), [auth](../auth/spec.md), [market-data](../market-data/spec.md), [portfolio](../portfolio/spec.md), [recommended-portfolios](../recommended-portfolios/spec.md), [advisor](../advisor/spec.md), [dashboard-ui](../dashboard-ui/spec.md)
 
 ## Problem
