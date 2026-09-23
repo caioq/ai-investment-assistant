@@ -121,7 +121,7 @@ Its loop, per task:
 
 Tool access is scoped to `Read, Edit, Write, Bash, Grep, Glob, mcp__github__list_pull_requests, mcp__github__create_pull_request` — no `Agent` (it can't spawn further agents), no `gh`/board access, and no merge authority. It pushes its own branch via plain `git` (through `Bash`) and opens its own PR via the `github` MCP server, but merging stays outside its scope entirely.
 
-## Workflow diagrams
+## Workflow diagram
 
 End-to-end view of a module, from `/spec` to merged PRs. Diamonds are the points where you review and approve; everything else is automated by Claude Code or GitHub Actions. The task files must be on `main` before `check-for-work` can match an issue to its task, so the CI path usually picks a task up on the hourly cron run after you merge the stories/tasks, not on the `issues: opened` event itself.
 
@@ -177,48 +177,6 @@ flowchart TD
   G3 -- "request changes" --> PR
   G3 -- "approve" --> M --> CM
   CM -. "next task" .-> C0
-```
-
-The lifecycle of a single task, from its issue being opened to its card reaching Done. The `alt` block shows the two ways a task gets implemented: automatically in CI or locally with `/implement`. Everything after the PR is opened is the same for both.
-
-```mermaid
-sequenceDiagram
-  actor Dev as Developer
-  participant GH as GitHub (issues / PRs)
-  participant Board as Project board
-  participant Auto as auto-implement-issues.yml
-  participant Claude as Claude (spec-implementer)
-  participant Track as link-and-track-pr.yml
-  participant CI as ci.yml
-
-  Dev->>GH: /user-stories opens task issue (via MCP)
-  GH->>Board: card added (Backlog / Ready)
-  Dev->>GH: merge stories + tasks to main
-  alt CI path
-    GH-->>Auto: issue opened / hourly cron / dispatch
-    Auto->>Auto: check-for-work (Not Started, no branch or PR)
-    Auto->>Board: move card to In Progress
-    Auto->>Claude: claude-code-action with task file + issue
-  else Local path
-    Dev->>Board: /implement moves card to In Progress
-    Dev->>Claude: /implement launches spec-implementer in worktree
-  end
-  Claude->>Claude: red test, then green code, Status Done
-  Claude->>GH: push task branch, open PR (Closes issue)
-  GH-->>Track: pull_request opened
-  Track->>GH: link issue (base round-trip if stacked)
-  Track->>Board: move card to In Review
-  GH-->>CI: build + tests
-  loop until approved
-    Dev->>GH: review PR
-    opt changes requested
-      Dev->>GH: push fixes (or re-run Claude)
-    end
-  end
-  Dev->>GH: approve and merge
-  GH-->>Track: pull_request closed (merged)
-  Track->>GH: close issue
-  Track->>Board: move card to Done
 ```
 
 ## How the pieces actually fit together
