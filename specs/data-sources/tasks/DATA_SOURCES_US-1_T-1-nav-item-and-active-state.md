@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-1_T-1: "Data sources" nav item and active-item styling
 
 **Story:** [../stories/US-1-see-whats-imported.md](../stories/US-1-see-whats-imported.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #317 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 

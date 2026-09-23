@@ -7,7 +7,7 @@ As someone setting the app up, I want one page that shows what data the app alre
 
 ## Tasks
 
-- [ ] [T-1: "Data sources" nav item and active-item styling](../tasks/DATA_SOURCES_US-1_T-1-nav-item-and-active-state.md)
+- [x] [T-1: "Data sources" nav item and active-item styling](../tasks/DATA_SOURCES_US-1_T-1-nav-item-and-active-state.md)
 - [ ] [T-2: `/data-sources` page shell and the four source cards](../tasks/DATA_SOURCES_US-1_T-2-page-shell-and-source-cards.md)
 
 Shared tasks this story relies on: [SHARED_T-5](../tasks/DATA_SOURCES_SHARED_T-5-summary-endpoint.md).
