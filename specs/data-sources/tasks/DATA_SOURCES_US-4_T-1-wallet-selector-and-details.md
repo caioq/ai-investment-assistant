@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-4_T-1: Wallet type selector and detail fields
 
 **Story:** [../stories/US-4-import-model-wallet.md](../stories/US-4-import-model-wallet.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #321 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_US-1_T-2
 

@@ -7,7 +7,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 | Story | Title | Status | Tasks |
 |---|---|---|---|
 | [US-1](./US-1-see-whats-imported.md) | See what's already imported | Done | T-1..T-2 in `../tasks/` |
-| [US-2](./US-2-import-assets.md) | Import the assets CSV | Ready | T-1 in `../tasks/` |
+| [US-2](./US-2-import-assets.md) | Import the assets CSV | Done | T-1 in `../tasks/` |
 | [US-3](./US-3-import-holdings.md) | Import the holdings CSV | Draft | T-1 in `../tasks/` |
 | [US-4](./US-4-import-model-wallet.md) | Import a model wallet | Ready | T-1..T-2 in `../tasks/` |
 | [US-5](./US-5-add-research-report.md) | Add a research report | Ready | T-1..T-2 in `../tasks/` |
