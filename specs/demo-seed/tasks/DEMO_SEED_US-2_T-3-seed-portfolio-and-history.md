@@ -1,7 +1,7 @@
 # DEMO_SEED_US-2_T-3: `runSeed`: user, assets, holdings and history
 
 **Story:** [../stories/US-2-demo-account.md](../stories/US-2-demo-account.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #363 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DEMO_SEED_US-1_T-1, DEMO_SEED_US-2_T-1, DEMO_SEED_US-2_T-2
 
