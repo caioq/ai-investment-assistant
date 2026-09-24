@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-4_T-2: Wallet import, all-or-nothing gate and weights warning
 
 **Story:** [../stories/US-4-import-model-wallet.md](../stories/US-4-import-model-wallet.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #322 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_US-4_T-1, DATA_SOURCES_US-2_T-1, DATA_SOURCES_SHARED_T-2
 
