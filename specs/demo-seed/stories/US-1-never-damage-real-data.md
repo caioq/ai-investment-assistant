@@ -7,7 +7,7 @@ As the **maintainer of a deployed instance**, I want the demo seed to refuse to 
 
 ## Tasks
 
-- [ ] [T-1: `assertSeedAllowed` environment guard](../tasks/DEMO_SEED_US-1_T-1-seed-guard.md)
+- [x] [T-1: `assertSeedAllowed` environment guard](../tasks/DEMO_SEED_US-1_T-1-seed-guard.md)
 - [ ] [T-2: Idempotency, insert-only and isolation e2e](../tasks/DEMO_SEED_US-1_T-2-safety-e2e.md)
 
 ## Notes
