@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { DataSourcesSummary } from "../../lib/types";
 import { formatSourceDate } from "./format-source-date";
 import { createAssetsImportSource, ImportPanel } from "./ImportPanel";
+import { ReportImportPanel } from "./ReportImportPanel";
 import { SourceCard } from "./SourceCard";
 import { WalletImportSection } from "./WalletImportSection";
 
@@ -124,6 +125,21 @@ const SOURCES: SourceDefinition[] = [
   },
 ];
 
+/** Refreshes the server-fetched summary after an import (the router hook is confined here, off the page's default path). */
+function ReportPanelWithRefresh({
+  currentReport,
+}: {
+  currentReport: DataSourcesSummary["report"];
+}) {
+  const router = useRouter();
+  return (
+    <ReportImportPanel
+      currentReport={currentReport}
+      onImported={() => router.refresh()}
+    />
+  );
+}
+
 /**
  * The `'use client'` boundary of `/data-sources`: it owns nothing but which
  * source is selected, so the page above it stays a Server Component that
@@ -177,6 +193,9 @@ export function DataSourcesPanel({ summary }: { summary: DataSourcesSummary }) {
             wallets={summary.wallets}
             knownTickers={summary.assets.tickers}
           />
+        ) : null}
+        {selected === "report" ? (
+          <ReportPanelWithRefresh currentReport={summary.report} />
         ) : null}
       </section>
     </div>

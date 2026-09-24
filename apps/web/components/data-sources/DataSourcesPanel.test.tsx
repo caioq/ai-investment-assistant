@@ -68,4 +68,21 @@ describe('DataSourcesPanel', () => {
     await waitFor(() => expect(screen.getByTestId('summary-rows')).toBeInTheDocument());
     expect(screen.getAllByText(/ZZZZ3 is not in the asset master/).length).toBeGreaterThan(0);
   });
+
+  it('reaches the report import panel through the Research report card', () => {
+    render(<DataSourcesPanel summary={SUMMARY} />);
+    fireEvent.click(screen.getByRole('button', { name: /Research report/ }));
+
+    // Each panel is tested on its own; this guards that the *page* can reach it.
+    expect(screen.getByRole('heading', { name: 'Add research report' })).toBeInTheDocument();
+    expect(fileInput()).toBeInTheDocument();
+  });
+
+  it('mounts only the selected source’s panel', () => {
+    render(<DataSourcesPanel summary={SUMMARY} />);
+    expect(screen.getByRole('heading', { name: 'Import assets' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Research report/ }));
+    expect(screen.queryByRole('heading', { name: 'Import assets' })).not.toBeInTheDocument();
+  });
 });
