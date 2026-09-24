@@ -11,6 +11,7 @@ as.
 | --- | --- |
 | `auth.spec.ts` | Unauthenticated redirect, login, logout, auth-guard round trip through a real browser and real cookie. |
 | `auth-screen.spec.ts` | The auth screen's browser-only behaviour (`AUTH_UI_SHARED_T-6`): in-place mode switching (`/login` <-> `/register`, typed values kept), sign-up end to end, the below-900px layout at 390px, and the `prefers-reduced-motion` opt-outs. |
+| `data-sources.spec.ts` | `/data-sources` (`DATA_SOURCES_SHARED_T-10`): auth redirect, every card's panel reachable from the rail, `aria-current`, wrong file type, the assets import flow with its `router.refresh()` known-ticker update and reload persistence, reduced-motion spinner. Own user and `E2EDS*` tickers; fixtures in `fixtures/data-sources/`. |
 | `dashboard-visual.spec.ts` | Visual regression: the populated and empty dashboard against their own committed baselines. See below. |
 | `auth-visual.spec.ts` | Visual regression: `/login` and `/register` against their own committed baselines. Same rules as below. |
 

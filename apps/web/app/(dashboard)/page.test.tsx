@@ -566,7 +566,7 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText(/no holdings yet/i)).toHaveLength(2);
   });
 
-  it("renders a HoldingsGrid row per stubbed holding, with a link to /holdings to add more", async () => {
+  it("renders a HoldingsGrid row per stubbed holding, with an Import holdings link to /data-sources", async () => {
     cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
     getCurrentUserMock.mockResolvedValue({
       id: "user-1",
@@ -592,9 +592,8 @@ describe("DashboardPage", () => {
     expect(
       within(tbody).getByText(holdingsStub[0].asset.ticker),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("link", { name: /holdings/i }).length,
-    ).toBeGreaterThan(0);
+    const link = screen.getByRole("link", { name: "Import holdings" });
+    expect(link).toHaveAttribute("href", "/data-sources");
   });
 
   it("renders HoldingsGrid's empty state, with the rest of the dashboard still intact, for the complete new-user dashboard (empty holdings, allocation, series, and a 404 from the advisor endpoint)", async () => {

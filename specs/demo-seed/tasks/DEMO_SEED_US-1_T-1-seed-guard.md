@@ -1,7 +1,7 @@
 # DEMO_SEED_US-1_T-1: `assertSeedAllowed` environment guard
 
 **Story:** [../stories/US-1-never-damage-real-data.md](../stories/US-1-never-damage-real-data.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #359 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** none
 
