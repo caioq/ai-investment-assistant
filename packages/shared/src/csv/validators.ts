@@ -106,7 +106,7 @@ export const ASSETS_COLUMNS: ColumnDefinition = {
 
 /** Column definitions for the holdings CSV (spec's Behavior Notes). */
 export const HOLDINGS_COLUMNS: ColumnDefinition = {
-  required: ['Ticker', 'Quantidade', 'Preco Médio'],
+  required: ['ticker', 'quantity', 'avgPrice'],
   optional: [],
 };
 
@@ -263,71 +263,52 @@ export function validateAssetsRows(
 }
 
 /**
- * Validates the holdings CSV against the rules the API's importer enforces
- * (`apps/api/src/portfolio/portfolio.service.ts`).
+ * Validates the holdings CSV exactly as `PortfolioService.importHoldingsCsv`
+ * does (the server is the source of truth; `holdings-parity.spec.ts` keeps
+ * this honest): three cells by position, header text ignored, `Number()`
+ * parsing, an empty ticker is an error. Messages are byte-identical.
  */
 export function validateHoldingsRows(
   parsed: ParsedCsv,
   context: { knownTickers: string[] },
 ): ValidationResult {
-  const tickerColumn = findColumn(parsed.columns, 'Ticker');
-  const quantityColumn = findColumn(parsed.columns, 'Quantidade');
-  const priceColumn = findColumn(parsed.columns, 'Preco Médio');
-
-  const missing: string[] = [];
-  if (tickerColumn === undefined) missing.push('Ticker');
-  if (quantityColumn === undefined) missing.push('Quantidade');
-  if (priceColumn === undefined) missing.push('Preco Médio');
-
-  if (tickerColumn === undefined || quantityColumn === undefined || priceColumn === undefined) {
-    return {
-      columns: parsed.columns,
-      rows: [],
-      rowIssues: [],
-      fileIssues: [
-        { severity: 'error', message: `Missing required column(s): ${missing.join(', ')}` },
-      ],
-    };
-  }
-
   const knownTickers = new Set(context.knownTickers.map((ticker) => ticker.toUpperCase()));
 
   const rows: ParsedRow[] = [];
   const rowIssues: Issue[] = [];
 
-  parsed.rows.forEach((row, index) => {
+  parsed.rawRows.forEach((cells, index) => {
     const rowNumber = index + 1;
-    const ticker = (row[tickerColumn] ?? '').trim();
-    if (ticker === '') {
+    const [ticker = '', quantity = '', avgPrice = ''] = cells;
+    rows.push({ ticker, quantity, avgPrice });
+
+    const fail = (message: string) =>
+      rowIssues.push({ row: rowNumber, severity: 'error', message: `row ${rowNumber}: ${message}` });
+
+    if (cells.length !== 3) {
+      fail(`expected 3 columns (ticker,quantity,avgPrice), got ${cells.length}`);
       return;
     }
-
-    const quantity = parseBrazilianNumber(row[quantityColumn]);
-    if (quantity === null || Number.isNaN(quantity) || quantity <= 0) {
-      rowIssues.push({
-        row: rowNumber,
-        severity: 'error',
-        message: `row ${rowNumber}: Quantidade must be a positive number`,
-      });
+    if (ticker === '') {
+      fail('ticker must not be empty');
+      return;
     }
-
-    const price = parseBrazilianNumber(row[priceColumn]);
-    if (price === null || Number.isNaN(price) || price <= 0) {
-      rowIssues.push({
-        row: rowNumber,
-        severity: 'error',
-        message: `row ${rowNumber}: Preco Médio must be a positive number`,
-      });
+    const q = Number(quantity);
+    if (!Number.isFinite(q) || q <= 0) {
+      fail('quantity must be a positive number');
+      return;
     }
-
+    const p = Number(avgPrice);
+    if (!Number.isFinite(p) || p <= 0) {
+      fail('avgPrice must be a positive number');
+      return;
+    }
     if (!knownTickers.has(ticker.toUpperCase())) {
       rowIssues.push(unknownTickerWarning(rowNumber, ticker));
     }
-
-    rows.push(row);
   });
 
-  return { columns: parsed.columns, rows, rowIssues, fileIssues: [] };
+  return { columns: ['ticker', 'quantity', 'avgPrice'], rows, rowIssues, fileIssues: [] };
 }
 
 /**

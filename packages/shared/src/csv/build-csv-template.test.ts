@@ -11,6 +11,7 @@ describe('buildCsvTemplate', () => {
   });
 
   it('emits the holdings columns from the shared definitions', () => {
+    expect(buildCsvTemplate('holdings')).toBe('ticker,quantity,avgPrice');
     expect(buildCsvTemplate('holdings')).toBe(
       [...HOLDINGS_COLUMNS.required, ...HOLDINGS_COLUMNS.optional].join(','),
     );

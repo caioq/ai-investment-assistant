@@ -8,6 +8,12 @@ export interface ParsedCsv {
   columns: string[];
   /** One object per data row, keyed by the trimmed header names. */
   rows: Record<string, string>[];
+  /**
+   * Every data row (header excluded) as the trimmed cells the file actually
+   * contained, before padding/truncation to the header's width. Lets a
+   * positional validator see the true cell count, like the server does.
+   */
+  rawRows: string[][];
 }
 
 /** Splits the raw text into records of raw (untrimmed) cells, honouring quotes. */
@@ -86,7 +92,7 @@ function isBlankRecord(record: string[]): boolean {
 
 export function parseCsv(text: string): ParsedCsv {
   if (text.trim() === '') {
-    return { columns: [], rows: [] };
+    return { columns: [], rows: [], rawRows: [] };
   }
 
   const records = splitRecords(text).filter(
@@ -104,7 +110,9 @@ export function parseCsv(text: string): ParsedCsv {
     return row;
   });
 
-  return { columns, rows };
+  const rawRows = dataRecords.map((record) => record.map((cell) => cell.trim()));
+
+  return { columns, rows, rawRows };
 }
 
 /**
