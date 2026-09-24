@@ -69,6 +69,13 @@ describe('DataSourcesPanel', () => {
     expect(screen.getAllByText(/ZZZZ3 is not in the asset master/).length).toBeGreaterThan(0);
   });
 
+  it('reaches the holdings import panel through the Holdings card', () => {
+    render(<DataSourcesPanel summary={SUMMARY} />);
+    fireEvent.click(screen.getByRole('button', { name: /Holdings/ }));
+
+    expect(screen.getByRole('heading', { name: 'Import holdings' })).toBeInTheDocument();
+  });
+
   it('reaches the report import panel through the Research report card', () => {
     render(<DataSourcesPanel summary={SUMMARY} />);
     fireEvent.click(screen.getByRole('button', { name: /Research report/ }));

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import type { DataSourcesSummary } from "../../lib/types";
 import { formatSourceDate } from "./format-source-date";
-import { createAssetsImportSource, ImportPanel } from "./ImportPanel";
+import { createAssetsImportSource, createHoldingsImportSource, ImportPanel } from "./ImportPanel";
 import { ReportImportPanel } from "./ReportImportPanel";
 import { SourceCard } from "./SourceCard";
 import { WalletImportSection } from "./WalletImportSection";
@@ -58,6 +58,13 @@ function reportMeta(summary: DataSourcesSummary): string {
 function RefreshingAssetsSection({ knownTickers }: { knownTickers: string[] }) {
   const router = useRouter();
   const source = useMemo(() => createAssetsImportSource(knownTickers), [knownTickers]);
+  return <ImportPanel source={source} onImported={() => router.refresh()} />;
+}
+
+/** Mounted only while the holdings card is open; refreshes the summary so the card's meta line updates. */
+function RefreshingHoldingsSection({ knownTickers }: { knownTickers: string[] }) {
+  const router = useRouter();
+  const source = useMemo(() => createHoldingsImportSource(knownTickers), [knownTickers]);
   return <ImportPanel source={source} onImported={() => router.refresh()} />;
 }
 
@@ -187,6 +194,9 @@ export function DataSourcesPanel({ summary }: { summary: DataSourcesSummary }) {
       <section aria-label={`${selectedSource.name} import`}>
         {selected === "assets" ? (
           <RefreshingAssetsSection knownTickers={summary.assets.tickers} />
+        ) : null}
+        {selected === "holdings" ? (
+          <RefreshingHoldingsSection knownTickers={summary.assets.tickers} />
         ) : null}
         {selected === "wallets" ? (
           <RefreshingWalletSection
