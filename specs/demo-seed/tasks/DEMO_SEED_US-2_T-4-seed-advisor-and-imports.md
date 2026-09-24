@@ -1,7 +1,7 @@
 # DEMO_SEED_US-2_T-4: Seed wallets, report, analysis and import logs
 
 **Story:** [../stories/US-2-demo-account.md](../stories/US-2-demo-account.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #364 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DEMO_SEED_US-2_T-3
 
