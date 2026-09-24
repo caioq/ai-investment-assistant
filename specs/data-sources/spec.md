@@ -123,10 +123,18 @@ The design this page came from invented English column names (`asset_class`, `av
 | Source | Required | Optional | Notes |
 |---|---|---|---|
 | **Assets** ([market-data](../market-data/spec.md)) | `ticker` | `sector`, `subSector`, `investmentStyle`, `riskRating`, `assetType` | Resolved by header name. An **absent** column leaves that field untouched; a **present-but-empty** cell clears it to `null`. Rows with an empty `ticker` are skipped silently. Enums: `AssetType` = `EQUITY\|FIXED_INCOME\|CRYPTO`; `InvestmentStyle` = `SMALL_CAP\|MICRO_CAP\|DIVIDENDS\|VALUE_INVESTING\|TURNAROUND\|ETF`; `RiskRating` = the S&P/Fitch scale `AAA`…`D` |
-| **Holdings** ([portfolio](../portfolio/spec.md)) | `Ticker`, `Quantidade`, `Preco Médio` | — | Resolved by header name; every other column in the broker export is ignored. Brazilian number format (`"R$ 589.394,17"` → `589394.17`). Empty `Ticker` rows skipped |
+| **Holdings** ([portfolio](../portfolio/spec.md)) — **interim format**, see below | three columns **by position**: `ticker`, `quantity`, `avgPrice` | — | The header row is skipped without being read, so its wording is irrelevant, but **the order of the three columns is not**. A row with any other number of cells is an error. Plain decimal numbers (`1234.56`); `1.234,56` is rejected. An empty `ticker` is an error, not a skipped row. *Target format once portfolio's parser lands:* `Ticker`, `Quantidade`, `Preco Médio` by header name, Brazilian numbers, all other columns ignored, empty `Ticker` rows skipped |
 | **Model wallets** ([recommended-portfolios](../recommended-portfolios/spec.md)) | `CODIGO`, `PRECO_TETO` | `EMPRESA`, `ALOCACAO_SUGERIDA`, `RECOMENDACAO`, `MARGEM_DE_SEGURANCA`, `DY_*` | `RECOMENDACAO` is `COMPRA\|NEUTRO\|VENDA` → `BUY\|NEUTRAL\|SELL`. The `DY_` column is matched by prefix (`DY_2025`, `DY_2026`) |
 
-**The holdings parser is in flight.** The shipped code still parses the old positional three-column form (`ticker,quantity,avgPrice`); the header-name Brazilian format above is what [portfolio](../portfolio/spec.md) specifies, and PR #176 reopens portfolio US-2 to build it. This page targets the specified format. If that work hasn't landed when the holdings panel is built, it blocks this module's holdings preview — the preview must not validate one format while the server accepts another.
+**The holdings format is interim, on purpose.** The shipped importer (`PortfolioService.importHoldingsCsv`) parses the old positional three-column form. [portfolio](../portfolio/spec.md) specifies a different one — header-name columns, Brazilian numbers, the real 23-column broker export — and PR #176 reopens portfolio US-2 to build it, but that work hasn't landed. Rather than block the holdings panel on it, this module **targets what the server accepts today**, so the preview and the import agree.
+
+That constraint is the whole point of the design, and this format makes it harder to honour, not easier. Three rules follow:
+
+- **The preview must reproduce the server's verdict, not a friendlier one.** A row the server rejects must show as an error in the preview, and one it accepts must not. In particular the validator reads cells **by position** and needs each row's **true cell count** — `parseCsv` alone can't supply that, since it drops cells beyond the header's width — so a row with the wrong number of cells is caught, exactly as the server does.
+- **A parity test guards it.** The same set of CSV fixtures runs through the shared validator and through `importHoldingsCsv`, and the two must agree on which rows fail and why. Without it, this is where the preview and the server would quietly drift apart.
+- **It is temporary.** When portfolio's parser lands, the holdings validator, its template and the panel's hint copy move to the target format in the same change that swaps the server's parser — ideally by making the server call the shared validator, which removes the parity problem outright. That migration is not a task here; it belongs to the portfolio work that changes the format.
+
+A user whose broker export is the real 23-column file will therefore see it rejected in the preview until that lands — a truthful answer, since the server would reject it too.
 
 ### One parser, two callers
 
@@ -221,6 +229,8 @@ The drop zone is a focusable control whose accessible name states the accepted f
 - [ ] A wallet CSV containing one invalid row renders **no** skip checkbox, disables the button, and explains that a wallet file is imported all at once.
 - [ ] A wallet CSV whose `ALOCACAO_SUGERIDA` sums to 92% imports successfully and shows a file-level warning naming 92%.
 - [ ] A holdings CSV with tickers absent from `Asset` shows one warning row per such ticker and still imports.
+- [ ] Holdings preview and server agree: for a fixture set covering a clean file, a 4-cell row, a 2-cell row, an empty ticker, a zero quantity, a negative price, a non-numeric quantity and a Brazilian-formatted number (`1.234,56`), the shared holdings validator and `PortfolioService.importHoldingsCsv` report the same failing rows with the same messages.
+- [ ] The real 23-column broker export shows every data row as an error in the holdings preview ("expected 3 columns … got 23"), matching what the server does with it.
 - [ ] After importing assets, re-checking that same holdings file shows no unknown-ticker warnings, without a page reload.
 - [ ] Attaching a file to Assets, switching to Holdings and back leaves the assets file and its review intact.
 - [ ] A successful assets import clears the file, updates the Assets card meta, prepends a history row, and both persist after a reload.
