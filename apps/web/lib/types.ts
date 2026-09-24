@@ -155,6 +155,35 @@ export interface DataSourcesSummary {
   } | null;
 }
 
+/** `ImportSource` — which of the four data sources an import attempt targeted. */
+export type ImportSource = "ASSETS" | "HOLDINGS" | "WALLET" | "REPORT";
+
+/** `ImportStatus` — whether the import attempt wrote anything at all. */
+export type ImportStatus = "IMPORTED" | "FAILED";
+
+/**
+ * One `ImportLog` row as returned by `GET|POST /data-sources/imports`
+ * (see `specs/data-sources/spec.md` → Data Model, and the Prisma `ImportLog`
+ * model in `apps/api/prisma/schema.prisma`, which this mirrors over HTTP —
+ * `userId` included, `createdAt` as an ISO string).
+ *
+ * `errors` holds every row the server rejected, **verbatim**, and is kept on
+ * `IMPORTED` rows too: a partial success is one row reading "28 · 12
+ * rejected", never one history row per rejected row. `null` means "no
+ * rejected rows recorded", which is why it isn't simply `string[]`.
+ */
+export interface ImportLogEntry {
+  id: string;
+  source: ImportSource;
+  walletType: WalletType | null;
+  fileName: string;
+  records: number;
+  status: ImportStatus;
+  message: string | null;
+  errors: string[] | null;
+  createdAt: string;
+}
+
 /** `{ id, email, name }`, returned by `/auth/register`, `/auth/login`, and `GET /auth/me` (see `specs/auth/spec.md`). */
 export interface AuthUser {
   id: string;
