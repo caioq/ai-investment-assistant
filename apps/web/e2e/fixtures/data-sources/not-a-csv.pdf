@@ -1,0 +1,2 @@
+%PDF-1.4
+E2E fixture: only the extension matters, the drop zone rejects it before reading.

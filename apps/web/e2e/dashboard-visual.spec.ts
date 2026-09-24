@@ -21,17 +21,13 @@ import { VISUAL_REGRESSION_EMPTY_USER, VISUAL_REGRESSION_POPULATED_USER } from '
 /**
  * Every screenshot renders with the browser's `Date` pinned here.
  *
- * `RecommendedPortfoliosUpload`'s "Effective date" input defaults to
- * `todayIsoDate()`, and masking it is not enough on its own: a mask paints a
- * rectangle *sized to the element*, so when the date's rendered width changes
- * the mask changes width too and the diff lands in the screenshot. That is
- * exactly what broke `main` at the 2026-09-23 -> 2026-09-24 UTC rollover — 48
- * pixels, a 2px sliver at the right edge of the mask. An earlier rollover
- * produced the 413-pixel diff the mask was added for.
- *
- * Pinning the clock makes the field's width identical on every run, for good.
- * The value is the date the committed baselines were generated on, so those
- * baselines stay valid; changing it means regenerating them.
+ * The dashboard once held a date input defaulting to today's date (the
+ * recommended-portfolios upload, since moved to `/data-sources`). A mask is
+ * sized to its element, so a change in the date's rendered width leaked into
+ * the screenshot at UTC day rollovers. That input is gone, but the clock stays
+ * pinned so nothing wall-clock-derived can reintroduce the flake. The value is
+ * the date the committed baselines were generated on; changing it means
+ * regenerating them.
  */
 const FIXED_NOW = new Date('2026-09-23T12:00:00Z');
 
@@ -72,17 +68,7 @@ test('populated dashboard matches its committed baseline', async ({ page }) => {
     // relative to the machine's local timezone — masked here as a second,
     // independent guard against that varying between the container this
     // baseline was generated in and whatever machine re-runs the check.
-    //
-    // `RecommendedPortfoliosUpload`'s "Effective date" `<input type="date">`
-    // defaults to `todayIsoDate()` — genuinely wall-clock-derived and
-    // unmasked, it flips the check red on any day boundary between
-    // baseline generation and a later run (confirmed in CI: a 413-pixel
-    // diff localized to exactly this field). Masked for the same reason as
-    // the advisor footer.
-    mask: [
-      page.getByTestId('advisor-analysis-footer'),
-      page.locator('#recommended-portfolio-effective-date'),
-    ],
+    mask: [page.getByTestId('advisor-analysis-footer')],
   });
 });
 
@@ -102,10 +88,5 @@ test('empty-portfolio dashboard matches its committed baseline', async ({ page }
   await expect(page.getByTestId('performance-chart-empty')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Generate Portfolio Analysis' })).toBeVisible();
 
-  await expect(page).toHaveScreenshot('dashboard-empty.png', {
-    fullPage: true,
-    // Same wall-clock-derived "Effective date" field as the populated
-    // test above — see that assertion's comment.
-    mask: [page.locator('#recommended-portfolio-effective-date')],
-  });
+  await expect(page).toHaveScreenshot('dashboard-empty.png', { fullPage: true });
 });

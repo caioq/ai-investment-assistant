@@ -1,7 +1,7 @@
 # DATA_SOURCES_SHARED_T-10: Playwright flow and visual baselines
 
 **Shared by:** every story
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #328 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_US-2_T-1, DATA_SOURCES_US-6_T-1, DATA_SOURCES_US-7_T-1, DATA_SOURCES_US-7_T-2
 
