@@ -16,7 +16,8 @@
     "pretest:e2e": "prisma generate",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:migrate": "prisma migrate dev",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "db:seed": "prisma db seed"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -78,6 +79,7 @@
     "prisma": "^7.9.0",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.3"
   }
 }

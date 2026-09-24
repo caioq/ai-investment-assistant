@@ -7,5 +7,5 @@ As a **reviewer cloning the repo**, I want `pnpm bootstrap:demo && pnpm dev` to 
 
 ## Tasks
 
-- [ ] [T-1: `db:seed` / `bootstrap:demo` command wiring](../tasks/DEMO_SEED_US-3_T-1-command-wiring.md)
+- [x] [T-1: `db:seed` / `bootstrap:demo` command wiring](../tasks/DEMO_SEED_US-3_T-1-command-wiring.md)
 - [ ] [T-2: README and CONVENTIONS docs, fresh-clone check](../tasks/DEMO_SEED_US-3_T-2-docs-and-fresh-clone.md)
