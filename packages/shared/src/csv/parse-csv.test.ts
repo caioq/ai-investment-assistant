@@ -64,6 +64,23 @@ describe('parseCsv', () => {
   });
 });
 
+describe('parseCsv rawRows', () => {
+  it('holds each data row with its true cell count, header excluded', () => {
+    const result = parseCsv('a,b,c\n1,2,3,4\n5,6\n7, 8 ,9');
+    expect(result.rawRows).toEqual([['1', '2', '3', '4'], ['5', '6'], ['7', '8', '9']]);
+  });
+
+  it('skips an interior blank line without shifting later rows', () => {
+    const result = parseCsv('a,b\n1,2\n\n3,4\n');
+    expect(result.rawRows).toEqual([['1', '2'], ['3', '4']]);
+    expect(result.rows).toHaveLength(2);
+  });
+
+  it('is empty for an empty file', () => {
+    expect(parseCsv('').rawRows).toEqual([]);
+  });
+});
+
 describe('findColumn', () => {
   it("resolves a wanted name case-insensitively to the file's own spelling", () => {
     expect(findColumn(['Ticker'], 'ticker')).toBe('Ticker');

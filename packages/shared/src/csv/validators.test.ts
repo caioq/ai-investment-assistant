@@ -58,24 +58,71 @@ describe('parseBrazilianNumber', () => {
 });
 
 describe('validateHoldingsRows', () => {
-  it('reports a non-positive quantity as a row error and an unknown ticker as a row warning', () => {
-    const parsed = parseCsv(
-      'Ticker,Quantidade,Preco Médio\nPETR4,0,"R$ 30,00"\nXYZW11,100,"R$ 10,00"',
-    );
+  const known = { knownTickers: ['PETR4', 'VALE3'] };
+  const run = (body: string, header = 'ticker,quantity,avgPrice') =>
+    validateHoldingsRows(parseCsv(`${header}\n${body}`), known);
+  const errors = (r: ReturnType<typeof run>) =>
+    r.rowIssues.filter((i) => i.severity === 'error').map((i) => i.message);
 
-    const result = validateHoldingsRows(parsed, { knownTickers: ['PETR4'] });
+  it('accepts a clean file and exposes canonical columns', () => {
+    const r = run('PETR4,100,32.5\nVALE3,10,60');
+    expect(r.rowIssues).toEqual([]);
+    expect(r.fileIssues).toEqual([]);
+    expect(r.columns).toEqual(['ticker', 'quantity', 'avgPrice']);
+    expect(r.rows).toEqual([
+      { ticker: 'PETR4', quantity: '100', avgPrice: '32.5' },
+      { ticker: 'VALE3', quantity: '10', avgPrice: '60' },
+    ]);
+  });
 
-    expect(result.rowIssues).toContainEqual({
-      row: 1,
-      severity: 'error',
-      message: 'row 1: Quantidade must be a positive number',
-    });
-    expect(result.rowIssues).toContainEqual({
-      row: 2,
-      severity: 'warning',
-      message: 'row 2: XYZW11 is not in the asset master; it will show as Unclassified in allocation',
-    });
-    expect(result.rows).toHaveLength(2);
+  it('reports a 4-cell row and a 2-cell row with the server wording', () => {
+    expect(errors(run('PETR4,1,2,3'))).toEqual([
+      'row 1: expected 3 columns (ticker,quantity,avgPrice), got 4',
+    ]);
+    expect(errors(run('PETR4,1'))).toEqual([
+      'row 1: expected 3 columns (ticker,quantity,avgPrice), got 2',
+    ]);
+  });
+
+  it('ignores header text entirely', () => {
+    expect(run('PETR4,1,2', 'x,y').rowIssues).toEqual([]);
+    expect(run('PETR4,1,2', 'Ticker,Quantidade,Preco Médio').rowIssues).toEqual([]);
+  });
+
+  it('reports an empty ticker as an error', () => {
+    expect(errors(run(',1,2'))).toEqual(['row 1: ticker must not be empty']);
+  });
+
+  it('rejects bad quantities', () => {
+    for (const q of ['0', '-1', 'abc', '1.234,56', '']) {
+      expect(errors(run(`PETR4,"${q}",2`))).toEqual(['row 1: quantity must be a positive number']);
+    }
+  });
+
+  it('rejects a bad price and accepts exponent notation', () => {
+    expect(errors(run('PETR4,1,-5'))).toEqual(['row 1: avgPrice must be a positive number']);
+    expect(run('PETR4,1e3,2').rowIssues).toEqual([]);
+  });
+
+  it('warns (only) on an unknown ticker and keeps every row', () => {
+    const r = run('XYZW11,1,2');
+    expect(r.rowIssues).toEqual([
+      {
+        row: 1,
+        severity: 'warning',
+        message: 'row 1: XYZW11 is not in the asset master; it will show as Unclassified in allocation',
+      },
+    ]);
+    expect(r.rows).toHaveLength(1);
+  });
+
+  it('flags every row of the real 23-column export', () => {
+    const cells = Array.from({ length: 23 }, (_, i) => `c${i}`).join(',');
+    const r = run(`${cells}\n${cells}`, cells);
+    expect(errors(r)).toEqual([
+      'row 1: expected 3 columns (ticker,quantity,avgPrice), got 23',
+      'row 2: expected 3 columns (ticker,quantity,avgPrice), got 23',
+    ]);
   });
 });
 

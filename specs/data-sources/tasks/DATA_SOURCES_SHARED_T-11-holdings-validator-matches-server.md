@@ -1,7 +1,7 @@
 # DATA_SOURCES_SHARED_T-11: Holdings validator and template match the server's current format
 
 **Shared by:** US-3
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #354 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_SHARED_T-1, DATA_SOURCES_SHARED_T-2, DATA_SOURCES_SHARED_T-9
 
