@@ -18,7 +18,26 @@ import { VISUAL_REGRESSION_EMPTY_USER, VISUAL_REGRESSION_POPULATED_USER } from '
  * run with a diff no human can see.
  */
 
+/**
+ * Every screenshot renders with the browser's `Date` pinned here.
+ *
+ * `RecommendedPortfoliosUpload`'s "Effective date" input defaults to
+ * `todayIsoDate()`, and masking it is not enough on its own: a mask paints a
+ * rectangle *sized to the element*, so when the date's rendered width changes
+ * the mask changes width too and the diff lands in the screenshot. That is
+ * exactly what broke `main` at the 2026-09-23 -> 2026-09-24 UTC rollover — 48
+ * pixels, a 2px sliver at the right edge of the mask. An earlier rollover
+ * produced the 413-pixel diff the mask was added for.
+ *
+ * Pinning the clock makes the field's width identical on every run, for good.
+ * The value is the date the committed baselines were generated on, so those
+ * baselines stay valid; changing it means regenerating them.
+ */
+const FIXED_NOW = new Date('2026-09-23T12:00:00Z');
+
 async function login(page: import('@playwright/test').Page, user: { email: string; password: string }) {
+  // Before the first navigation, so no page ever observes the real clock.
+  await page.clock.setFixedTime(FIXED_NOW);
   await page.goto('/login');
   await page.getByLabel('Email').fill(user.email);
   // `exact` so the lookup doesn't also match the "Show password" toggle, and
