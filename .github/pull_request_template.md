@@ -1,13 +1,19 @@
 <!--
-Review-oriented PR body. Bullets only, no prose paragraphs.
+Review-oriented PR body. Bullets only, except the short Description.
 The goal is to tell the reviewer where to look and what to distrust, not to restate the task file.
 Delete a section's placeholder text once it's filled in. Leave "None" where a section genuinely has nothing.
 -->
 
 ## 🎯 Task
-<!-- Relative link to the task file, then the linked issue (keep the exact "Closes #N" form, since the link-and-track-pr workflow parses it). -->
-[<TASK_ID> — <task title>](specs/<module>/tasks/<TASK_ID>-<title>.md)
+<!-- ABSOLUTE link to the task file. Relative links in a PR body don't resolve to repo files (they land on a compare page).
+Prefer a permalink pinned to the PR's head commit so it survives the branch being deleted:
+https://github.com/caioq/ai-investment-assistant/blob/<head-commit-sha>/specs/<module>/tasks/<TASK_ID>-<title>.md
+Then the linked issue: keep the exact "Closes #N" form, since the link-and-track-pr workflow parses it. -->
+[<TASK_ID> — <task title>](https://github.com/caioq/ai-investment-assistant/blob/<head-commit-sha>/specs/<module>/tasks/<TASK_ID>-<title>.md)
 Closes #<issue>
+
+## 📄 Description
+<!-- 1–2 plain sentences: what this PR does and why, so a reviewer has the gist before the details. -->
 
 ## 📝 What changed
 <!-- 2–4 bullets describing behavior, not a list of files. -->
