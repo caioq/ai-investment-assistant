@@ -34,3 +34,5 @@ Also export the column definitions (required + optional, per source and per wall
 6. Wallets: the dividends column set differs from the others (assert via the exported definitions).
 
 **Done when:** the test above exists and passes, following red-green TDD — write it first, run it and confirm it fails for the expected reason (not a typo/setup error), then implement until it passes.
+
+> **Update — holdings rules superseded.** The **Holdings** bullet above (by-name columns, Brazilian numbers, empty-ticker rows skipped) describes what this task originally built, and it does not match `PortfolioService.importHoldingsCsv`, which reads three cells by position. [`DATA_SOURCES_SHARED_T-11`](./DATA_SOURCES_SHARED_T-11-holdings-validator-matches-server.md) replaces those rules and adds the parity test. The assets and wallet rules here are unaffected.
