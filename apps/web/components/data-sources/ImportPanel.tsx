@@ -50,8 +50,17 @@ export interface ImportPanelSourceConfig {
   detailsHint?: string;
   /** The source's required column names, in template order (empty for a non-CSV source). */
   requiredColumns: string[];
-  /** Runs `validateAssetsRows`/`validateHoldingsRows`/`validateWalletRows` with whatever context this source needs, bound by the caller. */
-  validate: (parsed: ReturnType<typeof parseCsv>) => ValidationResult;
+  /** Runs `validateAssetsRows`/`validateHoldingsRows`/`validateWalletRows` with whatever context this source needs, bound by the caller. Unused when `readFile` is set. */
+  validate?: (parsed: ReturnType<typeof parseCsv>) => ValidationResult;
+  /**
+   * Replaces the CSV parse-and-validate step for a non-CSV source (the report
+   * PDF): returns the file chip's meta line plus a pass-through validation
+   * (one row, no issues) so the import gate opens on details alone. Pair with
+   * `hideReview` — there is no CSV to review.
+   */
+  readFile?: (file: File) => Promise<{ meta: string; validation: ValidationResult }>;
+  /** Skip the CSV review block under the file chip. */
+  hideReview?: boolean;
   /**
    * Whether the *server* can honour skipping row errors (see
    * `ImportFooter`'s own doc comment) — `true` for assets/holdings, `false`
@@ -79,6 +88,8 @@ export interface ImportPanelProps {
 interface SourceState {
   file: File | null;
   validation: ValidationResult | null;
+  /** The chip's meta line when `source.readFile` supplied one. */
+  fileMeta: string | null;
   skipErrors: boolean;
   banner: { kind: 'success' | 'error'; message: string } | null;
   importing: boolean;
@@ -87,6 +98,7 @@ interface SourceState {
 const EMPTY_STATE: SourceState = {
   file: null,
   validation: null,
+  fileMeta: null,
   skipErrors: true,
   banner: null,
   importing: false,
@@ -144,10 +156,15 @@ export function ImportPanel({ source, onImported }: ImportPanelProps) {
   }
 
   async function attachFile(file: File) {
+    if (source.readFile) {
+      const { meta, validation } = await source.readFile(file);
+      patchState({ file, validation, fileMeta: meta, skipErrors: true, banner: null });
+      return;
+    }
     const text = await file.text();
     const parsed = parseCsv(text);
-    const validation = source.validate(parsed);
-    patchState({ file, validation, skipErrors: true, banner: null });
+    const validation = source.validate!(parsed);
+    patchState({ file, validation, fileMeta: null, skipErrors: true, banner: null });
   }
 
   function handleReject(message: string) {
@@ -155,7 +172,7 @@ export function ImportPanel({ source, onImported }: ImportPanelProps) {
   }
 
   function handleRemove() {
-    patchState({ file: null, validation: null, banner: null });
+    patchState({ file: null, validation: null, fileMeta: null, banner: null });
   }
 
   function handleReplaceInputChange(file: File | undefined) {
@@ -213,6 +230,7 @@ export function ImportPanel({ source, onImported }: ImportPanelProps) {
       replaceState({
         file: null,
         validation: null,
+        fileMeta: null,
         skipErrors: true,
         importing: false,
         banner: { kind: 'success', message },
@@ -276,7 +294,9 @@ export function ImportPanel({ source, onImported }: ImportPanelProps) {
           <FileChip
             name={state.file!.name}
             meta={
-              state.validation
+              state.fileMeta !== null
+                ? state.fileMeta
+                : state.validation
                 ? `${state.validation.rows.length} row${state.validation.rows.length === 1 ? '' : 's'} · ${state.validation.columns.length} column${state.validation.columns.length === 1 ? '' : 's'}`
                 : ''
             }
@@ -295,7 +315,7 @@ export function ImportPanel({ source, onImported }: ImportPanelProps) {
               handleReplaceInputChange(file);
             }}
           />
-          {state.validation ? (
+          {state.validation && !source.hideReview ? (
             <CsvReview result={state.validation} requiredColumns={source.requiredColumns} />
           ) : null}
         </>
