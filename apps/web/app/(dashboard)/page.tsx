@@ -217,8 +217,8 @@ export default async function DashboardPage() {
             marginBottom: 8,
           }}
         >
-          <Link href="/holdings" style={{ color: "var(--blue)", fontWeight: 600 }}>
-            Add holdings
+          <Link href="/data-sources" style={{ color: "var(--blue)", fontWeight: 600 }}>
+            Import holdings
           </Link>
         </div>
         <HoldingsGrid holdings={holdings} />
