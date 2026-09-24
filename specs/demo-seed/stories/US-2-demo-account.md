@@ -9,7 +9,7 @@ As a **reviewer trying the app**, I want to log in as `demo@example.com` / `Demo
 
 - [x] [T-1: Export `hashPassword()` from auth](../tasks/DEMO_SEED_US-2_T-1-hash-password-helper.md)
 - [x] [T-2: Deterministic price-series generator](../tasks/DEMO_SEED_US-2_T-2-series-generator.md)
-- [ ] [T-3: `runSeed`: user, assets, holdings and history](../tasks/DEMO_SEED_US-2_T-3-seed-portfolio-and-history.md)
+- [x] [T-3: `runSeed`: user, assets, holdings and history](../tasks/DEMO_SEED_US-2_T-3-seed-portfolio-and-history.md)
 - [ ] [T-4: Seed wallets, report, analysis and import logs](../tasks/DEMO_SEED_US-2_T-4-seed-advisor-and-imports.md)
 
 ## Notes
