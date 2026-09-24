@@ -5,6 +5,7 @@ import {
   ASSETS_COLUMNS,
   parseCsv,
   validateAssetsRows,
+  validateHoldingsRows,
   type CsvTemplateSource,
   type ValidationResult,
   type WalletType,
@@ -28,6 +29,12 @@ export type ImportLogSource = 'ASSETS' | 'HOLDINGS' | 'WALLET' | 'REPORT';
  * `specs/data-sources/spec.md`, task note: "keep everything source-specific
  * in props or a per-source config, not in branches inside the panel").
  */
+export interface ParsedImportResponse {
+  records: number;
+  errors: string[];
+  detail?: Record<string, number>;
+}
+
 export interface ImportPanelSourceConfig {
   /** Keys the panel's per-source pending-file state: `'assets' | 'holdings' | `wallet:${WalletType}` | 'report'`. */
   key: string;
@@ -72,10 +79,15 @@ export interface ImportPanelSourceConfig {
   importEndpoint: string;
   /** Extra multipart fields alongside the file (e.g. a wallet's `effectiveDate`/`sourceName`). */
   extraFormFields?: () => Record<string, string>;
-  /** Reads the import endpoint's response into the shape `ImportLog`/the banner need. */
-  parseImportResponse: (response: unknown) => { records: number; errors: string[] };
+  /**
+   * Reads the import endpoint's response into the shape `ImportLog`/the banner need.
+   * `detail` carries anything else the success message wants from the response (a
+   * created/updated split, say) — it is handed straight to `successMessage`, so a
+   * config never has to stash it in a variable between the two calls.
+   */
+  parseImportResponse: (response: unknown) => ParsedImportResponse;
   /** The success banner's leading sentence, e.g. "Imported {n} assets into the asset master." */
-  successMessage: (recordsWritten: number) => string;
+  successMessage: (recordsWritten: number, detail?: Record<string, number>) => string;
   logSource: ImportLogSource;
 }
 
@@ -211,7 +223,7 @@ export function ImportPanel({ source, onImported }: ImportPanelProps) {
 
     try {
       const response = await apiFetchMultipart(source.importEndpoint, formData);
-      const { records, errors } = source.parseImportResponse(response);
+      const { records, errors, detail } = source.parseImportResponse(response);
 
       await writeImportLog({
         source: source.logSource,
@@ -222,7 +234,7 @@ export function ImportPanel({ source, onImported }: ImportPanelProps) {
         ...(errors.length > 0 ? { errors } : {}),
       });
 
-      let message = source.successMessage(records);
+      let message = source.successMessage(records, detail);
       if (errors.length > 0) {
         message += ` ${errors.length} row${errors.length === 1 ? '' : 's'} with errors skipped.`;
       }
@@ -382,5 +394,42 @@ export function createAssetsImportSource(knownTickers: string[]): ImportPanelSou
     successMessage: (recordsWritten) =>
       `Imported ${recordsWritten} asset${recordsWritten === 1 ? '' : 's'} into the asset master.`,
     logSource: 'ASSETS',
+  };
+}
+
+/**
+ * The holdings source. The format is the server's current, interim one —
+ * three columns by position — so there are no required-column pills and the
+ * validator (`validateHoldingsRows`) reproduces the server's verdict. The
+ * endpoint upserts by ticker and imports partially, so skipping is available.
+ */
+export function createHoldingsImportSource(knownTickers: string[]): ImportPanelSourceConfig {
+  return {
+    key: 'holdings',
+    title: 'Import holdings',
+    description:
+      'Positions in the file are added or updated by ticker; positions not in the file are left as they are.',
+    accept: '.csv',
+    dropZoneLabel: 'Drop the holdings CSV here, or click to browse',
+    dropZoneHint:
+      'Three columns, in this order: ticker, quantity, avgPrice. Plain decimal numbers.',
+    templateSource: 'holdings',
+    requiredColumns: [],
+    validate: (parsed) => validateHoldingsRows(parsed, { knownTickers }),
+    skipAvailable: true,
+    buttonLabel: (rowsToWrite) => `Import ${rowsToWrite} holding${rowsToWrite === 1 ? '' : 's'}`,
+    importingLabel: 'Importing',
+    importEndpoint: '/portfolio/holdings/upload-csv',
+    parseImportResponse: (response) => {
+      const { created, updated, errors } = response as {
+        created: number;
+        updated: number;
+        errors: string[];
+      };
+      return { records: created + updated, errors, detail: { created, updated } };
+    },
+    successMessage: (recordsWritten, detail) =>
+      `Imported ${recordsWritten} holding${recordsWritten === 1 ? '' : 's'} — ${detail?.created ?? 0} added, ${detail?.updated ?? 0} updated.`,
+    logSource: 'HOLDINGS',
   };
 }
