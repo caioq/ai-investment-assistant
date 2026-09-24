@@ -40,6 +40,7 @@ Current specs:
 | [dashboard-ui](specs/dashboard-ui/spec.md)                     | project-setup, auth, portfolio, advisor                       |
 | [auth-ui](specs/auth-ui/spec.md)                               | project-setup, auth, dashboard-ui                             |
 | [data-sources](specs/data-sources/spec.md)                     | project-setup, auth, market-data, portfolio, recommended-portfolios, advisor, dashboard-ui |
+| [demo-seed](specs/demo-seed/spec.md)                           | project-setup, auth, market-data, portfolio, recommended-portfolios, advisor, data-sources |
 
 Implementation order should generally follow the dependency column above (a module's spec assumes the ones it depends on already exist).
 
