@@ -1,7 +1,7 @@
 # DEMO_SEED_US-3_T-1: `db:seed` / `bootstrap:demo` command wiring
 
 **Story:** [../stories/US-3-one-command-setup.md](../stories/US-3-one-command-setup.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #365 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DEMO_SEED_US-2_T-3
 

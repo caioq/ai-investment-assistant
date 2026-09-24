@@ -256,3 +256,6 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Non-CSV import source (`ReportImportPanel`)
 - `apps/web/components/data-sources/ReportImportPanel.tsx` (`DATA_SOURCES_US-5_T-2`) plugs the PDF report into `ImportPanel` via config only: optional `readFile(file) -> { meta, validation }` replaces the CSV parse (chip meta `{size} · {pages} pages`; a pass-through one-row `ValidationResult` so `ImportFooter`'s gate opens on `detailsComplete` alone) and `hideReview` drops `CsvReview`; `validate` is now optional. Page count is a dependency-free byte scan for `/Type /Page` (`countPdfPages`) — compressed object streams can make it read low.
+
+### Demo seed commands
+- `pnpm db:seed` -> `apps/api` `prisma db seed` -> `migrations.seed` in `apps/api/prisma.config.ts` (`tsx prisma/seed/index.ts`); `pnpm bootstrap:demo` = `scripts/bootstrap.sh --seed` (seeds only with that flag). CLI refusal paths are tested by spawning the CLI in `apps/api/test/demo-seed/command.e2e-spec.ts`; never spawn the success path there (writes non-namespaced fixtures).

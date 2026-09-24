@@ -43,6 +43,8 @@ pnpm dev
 
 `pnpm bootstrap` (`scripts/bootstrap.sh`) does everything a fresh clone needs in one shot: installs dependencies, starts Postgres (`docker compose up -d db --wait`), creates `apps/api/.env` from `.env.example` with `DATABASE_URL` pre-filled for local dev (skipped if the file already exists — safe to re-run any time), runs Prisma migrations, and builds `packages/shared` (`pnpm dev` doesn't rebuild it automatically, so a stale/missing `dist/` otherwise shows up as `Module not found: Can't resolve '@ai-investment-assistant/shared'` in either app). `pnpm dev` then starts both apps.
 
+`pnpm bootstrap` never seeds data. To also load the demo account (`demo@example.com` / `Demo1234!`), run `pnpm bootstrap:demo`, or `pnpm db:seed` on an already-set-up database. The seed refuses to run under `NODE_ENV=production` or against a non-local `DATABASE_URL`.
+
 <details>
 <summary>Equivalent manual steps, if you want to run (or debug) each one yourself</summary>
 

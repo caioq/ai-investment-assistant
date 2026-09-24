@@ -4,6 +4,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Seeds only when --seed is passed explicitly; any other argument is an error.
+SEED=false
+for arg in "$@"; do
+  case "$arg" in
+    --seed) SEED=true ;;
+    *) echo "Unknown argument: $arg (supported: --seed)" >&2; exit 2 ;;
+  esac
+done
+
 echo "==> Installing dependencies"
 pnpm install
 
@@ -31,6 +40,12 @@ pnpm db:migrate
 
 echo "==> Building packages/shared"
 pnpm --filter @ai-investment-assistant/shared build
+
+if [ "$SEED" = true ]; then
+  echo "==> Seeding the demo account"
+  pnpm db:seed
+  echo "    Demo login: demo@example.com / Demo1234!"
+fi
 
 echo ""
 echo "Setup complete. Run 'pnpm dev' to start both apps."
