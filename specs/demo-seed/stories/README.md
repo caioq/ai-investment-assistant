@@ -8,7 +8,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 |---|---|---|---|
 | [US-1](./US-1-never-damage-real-data.md) | The seed never damages real data | Done | T-1..T-2 in `../tasks/` |
 | [US-2](./US-2-demo-account.md) | Log in to a fully populated demo account | Done | T-1..T-4 in `../tasks/` |
-| [US-3](./US-3-one-command-setup.md) | Set up the demo with one command | Ready | T-1..T-2 in `../tasks/` |
+| [US-3](./US-3-one-command-setup.md) | Set up the demo with one command | Done | T-1..T-2 in `../tasks/` |
 
 ## Cross-cutting tasks
 
