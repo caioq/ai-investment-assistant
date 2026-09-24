@@ -1,7 +1,7 @@
 # DEMO_SEED_US-1_T-2: Idempotency, insert-only and isolation e2e
 
 **Story:** [../stories/US-1-never-damage-real-data.md](../stories/US-1-never-damage-real-data.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #360 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DEMO_SEED_US-2_T-4
 

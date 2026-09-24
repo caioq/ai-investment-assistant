@@ -267,3 +267,195 @@ describe('demo seed: runSeed (portfolio and history)', () => {
     }
   });
 });
+
+// DEMO_SEED_US-1_T-2: a dedicated e2e suite proving runSeed's safety
+// properties (idempotency, insert-only on global tables, isolation from
+// other users) against the real test Postgres. Own email/ticker prefix, kept
+// distinct from the suite above so this suite's row-count assertions never
+// depend on the other suite's timing. No INestApplication/HTTP layer is
+// needed here — every assertion reads straight off Prisma.
+describe('demo seed: safety', () => {
+  let prisma: PrismaService;
+
+  const TICKER_PREFIX = 'DSS';
+  const EMAIL = 'demo-seed-safety-e2e@example.com';
+  const OTHER_EMAIL = 'demo-seed-safety-e2e-other@example.com';
+  const fixtures: DemoFixtures = {
+    ...DEMO_FIXTURES,
+    user: { ...DEMO_FIXTURES.user, email: EMAIL },
+    assets: DEMO_FIXTURES.assets.map((a) => ({ ...a, ticker: `${TICKER_PREFIX}${a.ticker}` })),
+    holdings: DEMO_FIXTURES.holdings.map((h) => ({ ...h, ticker: `${TICKER_PREFIX}${h.ticker}` })),
+    wallets: DEMO_FIXTURES.wallets.map((w) => ({
+      ...w,
+      holdings: w.holdings.map((h) => ({ ...h, ticker: h.ticker && `${TICKER_PREFIX}${h.ticker}` })),
+    })),
+  };
+  // Same "no upper bound" shape as the suite above's `benchmarksPresentBefore`
+  // check: real synced history always covers the window, so an older,
+  // unrelated fixture (e.g. portfolio.e2e-spec.ts's 2015 rows) never counts.
+  const windowStart = () => new Date(Date.now() - 366 * 24 * 60 * 60 * 1000);
+  const BENCHMARKS = ['IBOVESPA', 'CDI'] as const;
+
+  // A test in this describe may itself call the real runSeed more than once
+  // (idempotency, isolation), which fills the whole benchmark window on its
+  // first call whenever the window was empty. Tracking presence per test
+  // (rather than once for the whole describe) keeps every test's benchmark
+  // side effects fully undone before the next test runs, the same way
+  // `cleanupOwnRows` undoes user/asset side effects.
+  let benchmarksPresentBeforeTest: Set<(typeof BENCHMARKS)[number]>;
+
+  async function fixtureAssetCount(): Promise<number> {
+    return prisma.asset.count({ where: { ticker: { in: fixtures.assets.map((a) => a.ticker) } } });
+  }
+
+  async function ownedCounts(userId: string) {
+    return Promise.all([
+      prisma.holding.count({ where: { userId } }),
+      prisma.portfolioValueSnapshot.count({ where: { userId } }),
+      prisma.recommendedPortfolio.count({ where: { userId } }),
+      prisma.recommendedHolding.count({ where: { recommendedPortfolio: { userId } } }),
+      prisma.advisorReport.count({ where: { userId } }),
+      prisma.advisorAnalysis.count({ where: { userId } }),
+      prisma.importLog.count({ where: { userId } }),
+    ]);
+  }
+
+  async function cleanupOwnRows() {
+    for (const email of [EMAIL, OTHER_EMAIL]) {
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) continue;
+      await prisma.advisorAnalysis.deleteMany({ where: { userId: user.id } });
+      await prisma.advisorReport.deleteMany({ where: { userId: user.id } });
+      await prisma.recommendedHolding.deleteMany({ where: { recommendedPortfolio: { userId: user.id } } });
+      await prisma.recommendedPortfolio.deleteMany({ where: { userId: user.id } });
+      await prisma.importLog.deleteMany({ where: { userId: user.id } });
+      await prisma.portfolioValueSnapshot.deleteMany({ where: { userId: user.id } });
+      await prisma.holding.deleteMany({ where: { userId: user.id } });
+      await prisma.user.delete({ where: { id: user.id } });
+    }
+    const assets = await prisma.asset.findMany({
+      where: { ticker: { startsWith: TICKER_PREFIX } },
+      select: { id: true },
+    });
+    const assetIds = assets.map((a) => a.id);
+    await prisma.priceHistory.deleteMany({ where: { assetId: { in: assetIds } } });
+    await prisma.asset.deleteMany({ where: { id: { in: assetIds } } });
+  }
+
+  beforeAll(async () => {
+    prisma = new PrismaService();
+    await prisma.$connect();
+    await cleanupOwnRows();
+  });
+
+  beforeEach(async () => {
+    benchmarksPresentBeforeTest = new Set();
+    for (const benchmark of BENCHMARKS) {
+      const existing = await prisma.benchmarkSnapshot.count({
+        where: { benchmark, date: { gte: windowStart() } },
+      });
+      if (existing > 0) benchmarksPresentBeforeTest.add(benchmark);
+    }
+  });
+
+  afterEach(async () => {
+    await cleanupOwnRows();
+    for (const benchmark of BENCHMARKS) {
+      if (!benchmarksPresentBeforeTest.has(benchmark)) {
+        await prisma.benchmarkSnapshot.deleteMany({ where: { benchmark, date: { gte: windowStart() } } });
+      }
+    }
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('idempotency: re-running leaves every demo-owned model and the fixture asset count unchanged', async () => {
+    await runSeed(prisma, fixtures);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+    const before = await ownedCounts(user.id);
+    const assetsBefore = await fixtureAssetCount();
+
+    await runSeed(prisma, fixtures);
+
+    const after = await ownedCounts(user.id);
+    const assetsAfter = await fixtureAssetCount();
+    expect(after).toEqual(before);
+    expect(assetsAfter).toBe(assetsBefore);
+  });
+
+  it('insert-only assets: an existing asset keeps its own classification and price, and gets no seeded price history', async () => {
+    const ticker = fixtures.assets[0].ticker;
+    const pre = await prisma.asset.create({
+      data: {
+        ticker,
+        name: 'Pre-existing custom asset',
+        sector: 'Custom Sector',
+        currentPrice: 123.45,
+        investmentStyle: null,
+      },
+    });
+
+    await runSeed(prisma, fixtures);
+
+    const after = await prisma.asset.findUniqueOrThrow({ where: { id: pre.id } });
+    expect(after.sector).toBe('Custom Sector');
+    expect(after.currentPrice).toBe(123.45);
+    expect(after.investmentStyle).toBeNull();
+    expect(await prisma.priceHistory.count({ where: { assetId: pre.id } })).toBe(0);
+  });
+
+  it('insert-only benchmarks: a benchmark with a row already in the seeded window gets no new rows from the seed', async () => {
+    const inWindow = { benchmark: 'CDI' as const, date: { gte: windowStart() } };
+    // Upsert rather than create: another test in this describe may have
+    // already filled the window (e.g. idempotency's own runSeed calls), so a
+    // fixed date here could otherwise collide with an existing row instead
+    // of exercising the "already has a row in the window" case.
+    const fixtureDate = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
+    await prisma.benchmarkSnapshot.upsert({
+      where: { benchmark_date: { benchmark: 'CDI', date: fixtureDate } },
+      create: { benchmark: 'CDI', date: fixtureDate, value: 100 },
+      update: { value: 100 },
+    });
+    const countBeforeSeed = await prisma.benchmarkSnapshot.count({ where: inWindow });
+
+    await runSeed(prisma, fixtures);
+
+    const countAfterSeed = await prisma.benchmarkSnapshot.count({ where: inWindow });
+    expect(countAfterSeed).toBe(countBeforeSeed);
+  });
+
+  it("isolation: another user's holding, analysis and import log are unchanged after seeding twice", async () => {
+    const asset = await prisma.asset.create({
+      data: { ticker: `${TICKER_PREFIX}OTHERX`, name: 'Other user asset' },
+    });
+    const other = await prisma.user.create({ data: { email: OTHER_EMAIL, passwordHash: 'x' } });
+    const holding = await prisma.holding.create({
+      data: { userId: other.id, assetId: asset.id, quantity: 10, avgPrice: 5 },
+    });
+    const analysis = await prisma.advisorAnalysis.create({
+      data: {
+        userId: other.id,
+        recommendedPortfolioIds: [],
+        score: 5,
+        summary: 'Other user analysis',
+        strengths: ['x'],
+        risks: ['y'],
+        recommendations: ['z'],
+        impactMetrics: [],
+        model: 'test',
+      },
+    });
+    const importLog = await prisma.importLog.create({
+      data: { userId: other.id, source: 'ASSETS', fileName: 'other.csv', records: 1, status: 'IMPORTED' },
+    });
+
+    await runSeed(prisma, fixtures);
+    await runSeed(prisma, fixtures);
+
+    expect(await prisma.holding.findUniqueOrThrow({ where: { id: holding.id } })).toEqual(holding);
+    expect(await prisma.advisorAnalysis.findUniqueOrThrow({ where: { id: analysis.id } })).toEqual(analysis);
+    expect(await prisma.importLog.findUniqueOrThrow({ where: { id: importLog.id } })).toEqual(importLog);
+  });
+});
