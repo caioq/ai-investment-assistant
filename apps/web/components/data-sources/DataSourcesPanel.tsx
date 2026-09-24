@@ -3,27 +3,13 @@
 import { useState } from "react";
 
 import type { DataSourcesSummary } from "../../lib/types";
+import { formatSourceDate } from "./format-source-date";
 import { SourceCard } from "./SourceCard";
 
 export type DataSourceKey = "assets" | "holdings" | "wallets" | "report";
 
 const NEVER_IMPORTED = "Never imported";
 const WALLET_TYPE_COUNT = 3;
-
-/**
- * "Sep 12, 2026" — the card meta lines' date format (the design prototype's
- * `fmtDate`). Formatted in **UTC**, not the viewer's zone: `lastImportAt` is
- * a timestamp but `effectiveDate`/`publishedAt` are dates serialized as UTC
- * midnight, which a negative-offset local zone would render a day early.
- */
-function formatSourceDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(iso));
-}
 
 function assetsMeta(summary: DataSourcesSummary): string {
   const { count, lastImportAt } = summary.assets;
