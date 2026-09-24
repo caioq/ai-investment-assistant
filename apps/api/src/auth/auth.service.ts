@@ -4,11 +4,10 @@ import * as bcrypt from 'bcrypt';
 import type { Response } from 'express';
 import { Prisma, User } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { hashPassword } from './password';
 
 /** `User` without `passwordHash` — never return the hash in an API response. */
 type SafeUser = Omit<User, 'passwordHash'>;
-
-const BCRYPT_SALT_ROUNDS = 10;
 
 /** Prisma's error code for a unique-constraint violation. */
 const PRISMA_UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
@@ -52,7 +51,7 @@ export class AuthService {
   }
 
   async register(email: string, password: string, name?: string): Promise<User> {
-    const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+    const passwordHash = await hashPassword(password);
 
     try {
       return await this.prisma.user.create({
