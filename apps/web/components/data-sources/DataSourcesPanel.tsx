@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import type { DataSourcesSummary } from "../../lib/types";
 import { formatSourceDate } from "./format-source-date";
 import { SourceCard } from "./SourceCard";
+import { WalletImportSection } from "./WalletImportSection";
 
 export type DataSourceKey = "assets" | "holdings" | "wallets" | "report";
 
@@ -43,6 +45,18 @@ function reportMeta(summary: DataSourcesSummary): string {
   // `publishedAt` falls back to when it was uploaded.
   const label = report.title ?? report.fileName ?? "Untitled report";
   return `${label} · ${formatSourceDate(report.publishedAt ?? report.uploadedAt)}`;
+}
+
+/** Mounted only while the wallets card is open, so `useRouter` is only needed then. */
+function RefreshingWalletSection({
+  wallets,
+}: {
+  wallets: DataSourcesSummary["wallets"];
+}) {
+  const router = useRouter();
+  return (
+    <WalletImportSection wallets={wallets} onImported={() => router.refresh()} />
+  );
 }
 
 interface SourceDefinition {
@@ -133,7 +147,11 @@ export function DataSourcesPanel({ summary }: { summary: DataSourcesSummary }) {
         ))}
       </div>
 
-      <section aria-label={`${selectedSource.name} import`} />
+      <section aria-label={`${selectedSource.name} import`}>
+        {selected === "wallets" ? (
+          <RefreshingWalletSection wallets={summary.wallets} />
+        ) : null}
+      </section>
     </div>
   );
 }
