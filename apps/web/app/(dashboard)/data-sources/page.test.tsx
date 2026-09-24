@@ -20,6 +20,13 @@ vi.mock("next/headers", () => ({
   cookies: cookiesMock,
 }));
 
+// The page opens on Assets, so it renders the assets import panel, which
+// calls `useRouter()` to refresh the summary after an import. There is no app
+// router in Vitest, so it is stubbed.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 vi.mock("../../../lib/api-client", () => ({
   apiFetch: apiFetchMock,
 }));

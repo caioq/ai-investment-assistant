@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { DataSourcesSummary } from "../../lib/types";
 import { formatSourceDate } from "./format-source-date";
+import { createAssetsImportSource, ImportPanel } from "./ImportPanel";
 import { SourceCard } from "./SourceCard";
 import { WalletImportSection } from "./WalletImportSection";
 
@@ -47,15 +48,33 @@ function reportMeta(summary: DataSourcesSummary): string {
   return `${label} · ${formatSourceDate(report.publishedAt ?? report.uploadedAt)}`;
 }
 
+/**
+ * Mounted only while the assets card is open, so `useRouter` is only needed
+ * then. `router.refresh()` re-runs the page's `GET /data-sources/summary`, which
+ * is what updates the card's meta line and — via `assets.tickers` — the known
+ * tickers every other panel validates against.
+ */
+function RefreshingAssetsSection({ knownTickers }: { knownTickers: string[] }) {
+  const router = useRouter();
+  const source = useMemo(() => createAssetsImportSource(knownTickers), [knownTickers]);
+  return <ImportPanel source={source} onImported={() => router.refresh()} />;
+}
+
 /** Mounted only while the wallets card is open, so `useRouter` is only needed then. */
 function RefreshingWalletSection({
   wallets,
+  knownTickers,
 }: {
   wallets: DataSourcesSummary["wallets"];
+  knownTickers: string[];
 }) {
   const router = useRouter();
   return (
-    <WalletImportSection wallets={wallets} onImported={() => router.refresh()} />
+    <WalletImportSection
+      wallets={wallets}
+      knownTickers={knownTickers}
+      onImported={() => router.refresh()}
+    />
   );
 }
 
@@ -115,9 +134,11 @@ const SOURCES: SourceDefinition[] = [
  * The page opens on **Assets** — the first step, and the file every other
  * source is matched against by ticker.
  *
- * The import panels themselves arrive with US-2 onwards; until then the
- * selected card reveals an empty placeholder region rather than a stubbed
- * panel, so nothing promises an import path that doesn't exist yet.
+ * The selected card reveals its import panel below the grid. Sources whose
+ * panel hasn't been built yet (holdings, and the report until its task lands)
+ * reveal an empty region rather than a stubbed panel, so nothing promises an
+ * import path that doesn't exist. `summary.assets.tickers` is the known-ticker
+ * list every panel validates against.
  */
 export function DataSourcesPanel({ summary }: { summary: DataSourcesSummary }) {
   const [selected, setSelected] = useState<DataSourceKey>("assets");
@@ -148,8 +169,14 @@ export function DataSourcesPanel({ summary }: { summary: DataSourcesSummary }) {
       </div>
 
       <section aria-label={`${selectedSource.name} import`}>
+        {selected === "assets" ? (
+          <RefreshingAssetsSection knownTickers={summary.assets.tickers} />
+        ) : null}
         {selected === "wallets" ? (
-          <RefreshingWalletSection wallets={summary.wallets} />
+          <RefreshingWalletSection
+            wallets={summary.wallets}
+            knownTickers={summary.assets.tickers}
+          />
         ) : null}
       </section>
     </div>
