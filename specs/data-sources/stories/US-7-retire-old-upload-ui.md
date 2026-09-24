@@ -8,7 +8,7 @@ As a user, I want one place to import data, so that I'm not choosing between thr
 ## Tasks
 
 - [ ] [T-1: Remove the holdings page uploads](../tasks/DATA_SOURCES_US-7_T-1-remove-holdings-page-uploads.md)
-- [ ] [T-2: Remove the advisor panel uploads](../tasks/DATA_SOURCES_US-7_T-2-remove-advisor-panel-uploads.md)
+- [x] [T-2: Remove the advisor panel uploads](../tasks/DATA_SOURCES_US-7_T-2-remove-advisor-panel-uploads.md)
 
 Shared tasks this story relies on: [SHARED_T-10](../tasks/DATA_SOURCES_SHARED_T-10-e2e-and-visual-baselines.md).
 

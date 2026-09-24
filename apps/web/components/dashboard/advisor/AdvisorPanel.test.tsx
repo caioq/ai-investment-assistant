@@ -25,29 +25,6 @@ vi.mock("../../../lib/api-client", () => {
   };
 });
 
-vi.mock("./AdvisorReportUpload", () => ({
-  AdvisorReportUpload: ({
-    onUploaded,
-  }: {
-    onUploaded: (report: { id: string }) => void;
-  }) => (
-    <div data-testid="advisor-report-upload">
-      <button
-        type="button"
-        onClick={() => onUploaded({ id: "report-42" })}
-      >
-        simulate report uploaded
-      </button>
-    </div>
-  ),
-}));
-
-vi.mock("./RecommendedPortfoliosUpload", () => ({
-  RecommendedPortfoliosUpload: () => (
-    <div data-testid="recommended-portfolios-upload" />
-  ),
-}));
-
 vi.mock("./AdvisorAnalysisResult", () => ({
   AdvisorAnalysisResult: ({ analysis }: { analysis: { summary: string } }) => (
     <div data-testid="advisor-analysis-result">{analysis.summary}</div>
@@ -88,16 +65,17 @@ describe("AdvisorPanel", () => {
     vi.clearAllMocks();
   });
 
-  it("starts in idle state with the uploads and the generate button", () => {
-    render(<AdvisorPanel />);
+  it("renders the generate button and no upload, wallet select or paste-text controls", () => {
+    const { container } = render(<AdvisorPanel />);
 
-    expect(screen.getByTestId("advisor-report-upload")).toBeInTheDocument();
-    expect(
-      screen.getByTestId("recommended-portfolios-upload"),
-    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /generate portfolio analysis/i }),
     ).toBeInTheDocument();
+    expect(container.querySelector('input[type="file"]')).toBeNull();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(container.querySelector("select")).toBeNull();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(container.querySelector("textarea")).toBeNull();
   });
 
   it("enters loading on click and renders the analysis result on resolution", async () => {
@@ -144,7 +122,7 @@ describe("AdvisorPanel", () => {
     expect(apiFetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("omits advisorReportId when no report was uploaded this session", async () => {
+  it("posts to /advisor/analyze with an empty body", async () => {
     apiFetchMock.mockResolvedValue(makeAnalysis());
     const user = userEvent.setup();
     render(<AdvisorPanel />);
@@ -158,27 +136,8 @@ describe("AdvisorPanel", () => {
     const [path, init] = apiFetchMock.mock.calls[0];
     expect(path).toBe("/advisor/analyze");
     const body = JSON.parse((init as RequestInit).body as string);
-    expect(body).not.toHaveProperty("advisorReportId");
-  });
-
-  it("includes advisorReportId when a report was uploaded this session", async () => {
-    apiFetchMock.mockResolvedValue(makeAnalysis());
-    const user = userEvent.setup();
-    render(<AdvisorPanel />);
-
-    await user.click(
-      screen.getByRole("button", { name: /simulate report uploaded/i }),
-    );
-
-    await user.click(
-      screen.getByRole("button", { name: /generate portfolio analysis/i }),
-    );
-
-    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledTimes(1));
-
-    const [, init] = apiFetchMock.mock.calls[0];
-    const body = JSON.parse((init as RequestInit).body as string);
-    expect(body).toEqual({ advisorReportId: "report-42" });
+    expect(body).toEqual({});
+    expect(Object.keys(body)).not.toContain("advisorReportId");
   });
 
   it("enters error state on a rejected analyze call, and retry re-issues and can succeed", async () => {
@@ -221,9 +180,8 @@ describe("AdvisorPanel", () => {
       screen.getByRole("button", { name: /ask another question/i }),
     );
 
-    expect(screen.getByTestId("advisor-report-upload")).toBeInTheDocument();
     expect(
-      screen.getByTestId("recommended-portfolios-upload"),
+      screen.getByRole("button", { name: /generate portfolio analysis/i }),
     ).toBeInTheDocument();
     expect(
       screen.queryByTestId("advisor-analysis-result"),
