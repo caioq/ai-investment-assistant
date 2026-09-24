@@ -4,7 +4,7 @@ Personal investment platform to visualize a B3 stock portfolio — allocation by
 
 ## Status
 
-`project-setup` is implemented (monorepo scaffold, health check, CI). Other modules are spec'd but not yet built. See [`specs/`](specs/) for what's planned and [`WORKFLOW.md`](WORKFLOW.md) for how this project gets built.
+The modules under [`specs/`](specs/) are implemented: `project-setup`, `auth`, `auth-ui`, `market-data`, `portfolio`, `recommended-portfolios`, `advisor`, `data-sources`, `dashboard-ui` and `demo-seed`. See each module's `stories/README.md` for its current story-level status, and [`WORKFLOW.md`](WORKFLOW.md) for how this project gets built.
 
 ## Stack
 
@@ -43,7 +43,23 @@ pnpm dev
 
 `pnpm bootstrap` (`scripts/bootstrap.sh`) does everything a fresh clone needs in one shot: installs dependencies, starts Postgres (`docker compose up -d db --wait`), creates `apps/api/.env` from `.env.example` with `DATABASE_URL` pre-filled for local dev (skipped if the file already exists — safe to re-run any time), runs Prisma migrations, and builds `packages/shared` (`pnpm dev` doesn't rebuild it automatically, so a stale/missing `dist/` otherwise shows up as `Module not found: Can't resolve '@ai-investment-assistant/shared'` in either app). `pnpm dev` then starts both apps.
 
-`pnpm bootstrap` never seeds data. To also load the demo account (`demo@example.com` / `Demo1234!`), run `pnpm bootstrap:demo`, or `pnpm db:seed` on an already-set-up database. The seed refuses to run under `NODE_ENV=production` or against a non-local `DATABASE_URL`.
+`pnpm bootstrap` never seeds data (it leaves `users` empty).
+
+### Demo account
+
+To get a fully populated app (holdings, allocation on every dimension, a 1Y performance series with IBOVESPA and CDI, an advisor analysis, and import state on every data-sources card):
+
+```bash
+pnpm bootstrap:demo && pnpm dev
+```
+
+Then log in with **`demo@example.com` / `Demo1234!`**. `pnpm bootstrap:demo` is `pnpm bootstrap` plus `pnpm db:seed` (`scripts/bootstrap.sh --seed`). On a database that is already set up, run `pnpm db:seed` on its own. The seed is idempotent (re-running is safe) and prints the credentials when it finishes.
+
+The seed has a production guard (`apps/api/prisma/seed/guard.ts`) and refuses to run when:
+
+- `NODE_ENV` is `production` (`DEMO_SEED_ALLOW_REMOTE` does **not** override this);
+- `DATABASE_URL` is unset or cannot be parsed as a URL;
+- the `DATABASE_URL` host is not one of `localhost`, `127.0.0.1`, `::1`, `db`, `db-test`. Set `DEMO_SEED_ALLOW_REMOTE=true` to seed a disposable remote database anyway.
 
 <details>
 <summary>Equivalent manual steps, if you want to run (or debug) each one yourself</summary>

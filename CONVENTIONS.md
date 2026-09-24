@@ -261,3 +261,4 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Demo seed commands
 - `pnpm db:seed` -> `apps/api` `prisma db seed` -> `migrations.seed` in `apps/api/prisma.config.ts` (`tsx prisma/seed/index.ts`); `pnpm bootstrap:demo` = `scripts/bootstrap.sh --seed` (seeds only with that flag). CLI refusal paths are tested by spawning the CLI in `apps/api/test/demo-seed/command.e2e-spec.ts`; never spawn the success path there (writes non-namespaced fixtures).
+- Demo seed safety (`DEMO_SEED_US-3_T-2`): `apps/api/prisma/seed/guard.ts` `assertSeedAllowed(env)` runs first in `main()` (refuses `NODE_ENV=production` always; unset/unparseable `DATABASE_URL`; non-local hosts unless `DEMO_SEED_ALLOW_REMOTE=true`). User-facing docs are the README "Demo account" section; the env var is in `.env.example`. Seed fixtures/tests: see the entries above (tests in `apps/api/test/demo-seed/`).
