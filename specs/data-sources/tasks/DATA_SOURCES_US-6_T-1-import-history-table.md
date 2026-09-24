@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-6_T-1: Import history table
 
 **Story:** [../stories/US-6-import-history.md](../stories/US-6-import-history.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #325 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_SHARED_T-4, DATA_SOURCES_US-1_T-2
 

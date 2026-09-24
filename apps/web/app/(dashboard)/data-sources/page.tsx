@@ -2,8 +2,10 @@ import localFont from "next/font/local";
 import { cookies } from "next/headers";
 
 import { apiFetch } from "../../../lib/api-client";
-import type { DataSourcesSummary } from "../../../lib/types";
+import type { DataSourcesSummary, ImportLogEntry } from "../../../lib/types";
 import { DataSourcesPanel } from "../../../components/data-sources/DataSourcesPanel";
+import { ImportHistory } from "../../../components/data-sources/ImportHistory";
+import { Card } from "../../../components/ui/Card";
 
 const ACCESS_TOKEN_COOKIE = "access_token";
 
@@ -19,6 +21,9 @@ const fraunces = localFont({
 });
 
 const FRAUNCES_STACK = "var(--font-fraunces), Georgia, serif";
+
+/** `?limit=` for `GET /data-sources/imports` (spec.md → API Contract). */
+const IMPORT_HISTORY_LIMIT = 20;
 
 /** What the four cards fall back to when the summary fetch fails. */
 const EMPTY_SUMMARY: DataSourcesSummary = {
@@ -46,13 +51,28 @@ export default async function DataSourcesPage() {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
 
+  const cookieHeader = { Cookie: `${ACCESS_TOKEN_COOKIE}=${accessToken}` };
+
   let summary = EMPTY_SUMMARY;
   try {
     summary = await apiFetch<DataSourcesSummary>("/data-sources/summary", {
-      headers: { Cookie: `${ACCESS_TOKEN_COOKIE}=${accessToken}` },
+      headers: cookieHeader,
     });
   } catch {
     summary = EMPTY_SUMMARY;
+  }
+
+  // The import history (DATA_SOURCES_US-6_T-1), fetched separately and
+  // degraded to its empty state on failure for the same reason the summary
+  // is: a failed *status* read must never block the page's actual job.
+  let imports: ImportLogEntry[] = [];
+  try {
+    imports = await apiFetch<ImportLogEntry[]>(
+      `/data-sources/imports?limit=${IMPORT_HISTORY_LIMIT}`,
+      { headers: cookieHeader },
+    );
+  } catch {
+    imports = [];
   }
 
   return (
@@ -88,6 +108,10 @@ export default async function DataSourcesPage() {
       </div>
 
       <DataSourcesPanel summary={summary} />
+
+      <Card title="Import history">
+        <ImportHistory logs={imports} />
+      </Card>
     </div>
   );
 }
