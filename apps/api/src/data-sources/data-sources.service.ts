@@ -118,12 +118,11 @@ export class DataSourcesService {
       report: report
         ? {
             id: report.id,
-            // `title`/`publisher`/`publishedAt` land with `DATA_SOURCES_US-5_T-1`
-            // — this response shape doesn't change when it does (spec.md's
-            // note on this task), only these three values stop being null.
-            title: null,
-            publisher: null,
-            publishedAt: null,
+            // Null for a report uploaded before the metadata columns existed
+            // (or by an API caller that didn't send them).
+            title: report.title,
+            publisher: report.publisher,
+            publishedAt: report.publishedAt ? report.publishedAt.toISOString() : null,
             fileName: report.fileName,
             uploadedAt: report.uploadedAt.toISOString(),
           }

@@ -275,6 +275,51 @@ describe('DataSourcesController (e2e) - GET /data-sources/summary', () => {
     expect(response.body.report).toBeNull();
   });
 
+  it("returns the newest report's title, publisher and publishedAt", async () => {
+    const { cookies, userId } = await registerUser(SUMMARY_SUITE_EMAILS[0]);
+    await prisma.advisorReport.create({
+      data: {
+        userId,
+        rawText: 'report body',
+        fileName: 'setembro-2026.pdf',
+        title: 'Carteira Recomendada — Setembro 2026',
+        publisher: 'Demo Research',
+        publishedAt: new Date('2026-09-05T00:00:00.000Z'),
+      },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/data-sources/summary')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body.report).toMatchObject({
+      title: 'Carteira Recomendada — Setembro 2026',
+      publisher: 'Demo Research',
+      fileName: 'setembro-2026.pdf',
+    });
+    expect(response.body.report.publishedAt).toMatch(/^2026-09-05/);
+  });
+
+  it('still returns null metadata for a report uploaded without any', async () => {
+    const { cookies, userId } = await registerUser(SUMMARY_SUITE_EMAILS[0]);
+    await prisma.advisorReport.create({
+      data: { userId, rawText: 'legacy report', fileName: 'legacy.pdf' },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/data-sources/summary')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(200);
+    expect(response.body.report).toMatchObject({
+      title: null,
+      publisher: null,
+      publishedAt: null,
+      fileName: 'legacy.pdf',
+    });
+  });
+
   it('reports holdings.count and lastImportAt from the newest matching ImportLog', async () => {
     const { cookies, userId } = await registerUser(SUMMARY_SUITE_EMAILS[1]);
 
