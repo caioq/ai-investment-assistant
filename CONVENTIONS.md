@@ -51,6 +51,7 @@ Living map of established patterns and reusable pieces in this codebase. Read th
 
 ### Shared utilities / models
 - `apps/api` depends on `@ai-investment-assistant/shared` (`workspace:*`) — see `apps/api/package.json` and its use in `apps/api/src/health/shared-info.service.ts`. Node resolves the package's `main`/`types` fields to `packages/shared/dist`, so `pnpm --filter @ai-investment-assistant/shared build` must run before the package's exports are usable from `apps/api` (at runtime or type-check). `apps/api/package.json` has a `prebuild` script (`pnpm --filter @ai-investment-assistant/shared build`) so a plain `pnpm --filter api build` — the exact step CI runs — builds `shared` first automatically, without needing the root `pnpm build`. `packages/shared/src/metrics.ts` (below) is consumed the same way.
+- Demo seed code lives in `apps/api/prisma/seed/`, which `apps/api/tsconfig.build.json` excludes so `nest build` never ships it. `apps/api/prisma/seed/series.ts` (`DEMO_SEED_US-2_T-2`) holds pure, Prisma-free generators: `weekdaysEndingAt` (UTC-midnight weekdays), `randomWalk` (seeded by key, ends exactly at `endValue`) and `compoundedIndex` (CDI-shaped, returns `{ date, value }`).
 
 ### Testing
 - Jest (NestJS default), spec files colocated next to the code they test (`*.spec.ts`).
