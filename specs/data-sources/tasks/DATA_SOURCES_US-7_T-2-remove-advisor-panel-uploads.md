@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-7_T-2: Remove the advisor panel uploads
 
 **Story:** [../stories/US-7-retire-old-upload-ui.md](../stories/US-7-retire-old-upload-ui.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #327 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_US-4_T-2, DATA_SOURCES_US-5_T-2
 

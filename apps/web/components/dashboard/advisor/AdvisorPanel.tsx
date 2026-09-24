@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { apiFetch, ApiError } from "../../../lib/api-client";
-import type { AdvisorAnalysis, AdvisorReport } from "../../../lib/types";
+import type { AdvisorAnalysis } from "../../../lib/types";
 import { Button } from "../../ui/Button";
-import { AdvisorReportUpload } from "./AdvisorReportUpload";
-import { RecommendedPortfoliosUpload } from "./RecommendedPortfoliosUpload";
 import { AdvisorAnalysisResult } from "./AdvisorAnalysisResult";
 
 const UNEXPECTED_ERROR =
@@ -55,12 +53,8 @@ function extractApiErrorMessage(body: unknown): string {
 
 /**
  * Owns the advisor panel's `idle` -> `loading` -> `report` | `error` state
- * machine (`specs/dashboard-ui/spec.md` Behavior Notes). Composes the three
- * leaf components from earlier `US-7` tasks: `AdvisorReportUpload` (whose
- * `onUploaded` callback is captured here purely to remember the uploaded
- * report's id, nothing else), `RecommendedPortfoliosUpload` (self-contained,
- * takes no props), and `AdvisorAnalysisResult` (rendered once an analysis is
- * held in state). Seeded from `GET /advisor/analysis/latest` via
+ * machine (`specs/dashboard-ui/spec.md` Behavior Notes). Composes `AdvisorAnalysisResult` (rendered once an analysis is
+ * held in state). Uploads live on `/data-sources`, not here. Seeded from `GET /advisor/analysis/latest` via
  * `initialAnalysis`/`initialLoadFailed`, fetched server-side by
  * `(dashboard)/page.tsx` (`US-7_T-5`) — this component itself does no
  * fetching on mount.
@@ -72,7 +66,6 @@ export function AdvisorPanel({
   const [state, setState] = useState<PanelState>(
     initialAnalysis ? "report" : "idle",
   );
-  const [advisorReportId, setAdvisorReportId] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AdvisorAnalysis | null>(
     initialAnalysis ?? null,
   );
@@ -96,9 +89,8 @@ export function AdvisorPanel({
       const result = await apiFetch<AdvisorAnalysis>("/advisor/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(advisorReportId ? { advisorReportId } : {}),
-        }),
+        // Empty body: the API uses the user's most recent report.
+        body: JSON.stringify({}),
       });
       setAnalysis(result);
       setState("report");
@@ -108,10 +100,6 @@ export function AdvisorPanel({
       );
       setState("error");
     }
-  }
-
-  function handleReportUploaded(report: AdvisorReport) {
-    setAdvisorReportId(report.id);
   }
 
   // "Ask Another Question" is a purely local transition back to `idle` — no
@@ -134,9 +122,6 @@ export function AdvisorPanel({
 
   return (
     <div>
-      <AdvisorReportUpload onUploaded={handleReportUploaded} />
-      <RecommendedPortfoliosUpload />
-
       {state === "idle" && initialLoadFailed && (
         <p role="alert">{LOAD_ERROR_NOTICE}</p>
       )}
