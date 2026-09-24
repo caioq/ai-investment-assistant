@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { DataSourcesSummary } from "../../../lib/types";
+import type { DataSourcesSummary, ImportLogEntry } from "../../../lib/types";
 
 const { cookiesMock, apiFetchMock } = vi.hoisted(() => ({
   cookiesMock: vi.fn(),
@@ -75,6 +75,22 @@ function cookieStoreWith(accessToken: string | undefined) {
   };
 }
 
+/**
+ * The page makes two calls (`/data-sources/summary` and
+ * `/data-sources/imports?limit=20`), so the mock routes by path rather than
+ * resolving one value for both.
+ */
+function mockApi(summary: DataSourcesSummary | Error, imports: ImportLogEntry[] = []) {
+  apiFetchMock.mockImplementation((path: string) => {
+    if (path.startsWith("/data-sources/imports")) {
+      return Promise.resolve(imports);
+    }
+    return summary instanceof Error
+      ? Promise.reject(summary)
+      : Promise.resolve(summary);
+  });
+}
+
 async function renderPage() {
   render(await DataSourcesPage());
 }
@@ -86,7 +102,7 @@ beforeEach(() => {
 
 describe("DataSourcesPage", () => {
   it("renders the page heading and all four source card names", async () => {
-    apiFetchMock.mockResolvedValue(EMPTY_SUMMARY);
+    mockApi(EMPTY_SUMMARY);
 
     await renderPage();
 
@@ -104,7 +120,7 @@ describe("DataSourcesPage", () => {
   });
 
   it("forwards the access_token cookie to GET /data-sources/summary", async () => {
-    apiFetchMock.mockResolvedValue(EMPTY_SUMMARY);
+    mockApi(EMPTY_SUMMARY);
 
     await renderPage();
 
@@ -113,8 +129,32 @@ describe("DataSourcesPage", () => {
     });
   });
 
+  it("renders the import history card from GET /data-sources/imports?limit=20", async () => {
+    mockApi(EMPTY_SUMMARY, [
+      {
+        id: "log-1",
+        source: "ASSETS",
+        walletType: null,
+        fileName: "assets.csv",
+        records: 42,
+        status: "IMPORTED",
+        message: null,
+        errors: null,
+        createdAt: "2026-09-12T10:00:00.000Z",
+      },
+    ]);
+
+    await renderPage();
+
+    expect(apiFetchMock).toHaveBeenCalledWith("/data-sources/imports?limit=20", {
+      headers: { Cookie: "access_token=token-123" },
+    });
+    expect(screen.getByText("Import history")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveTextContent("assets.csv");
+  });
+
   it("shows each card's meta line from the summary", async () => {
-    apiFetchMock.mockResolvedValue(POPULATED_SUMMARY);
+    mockApi(POPULATED_SUMMARY);
 
     await renderPage();
 
@@ -133,7 +173,7 @@ describe("DataSourcesPage", () => {
   });
 
   it("reads 'Never imported' on every card for an empty summary", async () => {
-    apiFetchMock.mockResolvedValue(EMPTY_SUMMARY);
+    mockApi(EMPTY_SUMMARY);
 
     await renderPage();
 
@@ -141,7 +181,7 @@ describe("DataSourcesPage", () => {
   });
 
   it("opens on Assets and moves the selection when Holdings is clicked", async () => {
-    apiFetchMock.mockResolvedValue(POPULATED_SUMMARY);
+    mockApi(POPULATED_SUMMARY);
     const user = userEvent.setup();
 
     await renderPage();
@@ -159,7 +199,7 @@ describe("DataSourcesPage", () => {
   });
 
   it("degrades to four 'Never imported' cards when the summary fetch rejects", async () => {
-    apiFetchMock.mockRejectedValue(new Error("boom"));
+    mockApi(new Error("boom"));
 
     await expect(renderPage()).resolves.toBeUndefined();
 
