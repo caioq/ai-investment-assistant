@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-1_T-2: `/data-sources` page shell and the four source cards
 
 **Story:** [../stories/US-1-see-whats-imported.md](../stories/US-1-see-whats-imported.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #318 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_US-1_T-1, DATA_SOURCES_SHARED_T-5
 
