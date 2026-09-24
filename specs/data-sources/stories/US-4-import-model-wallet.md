@@ -7,7 +7,7 @@ As someone following a research house, I want to import each model wallet and se
 
 ## Tasks
 
-- [ ] [T-1: Wallet type selector and detail fields](../tasks/DATA_SOURCES_US-4_T-1-wallet-selector-and-details.md)
+- [x] [T-1: Wallet type selector and detail fields](../tasks/DATA_SOURCES_US-4_T-1-wallet-selector-and-details.md)
 - [ ] [T-2: Wallet import, all-or-nothing gate and weights warning](../tasks/DATA_SOURCES_US-4_T-2-wallet-import-and-gate.md)
 
 Shared tasks this story relies on: [SHARED_T-1](../tasks/DATA_SOURCES_SHARED_T-1-parse-csv.md), [SHARED_T-2](../tasks/DATA_SOURCES_SHARED_T-2-shared-validators.md), [SHARED_T-4](../tasks/DATA_SOURCES_SHARED_T-4-import-log.md), [SHARED_T-6](../tasks/DATA_SOURCES_SHARED_T-6-drop-zone-and-file-chip.md), [SHARED_T-7](../tasks/DATA_SOURCES_SHARED_T-7-csv-review.md), [SHARED_T-8](../tasks/DATA_SOURCES_SHARED_T-8-import-footer-and-banner.md), [SHARED_T-9](../tasks/DATA_SOURCES_SHARED_T-9-csv-templates.md).
