@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/configure-app';
 import { ALLOCATION_BY_VALUES } from '../../src/portfolio/dto/allocation-query.dto';
+import { ANTHROPIC_CLIENT } from '../../src/advisor/providers/anthropic-client.interface';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { DEMO_FIXTURES, DemoFixtures } from '../../prisma/seed/data';
 import { runSeed } from '../../prisma/seed';
@@ -21,6 +22,10 @@ function namespaced(): DemoFixtures {
     user: { ...DEMO_FIXTURES.user, email: EMAIL },
     assets: DEMO_FIXTURES.assets.map((a) => ({ ...a, ticker: `${TICKER_PREFIX}${a.ticker}` })),
     holdings: DEMO_FIXTURES.holdings.map((h) => ({ ...h, ticker: `${TICKER_PREFIX}${h.ticker}` })),
+    wallets: DEMO_FIXTURES.wallets.map((w) => ({
+      ...w,
+      holdings: w.holdings.map((h) => ({ ...h, ticker: h.ticker && `${TICKER_PREFIX}${h.ticker}` })),
+    })),
   };
 }
 
@@ -32,9 +37,18 @@ describe('demo seed: runSeed (portfolio and history)', () => {
   const benchmarksPresentBefore = new Set<string>();
   const windowStart = () => new Date(Date.now() - 366 * 24 * 60 * 60 * 1000);
 
+  const anthropicCreate = jest.fn(() => {
+    throw new Error('The demo seed must never call the Claude API');
+  });
+
   async function cleanupOwnRows() {
     const user = await prisma.user.findUnique({ where: { email: EMAIL } });
     if (user) {
+      await prisma.advisorAnalysis.deleteMany({ where: { userId: user.id } });
+      await prisma.advisorReport.deleteMany({ where: { userId: user.id } });
+      await prisma.recommendedHolding.deleteMany({ where: { recommendedPortfolio: { userId: user.id } } });
+      await prisma.recommendedPortfolio.deleteMany({ where: { userId: user.id } });
+      await prisma.importLog.deleteMany({ where: { userId: user.id } });
       await prisma.portfolioValueSnapshot.deleteMany({ where: { userId: user.id } });
       await prisma.holding.deleteMany({ where: { userId: user.id } });
       await prisma.user.delete({ where: { id: user.id } });
@@ -49,7 +63,11 @@ describe('demo seed: runSeed (portfolio and history)', () => {
   }
 
   beforeAll(async () => {
-    const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    delete process.env.ANTHROPIC_API_KEY;
+    const moduleFixture = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(ANTHROPIC_CLIENT)
+      .useValue({ messages: { create: anthropicCreate } })
+      .compile();
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
@@ -65,12 +83,18 @@ describe('demo seed: runSeed (portfolio and history)', () => {
 
     await runSeed(prisma, fixtures);
 
+    await logIn();
+  });
+
+  // The user row is recreated when a test re-seeds from scratch, so the
+  // cookie's user id goes stale; log in again after that.
+  async function logIn() {
     const login = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: EMAIL, password: 'Demo1234!' });
     expect(login.status).toBe(200);
     cookie = login.headers['set-cookie'] as unknown as string[];
-  });
+  }
 
   afterAll(async () => {
     await cleanupOwnRows();
@@ -137,6 +161,109 @@ describe('demo seed: runSeed (portfolio and history)', () => {
     } finally {
       await cleanupOwnRows();
       await runSeed(prisma, fixtures);
+      await logIn();
+    }
+  });
+
+  it('serves the pre-generated analysis without calling the Claude API', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/advisor/analysis/latest')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(res.body.model).toBe('demo-seed (pre-generated)');
+    expect(res.body.score).toBeGreaterThanOrEqual(0);
+    expect(res.body.score).toBeLessThanOrEqual(10);
+    expect(res.body.strengths.length).toBeGreaterThan(0);
+    expect(anthropicCreate).not.toHaveBeenCalled();
+  });
+
+  it('serves all three wallets, with an Overall wallet summing to 100 including a fixed-income line', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/advisor/recommended-portfolios/latest')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(res.body.map((w: { walletType: string }) => w.walletType).sort()).toEqual([
+      'DIVIDENDS',
+      'OVERALL_RECOMMENDED',
+      'SMALL_CAPS',
+    ]);
+    const overall = res.body.find((w: { walletType: string }) => w.walletType === 'OVERALL_RECOMMENDED');
+    const sum = overall.holdings.reduce(
+      (acc: number, h: { targetWeightPct: number }) => acc + h.targetWeightPct,
+      0,
+    );
+    expect(Math.abs(sum - 100)).toBeLessThan(0.001);
+    expect(overall.holdings.filter((h: { assetId: string | null }) => h.assetId === null)).toHaveLength(1);
+    const analysis = await request(app.getHttpServer())
+      .get('/advisor/analysis/latest')
+      .set('Cookie', cookie);
+    expect([...analysis.body.recommendedPortfolioIds].sort()).toEqual(
+      res.body.map((w: { id: string }) => w.id).sort(),
+    );
+  });
+
+  it('shows every import on /data-sources so no card reads "Never imported"', async () => {
+    const summary = await request(app.getHttpServer())
+      .get('/data-sources/summary')
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(summary.body.assets.lastImportAt).not.toBeNull();
+    expect(summary.body.holdings.lastImportAt).not.toBeNull();
+    expect(summary.body.holdings.count).toBe(fixtures.holdings.length);
+    expect(summary.body.wallets).toHaveLength(3);
+    // `title` is asserted on the row itself: GET /data-sources/summary still
+    // hard-codes it to null (data-sources.service.ts), a gap outside this task.
+    expect(summary.body.report.fileName).toBe(fixtures.report.fileName);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+    const report = await prisma.advisorReport.findFirstOrThrow({ where: { userId: user.id } });
+    expect(report.title).toBe(fixtures.report.title);
+    expect(report.publishedAt).not.toBeNull();
+
+    const imports = await request(app.getHttpServer())
+      .get('/data-sources/imports?limit=20')
+      .set('Cookie', cookie)
+      .expect(200);
+    const keys = imports.body.map(
+      (i: { source: string; walletType: string | null; status: string; records: number }) => {
+        expect(i.status).toBe('IMPORTED');
+        return `${i.source}:${i.walletType ?? ''}`;
+      },
+    );
+    expect(keys.sort()).toEqual([
+      'ASSETS:',
+      'HOLDINGS:',
+      'REPORT:',
+      'WALLET:DIVIDENDS',
+      'WALLET:OVERALL_RECOMMENDED',
+      'WALLET:SMALL_CAPS',
+    ]);
+    const records = (source: string) =>
+      imports.body.find((i: { source: string }) => i.source === source).records;
+    expect(records('ASSETS')).toBe(fixtures.assets.length);
+    expect(records('HOLDINGS')).toBe(fixtures.holdings.length);
+    expect(records('REPORT')).toBe(1);
+  });
+
+  it('is idempotent for its own rows and leaves other users untouched', async () => {
+    const other = await prisma.user.create({
+      data: { email: 'demo-seed-e2e-other@example.com', passwordHash: 'x' },
+    });
+    try {
+      await prisma.importLog.create({
+        data: { userId: other.id, source: 'ASSETS', fileName: 'o.csv', records: 1, status: 'IMPORTED' },
+      });
+      await runSeed(prisma, fixtures);
+      await runSeed(prisma, fixtures);
+      const user = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+      const where = { userId: user.id };
+      expect(await prisma.advisorReport.count({ where })).toBe(1);
+      expect(await prisma.advisorAnalysis.count({ where })).toBe(1);
+      expect(await prisma.recommendedPortfolio.count({ where })).toBe(3);
+      expect(await prisma.importLog.count({ where })).toBe(6);
+      expect(await prisma.importLog.count({ where: { userId: other.id } })).toBe(1);
+    } finally {
+      await prisma.importLog.deleteMany({ where: { userId: other.id } });
+      await prisma.user.delete({ where: { id: other.id } });
     }
   });
 });

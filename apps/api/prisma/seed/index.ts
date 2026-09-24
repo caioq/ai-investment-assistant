@@ -2,7 +2,7 @@
 // e2e suite can run the real seed against namespaced fixtures; `main()` only
 // runs when this file is executed directly.
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../../generated/prisma/client';
+import { PrismaClient, WalletType } from '../../generated/prisma/client';
 import { hashPassword } from '../../src/auth/password';
 import { DEMO_FIXTURES, DemoFixtures } from './data';
 import { assertSeedAllowed } from './guard';
@@ -15,6 +15,11 @@ const CDI_ANNUAL_RATE_PCT = 10.5;
 function todayAtUtcMidnight(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+function daysAgo(days: number): Date {
+  const today = todayAtUtcMidnight();
+  return new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
 }
 
 export async function runSeed(prisma: PrismaClient, fixtures: DemoFixtures = DEMO_FIXTURES): Promise<void> {
@@ -52,6 +57,11 @@ export async function runSeed(prisma: PrismaClient, fixtures: DemoFixtures = DEM
       // Foreign-key order; only this user's rows.
       await tx.portfolioValueSnapshot.deleteMany({ where: { userId: user.id } });
       await tx.holding.deleteMany({ where: { userId: user.id } });
+      await tx.advisorAnalysis.deleteMany({ where: { userId: user.id } });
+      await tx.advisorReport.deleteMany({ where: { userId: user.id } });
+      await tx.recommendedHolding.deleteMany({ where: { recommendedPortfolio: { userId: user.id } } });
+      await tx.recommendedPortfolio.deleteMany({ where: { userId: user.id } });
+      await tx.importLog.deleteMany({ where: { userId: user.id } });
 
       // Assets are global: insert only, never update, and remember which
       // tickers this run actually created.
@@ -107,6 +117,70 @@ export async function runSeed(prisma: PrismaClient, fixtures: DemoFixtures = DEM
           totalValue: fixtures.holdings.reduce((sum, h) => sum + h.quantity * closesByTicker.get(h.ticker)![i], 0),
           totalInvested,
         })),
+      });
+
+      const monthAgo = daysAgo(30);
+      const portfolios: { walletType: WalletType; id: string }[] = [];
+      for (const wallet of fixtures.wallets) {
+        const portfolio = await tx.recommendedPortfolio.create({
+          data: {
+            userId: user.id,
+            walletType: wallet.walletType,
+            sourceName: 'Demo Research',
+            effectiveDate: monthAgo,
+            holdings: {
+              create: wallet.holdings.map((h) => ({
+                assetId: h.ticker ? idByTicker.get(h.ticker)! : null,
+                label: h.label,
+                targetWeightPct: h.targetWeightPct,
+                limitPrice: h.limitPrice,
+                recommendation: h.recommendation,
+                dividendYieldPct: h.dividendYieldPct,
+                marginOfSafetyPct: h.marginOfSafetyPct,
+              })),
+            },
+          },
+        });
+        portfolios.push({ walletType: wallet.walletType, id: portfolio.id });
+      }
+
+      const report = await tx.advisorReport.create({
+        data: {
+          userId: user.id,
+          sourceName: fixtures.report.publisher,
+          fileName: fixtures.report.fileName,
+          rawText: fixtures.report.rawText,
+          title: fixtures.report.title,
+          publisher: fixtures.report.publisher,
+          publishedAt: monthAgo,
+          uploadedAt: daysAgo(2),
+        },
+      });
+      await tx.advisorAnalysis.create({
+        data: {
+          userId: user.id,
+          advisorReportId: report.id,
+          recommendedPortfolioIds: portfolios.map((p) => p.id),
+          ...fixtures.analysis,
+          model: 'demo-seed (pre-generated)',
+        },
+      });
+
+      // Record counts mirror what was actually seeded, so the /data-sources
+      // cards and history agree with the rest of the demo data.
+      await tx.importLog.createMany({
+        data: [
+          { source: 'ASSETS' as const, fileName: fixtures.importFiles.assets, records: fixtures.assets.length, createdAt: daysAgo(6) },
+          { source: 'HOLDINGS' as const, fileName: fixtures.importFiles.holdings, records: fixtures.holdings.length, createdAt: daysAgo(5) },
+          ...fixtures.wallets.map((w, i) => ({
+            source: 'WALLET' as const,
+            walletType: w.walletType,
+            fileName: w.fileName,
+            records: w.holdings.length,
+            createdAt: daysAgo(4 - i),
+          })),
+          { source: 'REPORT' as const, fileName: fixtures.report.fileName, records: 1, createdAt: daysAgo(1) },
+        ].map((log) => ({ ...log, userId: user.id, status: 'IMPORTED' as const })),
       });
 
       // Benchmarks are global: only fill one that has nothing in the window.
