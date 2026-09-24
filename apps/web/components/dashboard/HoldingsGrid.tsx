@@ -50,8 +50,8 @@ export function HoldingsGrid({ holdings }: HoldingsGridProps) {
           }}
         >
           <p style={{ marginBottom: 12 }}>You don&apos;t have any holdings yet.</p>
-          <Link href="/holdings" style={{ color: "var(--blue)", fontWeight: 600 }}>
-            Go to Holdings
+          <Link href="/data-sources" style={{ color: "var(--blue)", fontWeight: 600 }}>
+            Import your holdings
           </Link>
         </div>
       </Card>

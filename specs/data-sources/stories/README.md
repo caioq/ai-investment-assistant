@@ -12,7 +12,7 @@ One row per story. Keep this file in sync whenever a story is added or its statu
 | [US-4](./US-4-import-model-wallet.md) | Import a model wallet | Done | T-1..T-2 in `../tasks/` |
 | [US-5](./US-5-add-research-report.md) | Add a research report | Done | T-1..T-2 in `../tasks/` |
 | [US-6](./US-6-import-history.md) | See what was imported before | Done | T-1 in `../tasks/` |
-| [US-7](./US-7-retire-old-upload-ui.md) | Retire the old upload controls | Ready | T-1..T-2 in `../tasks/` |
+| [US-7](./US-7-retire-old-upload-ui.md) | Retire the old upload controls | Done | T-1..T-2 in `../tasks/` |
 
 Build order: the `SHARED` foundations first (T-1..T-9), then US-1, then US-2 (which establishes the panel shape every other source reuses), then US-3/US-4/US-5 in parallel, then US-6, US-7, and `SHARED_T-10` last. Each task's `**Depends on:**` field is authoritative.
 

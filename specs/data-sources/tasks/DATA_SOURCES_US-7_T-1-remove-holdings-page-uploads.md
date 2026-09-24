@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-7_T-1: Remove the holdings page uploads
 
 **Story:** [../stories/US-7-retire-old-upload-ui.md](../stories/US-7-retire-old-upload-ui.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #326 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_US-3_T-1
 

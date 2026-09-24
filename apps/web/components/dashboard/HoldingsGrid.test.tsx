@@ -100,14 +100,14 @@ describe("HoldingsGrid", () => {
     expect(within(rows[2]).getByText("UNP3")).toBeInTheDocument();
   });
 
-  it("renders an empty-state message with a link to /holdings and no table body rows when there are no holdings", () => {
+  it("renders an empty-state message with an Import your holdings link to /data-sources and no table body rows when there are no holdings", () => {
     render(<HoldingsGrid holdings={[]} />);
 
     expect(screen.queryByTestId("holdings-tbody")).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
 
-    const link = screen.getByRole("link", { name: /holdings/i });
-    expect(link).toHaveAttribute("href", "/holdings");
+    const link = screen.getByRole("link", { name: "Import your holdings" });
+    expect(link).toHaveAttribute("href", "/data-sources");
   });
 
   it("reports the correct total count in the footer", () => {

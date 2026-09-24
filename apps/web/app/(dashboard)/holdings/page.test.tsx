@@ -78,17 +78,19 @@ describe("HoldingsPage", () => {
     vi.clearAllMocks();
   });
 
-  it("renders both the add form and the CSV upload", async () => {
+  it("renders no file input and no Add holding button", async () => {
     cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
-    apiFetchMock.mockResolvedValue([]);
+    apiFetchMock.mockResolvedValue([holdingStub]);
 
     const element = await HoldingsPage();
-    render(<>{element}</>);
+    const { container } = render(<>{element}</>);
 
-    expect(screen.getByLabelText("Ticker")).toBeInTheDocument();
-    expect(screen.getByLabelText("Quantity")).toBeInTheDocument();
-    expect(screen.getByLabelText("Average Price")).toBeInTheDocument();
-    expect(screen.getByLabelText("Upload CSV")).toBeInTheDocument();
+    expect(container.querySelector('input[type="file"]')).toBeNull();
+    expect(screen.queryByLabelText("Upload CSV")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ticker")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /add holding/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the current holdings from the stubbed GET /portfolio/holdings response", async () => {
@@ -108,15 +110,15 @@ describe("HoldingsPage", () => {
     expect(screen.getByTestId("holdings-count")).toHaveTextContent("1 holding");
   });
 
-  it("still renders both input affordances when the holdings response is empty", async () => {
+  it("renders the grid's empty state, without input affordances, when the holdings response is empty", async () => {
     cookiesMock.mockResolvedValue(cookieStoreWith("valid-token"));
     apiFetchMock.mockResolvedValue([]);
 
     const element = await HoldingsPage();
     render(<>{element}</>);
 
-    expect(screen.getByLabelText("Ticker")).toBeInTheDocument();
-    expect(screen.getByLabelText("Upload CSV")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Ticker")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Upload CSV")).not.toBeInTheDocument();
     expect(
       screen.getByText("You don't have any holdings yet.", { exact: false }),
     ).toBeInTheDocument();
