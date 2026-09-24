@@ -1,7 +1,7 @@
 # DATA_SOURCES_US-2_T-1: Assets import panel
 
 **Story:** [../stories/US-2-import-assets.md](../stories/US-2-import-assets.md)
-**Status:** Not Started
+**Status:** Done
 **GitHub Issue:** #319 (caioq/ai-investment-assistant — created by /user-stories; this file is still the source of truth, the issue mirrors it for GitHub Projects)
 **Depends on:** DATA_SOURCES_US-1_T-2, DATA_SOURCES_SHARED_T-2, DATA_SOURCES_SHARED_T-4, DATA_SOURCES_SHARED_T-6, DATA_SOURCES_SHARED_T-7, DATA_SOURCES_SHARED_T-8, DATA_SOURCES_SHARED_T-9
 

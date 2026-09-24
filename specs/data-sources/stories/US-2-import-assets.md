@@ -1,13 +1,13 @@
 # US-2: Import the assets CSV
 
-**Status:** Ready
+**Status:** Done
 **Traces to:** spec Goals "Check before importing", "An import gate"; ACs "An assets CSV of 10 rows where 2 carry an unrecognised `riskRating` …", "Unchecking skip …", "An assets CSV with no `ticker` header …", "A successful assets import clears the file …" (in `../spec.md`)
 
 As someone classifying my portfolio, I want to import the assets CSV and see exactly what will happen before I commit, so that a bad row doesn't silently change how every allocation view is grouped.
 
 ## Tasks
 
-- [ ] [T-1: Assets import panel](../tasks/DATA_SOURCES_US-2_T-1-assets-import-panel.md)
+- [x] [T-1: Assets import panel](../tasks/DATA_SOURCES_US-2_T-1-assets-import-panel.md)
 
 Shared tasks this story relies on: [SHARED_T-1](../tasks/DATA_SOURCES_SHARED_T-1-parse-csv.md), [SHARED_T-2](../tasks/DATA_SOURCES_SHARED_T-2-shared-validators.md), [SHARED_T-4](../tasks/DATA_SOURCES_SHARED_T-4-import-log.md), [SHARED_T-6](../tasks/DATA_SOURCES_SHARED_T-6-drop-zone-and-file-chip.md), [SHARED_T-7](../tasks/DATA_SOURCES_SHARED_T-7-csv-review.md), [SHARED_T-8](../tasks/DATA_SOURCES_SHARED_T-8-import-footer-and-banner.md), [SHARED_T-9](../tasks/DATA_SOURCES_SHARED_T-9-csv-templates.md).
 
