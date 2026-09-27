@@ -163,6 +163,56 @@ describe('DataSourcesController (e2e) - /data-sources/imports', () => {
     expect(limited.body[0].fileName).toBe('second.pdf');
   });
 
+  it('sets X-Next-Cursor when more rows exist than ?limit=, and omits it on the last page', async () => {
+    const cookies = await authCookies(SUITE_EMAILS[0]);
+
+    const first = await request(app.getHttpServer())
+      .post('/data-sources/imports')
+      .set('Cookie', cookies)
+      .send({ source: 'ASSETS', fileName: 'first.csv', records: 1, status: 'IMPORTED' });
+    const second = await request(app.getHttpServer())
+      .post('/data-sources/imports')
+      .set('Cookie', cookies)
+      .send({ source: 'ASSETS', fileName: 'second.csv', records: 1, status: 'IMPORTED' });
+    const third = await request(app.getHttpServer())
+      .post('/data-sources/imports')
+      .set('Cookie', cookies)
+      .send({ source: 'ASSETS', fileName: 'third.csv', records: 1, status: 'IMPORTED' });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(third.status).toBe(201);
+
+    const page1 = await request(app.getHttpServer())
+      .get('/data-sources/imports?limit=2')
+      .set('Cookie', cookies);
+
+    expect(page1.status).toBe(200);
+    expect(page1.body.map((row: { fileName: string }) => row.fileName)).toEqual([
+      'third.csv',
+      'second.csv',
+    ]);
+    expect(page1.headers['x-next-cursor']).toBe(second.body.id);
+
+    const page2 = await request(app.getHttpServer())
+      .get(`/data-sources/imports?limit=2&cursor=${page1.headers['x-next-cursor']}`)
+      .set('Cookie', cookies);
+
+    expect(page2.status).toBe(200);
+    expect(page2.body.map((row: { fileName: string }) => row.fileName)).toEqual(['first.csv']);
+    expect(page2.headers['x-next-cursor']).toBeUndefined();
+  });
+
+  it('returns 400 for an invalid (non-UUID) cursor', async () => {
+    const cookies = await authCookies(SUITE_EMAILS[0]);
+
+    const response = await request(app.getHttpServer())
+      .get('/data-sources/imports?cursor=not-a-uuid')
+      .set('Cookie', cookies);
+
+    expect(response.status).toBe(400);
+  });
+
   it('returns 400 for an unknown source', async () => {
     const cookies = await authCookies(SUITE_EMAILS[4]);
 

@@ -28,6 +28,13 @@ export interface DataSourcesSummary {
   } | null;
 }
 
+/** `GET /data-sources/imports`'s internal result — the controller unwraps
+ * this into the `ImportLog[]` body plus an `X-Next-Cursor` header. */
+export interface ImportLogResponse {
+  items: ImportLog[];
+  nextCursor?: string;
+}
+
 /**
  * Import history for the data-sources page (spec.md -> Data Model / API
  * Contract). Every query is scoped to the `userId` the controller took from
@@ -43,13 +50,34 @@ export class DataSourcesService {
     private readonly advisorService: AdvisorService,
   ) {}
 
-  /** The user's own import logs, newest first. */
-  async listImports(userId: string, limit = DEFAULT_IMPORT_LOG_LIMIT): Promise<ImportLog[]> {
-    return this.prisma.importLog.findMany({
+  /**
+   * The user's own import logs, newest first, cursor-paginated by `id` (the
+   * last row's id from the previous page). Fetches `limit + 1` rows so a
+   * next page can be detected without a second query — comparing
+   * `rows.length === limit` alone can't tell "more rows exist" apart from
+   * "this page happened to be exactly `limit` rows long". `orderBy` sorts by
+   * `id` too, not just `createdAt`, so ordering stays deterministic across
+   * pages when two imports share a `createdAt`.
+   */
+  async listImports(
+    userId: string,
+    limit = DEFAULT_IMPORT_LOG_LIMIT,
+    cursor?: string,
+  ): Promise<ImportLogResponse> {
+    const rows = await this.prisma.importLog.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     });
+
+    const hasNextPage = rows.length > limit;
+    const items = hasNextPage ? rows.slice(0, limit) : rows;
+
+    return {
+      items,
+      ...(hasNextPage && { nextCursor: items[items.length - 1].id }),
+    };
   }
 
   async createImport(userId: string, dto: CreateImportLogDto): Promise<ImportLog> {

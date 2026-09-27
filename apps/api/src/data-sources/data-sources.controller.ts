@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
+import { Body, Controller, Get, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { ImportLog } from '../../generated/prisma/client';
 import { DataSourcesService, DataSourcesSummary } from './data-sources.service';
@@ -30,14 +30,33 @@ export class DataSourcesController {
     return this.dataSourcesService.getSummary(userId);
   }
 
+  /**
+   * `GET /data-sources/imports` — cursor-paginated by `?cursor=` (the id of
+   * the previous page's last row). The body stays a plain `ImportLog[]`
+   * (spec.md -> API Contract); the next page's cursor rides on the
+   * `X-Next-Cursor` response header instead, and is only sent when there is
+   * a next page, so its presence alone tells the client whether to keep
+   * paging.
+   */
   @Get('imports')
   async listImports(
     @Query() query: ListImportsQueryDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<ImportLog[]> {
     const userId = (req.user as { id: string }).id;
 
-    return this.dataSourcesService.listImports(userId, query.limit);
+    const { items, nextCursor } = await this.dataSourcesService.listImports(
+      userId,
+      query.limit,
+      query.cursor,
+    );
+
+    if (nextCursor) {
+      res.setHeader('X-Next-Cursor', nextCursor);
+    }
+
+    return items;
   }
 
   @Post('imports')

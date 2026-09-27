@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 /** Default `?limit=` for `GET /data-sources/imports` (spec.md -> API Contract). */
 export const DEFAULT_IMPORT_LOG_LIMIT = 20;
@@ -24,4 +24,9 @@ export class ListImportsQueryDto {
   @Min(1)
   @Max(MAX_IMPORT_LOG_LIMIT)
   limit?: number;
+
+  /** Id of the last (oldest) item from the previous page — omitted for the first page. */
+  @IsOptional()
+  @IsUUID()
+  cursor?: string;
 }

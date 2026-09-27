@@ -98,7 +98,7 @@ They are nullable so existing rows stay valid, and `sourceName` keeps its curren
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/data-sources/summary` | — | everything the four source cards need, in one call (shape below) |
-| GET | `/data-sources/imports?limit=20` | — | `ImportLog[]`, newest first |
+| GET | `/data-sources/imports?limit=20&cursor=` | — | `ImportLog[]`, newest first. `cursor` is the `id` of the previous page's last (oldest) row; the next page's cursor is returned via the `X-Next-Cursor` response header, present only when there is a next page |
 | POST | `/data-sources/imports` | `{ source, walletType?, fileName, records, status, message?, errors?: string[] }` | created `ImportLog` |
 
 ```ts
