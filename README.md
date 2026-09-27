@@ -42,6 +42,8 @@ I used AI agents to build it faster, following a spec-driven, test-first workflo
 
 **Stack:** Next.js (App Router) · NestJS · Postgres with Prisma · Claude API · Yahoo Finance and Central Bank of Brazil (SGS) for market data · pnpm monorepo (`apps/web`, `apps/api`, `packages/shared`).
 
+![homepage](resources/UI/screencapture.png)
+
 ## What I'd do with more time
 
 **AI and product**
