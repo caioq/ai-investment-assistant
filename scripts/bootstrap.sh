@@ -47,6 +47,35 @@ else
   echo "==> apps/api/.env already exists, leaving it untouched"
 fi
 
+# apps/api/.env.test is loaded automatically by test:e2e (apps/api/test/jest-e2e.setup.ts),
+# kept fully separate from apps/api/.env so e2e always targets db-test (port 5433)
+# rather than the dev database, which bootstrap:demo may have already seeded with
+# real-ticker demo data that would otherwise collide with the e2e suites' own
+# fixtures (CONVENTIONS.md -> "Testing"). Values mirror what CI sets explicitly.
+if [ ! -f apps/api/.env.test ]; then
+  echo "==> Creating apps/api/.env.test"
+  cp .env.example apps/api/.env.test
+  TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5433/investment_assistant_test?schema=public"
+  TEST_JWT_SECRET="$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' \
+      -e "s|^DATABASE_URL=.*|DATABASE_URL=${TEST_DATABASE_URL}|" \
+      -e "s|^JWT_SECRET=.*|JWT_SECRET=${TEST_JWT_SECRET}|" \
+      -e "s|^ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=test|" \
+      -e "s|^AUTH_THROTTLE_LIMIT=.*|AUTH_THROTTLE_LIMIT=1000|" \
+      apps/api/.env.test
+  else
+    sed -i \
+      -e "s|^DATABASE_URL=.*|DATABASE_URL=${TEST_DATABASE_URL}|" \
+      -e "s|^JWT_SECRET=.*|JWT_SECRET=${TEST_JWT_SECRET}|" \
+      -e "s|^ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=test|" \
+      -e "s|^AUTH_THROTTLE_LIMIT=.*|AUTH_THROTTLE_LIMIT=1000|" \
+      apps/api/.env.test
+  fi
+else
+  echo "==> apps/api/.env.test already exists, leaving it untouched"
+fi
+
 # JWT_SECRET ships empty in .env.example, and passport-jwt refuses to start
 # with an empty secret ("JwtStrategy requires a secret or key"), so the API
 # would never boot on a fresh clone. Generate a random local one if it's
@@ -86,4 +115,4 @@ fi
 
 echo ""
 echo "Setup complete. Run 'pnpm dev' to start both apps."
-echo "(For apps/api's e2e tests against a real database, also run: docker compose up -d db-test)"
+echo "(For apps/api's e2e tests, one-time: docker compose up -d db-test && DATABASE_URL=postgresql://postgres:postgres@localhost:5433/investment_assistant_test?schema=public pnpm --filter api exec prisma migrate deploy -- apps/api/.env.test is already set up, so pnpm --filter api test:e2e just works after that)"
