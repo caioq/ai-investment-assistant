@@ -5,6 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+source scripts/sanitize-node-options.sh
+
 # Seeds only when --seed is passed explicitly; any other argument is an error.
 SEED=false
 for arg in "$@"; do
