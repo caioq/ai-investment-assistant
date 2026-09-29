@@ -123,6 +123,7 @@ export default async function DashboardPage() {
     advisorAnalysisResult,
     sectorAllocationResult,
     stockAllocationResult,
+    investmentStyleAllocationResult,
     holdingsResult,
   ] = await Promise.allSettled([
     apiFetch<PortfolioSummary>("/portfolio/summary", { headers }),
@@ -135,6 +136,9 @@ export default async function DashboardPage() {
       headers,
     }),
     apiFetch<AllocationSlice[]>("/portfolio/allocation?by=stock", {
+      headers,
+    }),
+    apiFetch<AllocationSlice[]>("/portfolio/allocation?by=investmentStyle", {
       headers,
     }),
     apiFetch<HoldingWithAsset[]>("/portfolio/holdings", { headers }),
@@ -156,6 +160,10 @@ export default async function DashboardPage() {
   const stockAllocation =
     stockAllocationResult.status === "fulfilled"
       ? stockAllocationResult.value
+      : [];
+  const investmentStyleAllocation =
+    investmentStyleAllocationResult.status === "fulfilled"
+      ? investmentStyleAllocationResult.value
       : [];
   const holdings =
     holdingsResult.status === "fulfilled" ? holdingsResult.value : [];
@@ -201,6 +209,12 @@ export default async function DashboardPage() {
             slices={stockAllocation}
             centerLabel={totalValueLabel}
             centerSubLabel={pluralizeCount(stockAllocation.length, "stock")}
+          />
+          <AllocationDonut
+            title="By Investment Style"
+            slices={investmentStyleAllocation}
+            centerLabel={totalValueLabel}
+            centerSubLabel={pluralizeCount(investmentStyleAllocation.length, "style")}
           />
         </div>
         {performance ? (

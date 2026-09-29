@@ -1,4 +1,5 @@
 import { Card } from "../ui/Card";
+import { AllocationLegend } from "./AllocationLegend";
 import type { AllocationSlice } from "../../lib/types";
 
 export interface AllocationDonutProps {
@@ -9,16 +10,6 @@ export interface AllocationDonutProps {
 }
 
 const NEUTRAL_RING_COLOR = "var(--border)";
-
-const valueFormatter = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
-
-const pctFormatter = new Intl.NumberFormat("pt-BR", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
 
 /**
  * Builds a CSS `conic-gradient(...)` background from slices, accumulating
@@ -142,70 +133,7 @@ export function AllocationDonut({
           No holdings yet
         </div>
       ) : (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            marginTop: 12,
-          }}
-        >
-          {slices.map((slice) => (
-            <div
-              key={slice.label}
-              data-testid="legend-row"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <div
-                data-testid="legend-swatch"
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: slice.color,
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                style={{
-                  flex: 1,
-                  fontSize: 12.5,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {slice.label}
-              </span>
-              <span
-                style={{
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  color: "var(--text-primary)",
-                }}
-              >
-                {pctFormatter.format(slice.pct)}%
-              </span>
-              <span
-                style={{
-                  fontSize: 11.5,
-                  color: "var(--text-tertiary)",
-                  width: 70,
-                  textAlign: "right",
-                }}
-              >
-                {valueFormatter.format(slice.value)}
-              </span>
-            </div>
-          ))}
-        </div>
+        <AllocationLegend slices={slices} />
       )}
     </Card>
   );
